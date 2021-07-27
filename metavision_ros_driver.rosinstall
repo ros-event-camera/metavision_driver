@@ -1,0 +1,1 @@
+- git: {local-name: dvs_msgs, uri: 'git@github.com:berndpfrommer/dvs_msgs.git', version: 'master'}

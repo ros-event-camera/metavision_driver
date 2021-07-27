@@ -1,0 +1,9 @@
+<library path="lib/libdriver_nodelet">
+  <class name="metavision_ros_driver/DriverNodelet"
+         type="metavision_ros_driver::DriverNodelet"
+         base_class_type="nodelet::Nodelet">
+    <description>
+      metavision driver nodelet
+    </description>
+  </class>
+</library>

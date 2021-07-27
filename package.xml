@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>metavision_ros_driver</name>
+  <version>1.0.0</version>
+  <description>ROS driver for the metavision based event cameras</description>
+  <maintainer email="bernd.pfrommer@gmail.com">Bernd Pfrommer</maintainer>
+  <license>Apache2</license>
+  <author email="bernd.pfrommer@gmail.com">Bernd Pfrommer</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+ 
+  <depend>dvs_msgs</depend>  
+  <depend>roscpp</depend>
+  <depend>nodelet</depend>
+  
+  <export>
+    <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
+  </export>
+
+</package>
