@@ -1,9 +1,9 @@
 # metavision_ros_driver
 
 A ROS driver for cameras using the metavison toolkit (Prophesee and
-SilkyEVCam). This driver is not written or supported by Prophessee.
+SilkyEVCam). This driver is not written or supported by Prophesee.
 You can find their official ROS driver
-[here](https://github.com/prophesee-ai/prophesee_ros_wrapper)
+[here](https://github.com/prophesee-ai/prophesee_ros_wrapper).
 
 
 ## Supported platforms
@@ -35,18 +35,20 @@ catkin build
 
 Replacement driver for the Prophesee driver with the following improvements/changes:
 
-- will write ``dvs_msgs`` instead of ``prophesee_msgs``. This permits
+- can write ``dvs_msgs`` or ``prophesee_msgs``. This permits
   using ROS based pipelines that have been developed for the DVS
   camera.
 - less CPU consumption by avoiding unnecessary copies.
 - implemented as nodelet so can be run in the same address space as
   e.g. a rosbag record nodelet without worrying of message loss in transmission.
 - prints out message rate statistics.
+- NOTE: does not provide ``camera_info`` messages yet
 
 How to run:
 
 ```
-roslaunch metavision_ros_driver driver_node.launch
+roslaunch metavision_ros_driver driver_node.launch   # (run as node)
+roslaunch metavision_ros_driver driver_nodelet.launch   # (run as nodelet)
 ```
 
 Parameters:
@@ -55,7 +57,9 @@ Parameters:
   ``biases`` directory.
 - ``message_time_threshold``: approximate time span [sec] of events to be
   aggregated before ROS message is sent.
-- ``statistics_print_interval`` time in seconds between statistics printouts.
+- ``statistics_print_interval``: time in seconds between statistics printouts.
+- ``message_type``: can be set to ``dvs`` or ``prophesee`` depending on
+  what message types the driver should publish.
 
 ## License
 

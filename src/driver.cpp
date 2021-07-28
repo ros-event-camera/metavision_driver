@@ -15,8 +15,6 @@
 
 #include "metavision_ros_driver/driver.h"
 
-#include <dvs_msgs/EventArray.h>
-
 #include <functional>
 
 namespace metavision_ros_driver
@@ -53,7 +51,17 @@ bool Driver::initialize()
   statisticsPrintInterval_ = (int)(print_interval * 1e6);
   messageTimeThreshold_ =
     ros::Duration(nh_.param<double>("message_time_threshold", 1e-9));
-  eventPublisher_ = nh_.advertise<dvs_msgs::EventArray>("events", 1);
+  std::string mm = nh_.param<std::string>("message_type", "dvs");
+  if (mm != "prophesee") {
+    ROS_INFO_STREAM("using dvs messages");
+    msgMode_ = DVS;
+    eventPublisher_ = nh_.advertise<dvs_msgs::EventArray>("events", 1);
+  } else {
+    ROS_INFO_STREAM("using prophesee messages");
+    msgMode_ = PROPHESEE;
+    eventPublisher_ =
+      nh_.advertise<prophesee_event_msgs::EventArray>("events", 1);
+  }
   if (!startCamera()) {
     ROS_ERROR_STREAM("could not start camera!");
     return (false);
@@ -74,18 +82,22 @@ bool Driver::startCamera()
       ROS_WARN("no bias file provided, starting with default biases");
     }
     std::string sn = cam_.get_camera_configuration().serial_number;
-    // default frame id to last 4 digits of serial number
-    auto tail = sn.substr(sn.size() - 4);
-    msg_.header.frame_id = nh_.param<std::string>("frame_id", tail);
     ROS_INFO_STREAM("camera serial number: " << sn);
     const auto & g = cam_.geometry();
-    msg_.width = g.width();
-    msg_.height = g.height();
-    msg_.header.seq = 0;
 
+    // default frame id to last 4 digits of serial number
+    auto tail = sn.substr(sn.size() - 4);
+    auto frameId = nh_.param<std::string>("frame_id", tail);
+    if (msgMode_ == PROPHESEE) {
+      init_message<prophesee_event_msgs::EventArray>(
+        &propheseeMsg_, frameId, g.width(), g.height());
+    } else {
+      init_message<dvs_msgs::EventArray>(
+        &dvsMsg_, frameId, g.width(), g.height());
+    }
     ROS_INFO_STREAM(
-      "frame_id: " << msg_.header.frame_id << ", size: " << msg_.width << " x "
-                   << msg_.height);
+      "frame_id: " << frameId << ", size: " << g.width() << " x "
+                   << g.height());
 
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&Driver::statusChangeCallback, this, ph::_1));
@@ -157,28 +169,11 @@ void Driver::eventCallback(const EventCD * start, const EventCD * end)
   if (n != 0) {
     updateStatistics(start, end);
     if (eventPublisher_.getNumSubscribers() > 0) {
-      auto & events = msg_.events;
-      const size_t old_size = events.size();
-      events.resize(events.size() + n);
-      // copy data into ROS message. For the SilkyEvCam
-      // the full load packet size delivered by the SDK is 320
-      for (unsigned int i = 0; i < n; i++) {
-        const auto & e_src = start[i];
-        auto & e_trg = events[i + old_size];
-        e_trg.x = e_src.x;
-        e_trg.y = e_src.y;
-        e_trg.polarity = e_src.p;
-        e_trg.ts.fromNSec(t0_ + e_src.t * 1e3);
-      }
-      const ros::Time & t_msg = msg_.events.begin()->ts;
-      const ros::Time & t_last = msg_.events.rbegin()->ts;
-      if (t_last > t_msg + messageTimeThreshold_) {
-        msg_.header.seq++;
-        msg_.header.stamp = t_msg;
-        eventPublisher_.publish(msg_);
-        totalEventsSent_ += msg_.events.size();
-        totalMsgsSent_++;
-        msg_.events.clear();
+      if (msgMode_ == PROPHESEE) {
+        updateAndPublish<prophesee_event_msgs::EventArray>(
+          &propheseeMsg_, start, end);
+      } else {
+        updateAndPublish<dvs_msgs::EventArray>(&dvsMsg_, start, end);
       }
     }
   }

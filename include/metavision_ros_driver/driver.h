@@ -18,6 +18,7 @@
 
 #include <dvs_msgs/EventArray.h>
 #include <metavision/sdk/driver/camera.h>
+#include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
 
 #include <string>
@@ -34,12 +35,49 @@ public:
   bool initialize();
 
 private:
+  enum EventMsgMode { DVS, PROPHESEE };
   void shutdown();
   bool startCamera();
   void runtimeErrorCallback(const Metavision::CameraException & e);
   void statusChangeCallback(const Metavision::CameraStatus & s);
   void updateStatistics(const EventCD * start, const EventCD * end);
   void eventCallback(const EventCD * start, const EventCD * end);
+  template <class T>
+  void init_message(T * msg, const std::string & frameId, int width, int height)
+  {
+    msg->header.frame_id = frameId;
+    msg->width = width;
+    msg->height = height;
+    msg->header.seq = 0;
+  }
+  template <class T>
+  void updateAndPublish(T * msg, const EventCD * start, const EventCD * end)
+  {
+    const size_t n = end - start;
+    auto & events = msg->events;
+    const size_t old_size = events.size();
+    events.resize(events.size() + n);
+    // copy data into ROS message. For the SilkyEvCam
+    // the full load packet size delivered by the SDK is 320
+    for (unsigned int i = 0; i < n; i++) {
+      const auto & e_src = start[i];
+      auto & e_trg = events[i + old_size];
+      e_trg.x = e_src.x;
+      e_trg.y = e_src.y;
+      e_trg.polarity = e_src.p;
+      e_trg.ts.fromNSec(t0_ + e_src.t * 1e3);
+    }
+    const ros::Time & t_msg = msg->events.begin()->ts;
+    const ros::Time & t_last = msg->events.rbegin()->ts;
+    if (t_last > t_msg + messageTimeThreshold_) {
+      msg->header.seq++;
+      msg->header.stamp = t_msg;
+      eventPublisher_.publish(*msg);
+      totalEventsSent_ += events.size();
+      totalMsgsSent_++;
+      events.clear();
+    }
+  }
 
   // ------------ variables
   ros::NodeHandle nh_;
@@ -54,7 +92,9 @@ private:
   uint64_t t0_;  // base for time stamp calc
   // time span that will trigger a message to be send
   ros::Duration messageTimeThreshold_;
-  dvs_msgs::EventArray msg_;
+  dvs_msgs::EventArray dvsMsg_;
+  prophesee_event_msgs::EventArray propheseeMsg_;
+  EventMsgMode msgMode_;
   // related to statistics
   int64_t statisticsPrintInterval_{1000000};
   float maxRate_{0};
