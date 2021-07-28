@@ -21,6 +21,7 @@
 #include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
 
+#include <memory>
 #include <string>
 
 namespace metavision_ros_driver
@@ -43,19 +44,25 @@ private:
   void updateStatistics(const EventCD * start, const EventCD * end);
   void eventCallback(const EventCD * start, const EventCD * end);
   template <class T>
-  void init_message(T * msg, const std::string & frameId, int width, int height)
+  void init_message(
+    boost::shared_ptr<T> * msg, const std::string & frameId, int width,
+    int height)
   {
-    msg->header.frame_id = frameId;
-    msg->width = width;
-    msg->height = height;
-    msg->header.seq = 0;
+    *msg = boost::make_shared<T>();
+    (*msg)->header.frame_id = frameId;
+    (*msg)->width = width;
+    (*msg)->height = height;
+    (*msg)->header.seq = 0;
   }
-  template <class T>
-  void updateAndPublish(T * msg, const EventCD * start, const EventCD * end)
+  template <typename T>
+  void updateAndPublish(
+    const boost::shared_ptr<T> & msg, const EventCD * start,
+    const EventCD * end)
   {
     const size_t n = end - start;
     auto & events = msg->events;
     const size_t old_size = events.size();
+    // This reallocate is certainly inefficient!
     events.resize(events.size() + n);
     // copy data into ROS message. For the SilkyEvCam
     // the full load packet size delivered by the SDK is 320
@@ -72,7 +79,7 @@ private:
     if (t_last > t_msg + messageTimeThreshold_) {
       msg->header.seq++;
       msg->header.stamp = t_msg;
-      eventPublisher_.publish(*msg);
+      eventPublisher_.publish(msg);
       totalEventsSent_ += events.size();
       totalMsgsSent_++;
       events.clear();
@@ -92,8 +99,8 @@ private:
   uint64_t t0_;  // base for time stamp calc
   // time span that will trigger a message to be send
   ros::Duration messageTimeThreshold_;
-  dvs_msgs::EventArray dvsMsg_;
-  prophesee_event_msgs::EventArray propheseeMsg_;
+  boost::shared_ptr<dvs_msgs::EventArray> dvsMsg_;
+  boost::shared_ptr<prophesee_event_msgs::EventArray> propheseeMsg_;
   EventMsgMode msgMode_;
   // related to statistics
   int64_t statisticsPrintInterval_{1000000};

@@ -52,15 +52,16 @@ bool Driver::initialize()
   messageTimeThreshold_ =
     ros::Duration(nh_.param<double>("message_time_threshold", 1e-9));
   std::string mm = nh_.param<std::string>("message_type", "dvs");
+  int qs = nh_.param<int>("send_queue_size", 1000);
   if (mm != "prophesee") {
     ROS_INFO_STREAM("using dvs messages");
     msgMode_ = DVS;
-    eventPublisher_ = nh_.advertise<dvs_msgs::EventArray>("events", 1);
+    eventPublisher_ = nh_.advertise<dvs_msgs::EventArray>("events", qs);
   } else {
     ROS_INFO_STREAM("using prophesee messages");
     msgMode_ = PROPHESEE;
     eventPublisher_ =
-      nh_.advertise<prophesee_event_msgs::EventArray>("events", 1);
+      nh_.advertise<prophesee_event_msgs::EventArray>("events", qs);
   }
   if (!startCamera()) {
     ROS_ERROR_STREAM("could not start camera!");
@@ -151,9 +152,8 @@ void Driver::updateStatistics(const EventCD * start, const EventCD * end)
     const float avgSize =
       totalEventsSent_ * (totalMsgsSent_ != 0 ? 1.0 / totalMsgsSent_ : 0);
     ROS_INFO(
-      "rate avg: %7.3f Mevs, max: %7.3f "
-      "Mevs, send msg sz: %7.2f",
-      avgRate, maxRate_, avgSize);
+      "rate[Mevs] avg: %7.3f, max: %7.3f, send msg sz: %7.2f ev", avgRate,
+      maxRate_, avgSize);
     maxRate_ = 0;
     lastPrintTime_ += statisticsPrintInterval_;
     totalEvents_ = 0;
@@ -171,9 +171,9 @@ void Driver::eventCallback(const EventCD * start, const EventCD * end)
     if (eventPublisher_.getNumSubscribers() > 0) {
       if (msgMode_ == PROPHESEE) {
         updateAndPublish<prophesee_event_msgs::EventArray>(
-          &propheseeMsg_, start, end);
+          propheseeMsg_, start, end);
       } else {
-        updateAndPublish<dvs_msgs::EventArray>(&dvsMsg_, start, end);
+        updateAndPublish<dvs_msgs::EventArray>(dvsMsg_, start, end);
       }
     }
   }

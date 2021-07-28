@@ -60,6 +60,7 @@ Parameters:
 - ``statistics_print_interval``: time in seconds between statistics printouts.
 - ``message_type``: can be set to ``dvs`` or ``prophesee`` depending on
   what message types the driver should publish.
+- ``send_queue_size``: ros message send queue size (defaults to 1000).
 
 ## License
 
