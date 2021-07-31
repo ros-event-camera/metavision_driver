@@ -34,7 +34,11 @@ class Driver
 public:
   using EventCD = Metavision::EventCD;
 
-  Driver(const ros::NodeHandle & nh) : nh_(nh) {}
+  Driver(const ros::NodeHandle & nh) : nh_(nh)
+  {
+    eventCount_[0] = 0;
+    eventCount_[1] = 0;
+  }
   ~Driver() { shutdown(); }
 
   bool initialize()
@@ -148,15 +152,19 @@ private:
         totalEvents_ * (totalTime_ > 0 ? 1.0 / totalTime_ : 0);
       const float avgSize =
         totalEventsSent_ * (totalMsgsSent_ != 0 ? 1.0 / totalMsgsSent_ : 0);
+      const uint32_t totCount = eventCount_[1] + eventCount_[0];
+      const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
       ROS_INFO(
-        "rate[Mevs] avg: %7.3f, max: %7.3f, send msg sz: %7.2f ev", avgRate,
-        maxRate_, avgSize);
+        "rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d",
+        avgRate, maxRate_, avgSize, pctOn);
       maxRate_ = 0;
       lastPrintTime_ += statisticsPrintInterval_;
       totalEvents_ = 0;
       totalTime_ = 0;
       totalMsgsSent_ = 0;
       totalEventsSent_ = 0;
+      eventCount_[0] = 0;
+      eventCount_[1] = 0;
     }
   }
 
@@ -199,6 +207,7 @@ private:
       e_trg.y = e_src.y;
       e_trg.polarity = e_src.p;
       e_trg.ts.fromNSec(t0_ + e_src.t * 1e3);
+      eventCount_[e_src.p]++;
     }
     const ros::Time & t_msg = msg_->events.begin()->ts;
     const ros::Time & t_last = msg_->events.rbegin()->ts;
@@ -237,6 +246,7 @@ private:
     int64_t lastPrintTime_{0};
     size_t totalMsgsSent_{0};
     size_t totalEventsSent_{0};
+    uint32_t eventCount_[2];
 };
 }  // namespace metavision_ros_driver
 #endif

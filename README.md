@@ -62,6 +62,16 @@ Parameters:
   what message types the driver should publish.
 - ``send_queue_size``: ros message send queue size (defaults to 1000).
 
+Log messages:
+
+```
+[ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48
+```
+Prints out the average and maximum event rate (in million events per
+second) over the ``statistics_print_interval``. Note that for
+efficiency reasons the last column, the percentage of ON events,
+is only computed if a subscriber to the event topic is connected.
+
 ## License
 
 This software is issued under the Apache License Version 2.0.
