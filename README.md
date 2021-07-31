@@ -38,11 +38,13 @@ Replacement driver for the Prophesee driver with the following improvements/chan
 - can write ``dvs_msgs`` or ``prophesee_msgs``. This permits
   using ROS based pipelines that have been developed for the DVS
   camera.
-- less CPU consumption by avoiding unnecessary copies.
+- less CPU consumption by avoiding unnecessary memory copies.
 - implemented as nodelet so can be run in the same address space as
   e.g. a rosbag record nodelet without worrying of message loss in transmission.
 - prints out message rate statistics.
-- NOTE: does not provide ``camera_info`` messages yet
+- dynamic reconfiguration
+- NOTE: does not provide ``camera_info`` messages yet, does not play
+  from raw files.
 
 How to run:
 
@@ -62,7 +64,23 @@ Parameters:
   what message types the driver should publish.
 - ``send_queue_size``: ros message send queue size (defaults to 1000).
 
-Log messages:
+
+Services:
+
+- ``save_biases``: write out current bias settings to bias file. For
+  this to work the ``bias_file`` parameter must be set to a non-empty value.
+
+
+Dynamic reconfiguration parameters (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
+
+- ``bias_diff`` (read only)
+- ``bias_diff_off``
+- ``bias_diff_on``
+- ``bias_fo``
+- ``bias_hpf``
+- ``bias_pr``
+- ``bias_refr``
+
 
 ```
 [ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48

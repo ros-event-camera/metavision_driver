@@ -24,6 +24,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
   dynamic_reconfigure
+  std_srvs
   )
 
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)

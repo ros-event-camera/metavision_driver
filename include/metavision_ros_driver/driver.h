@@ -21,10 +21,11 @@
 #include <metavision/sdk/driver/camera.h>
 #include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
+#include <std_srvs/Trigger.h>
 
 #include <memory>
-#include <string>
 #include <set>
+#include <string>
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
 
@@ -66,9 +67,12 @@ public:
     } else if (*current != prev) {
       Metavision::Biases & biases = cam_.biases();
       Metavision::I_LL_Biases * hw_biases = biases.get_facility();
-      ROS_INFO_STREAM(
-        "changed param: " << name << " from " << prev << " to " << *current);
       hw_biases->set(name, *current);
+      int now = hw_biases->get(name);  // read back what actually took hold
+      ROS_INFO_STREAM(
+        "changed param: " << name << " from " << prev << " to " << *current
+                          << " adj to: " << now);
+      *current = now;
     }
   }
 
@@ -117,6 +121,10 @@ public:
     // been initialized so we can read the bias values
     configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
     configServer_->setCallback(boost::bind(&Driver::configure, this, _1, _2));
+
+    saveService_ =
+      nh_.advertiseService("save_biases", &Driver::saveBiases, this);
+
     ROS_INFO_STREAM("driver initialized successfully.");
     return (true);
   }
@@ -145,10 +153,10 @@ private:
   {
     try {
       cam_ = Metavision::Camera::from_first_available();
-      std::string biasFile = nh_.param<std::string>("bias_file", "");
-      if (!biasFile.empty()) {
-        cam_.biases().set_from_file(biasFile);
-        ROS_INFO_STREAM("biases loaded from file: " << biasFile);
+      biasFile_ = nh_.param<std::string>("bias_file", "");
+      if (!biasFile_.empty()) {
+        cam_.biases().set_from_file(biasFile_);
+        ROS_INFO_STREAM("biases loaded from file: " << biasFile_);
       } else {
         ROS_WARN("no bias file provided, starting with default biases");
       }
@@ -197,6 +205,34 @@ private:
     ROS_INFO_STREAM(
       "camera "
       << (s == Metavision::CameraStatus::STARTED ? "started." : "stopped."));
+  }
+
+  bool saveBiases(
+    std_srvs::Trigger::Request & req, std_srvs::Trigger::Response & res)
+  {
+    (void)req;
+    if (biasFile_.empty()) {
+      ROS_WARN_STREAM("no bias file name specified!");
+      res.message = "no bias file name specified!";
+      res.success = false;
+    }
+    try {
+      /* const auto & biasMap = cam_.biases().get_facility()->get_all_biases();
+         for (const auto kv : biasMap) {
+         std::cout << kv.first << " -> " << kv.second << std::endl;
+         }
+      */
+      cam_.biases().save_to_file(biasFile_);
+      res.message = "bias file saved to " + biasFile_;
+      res.success = true;
+      ROS_INFO_STREAM("wrote bias file to: " << biasFile_);
+    } catch (const Metavision::CameraException & e) {
+      ROS_WARN_STREAM("failed to write bias file: " << e.what());
+      res.message = "failed to write bias file to: " + biasFile_;
+      res.success = false;
+    }
+
+    return (true);
   }
 
   void updateStatistics(const EventCD * start, const EventCD * end)
@@ -312,6 +348,8 @@ private:
   uint32_t eventCount_[2];
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   Config config_;
+  std::string biasFile_;
+  ros::ServiceServer saveService_;
 };
 }  // namespace metavision_ros_driver
 #endif
