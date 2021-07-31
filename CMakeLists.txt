@@ -23,16 +23,21 @@ find_package(catkin REQUIRED COMPONENTS
   prophesee_event_msgs
   roscpp
   nodelet
+  dynamic_reconfigure
   )
 
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
-catkin_package()
+generate_dynamic_reconfigure_options(
+  cfg/MetaVisionDyn.cfg
+  )
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-)
+  )
+
+catkin_package(CATKIN_DEPENDS dynamic_reconfigure)
 
 #
 # --------- driver -------------
@@ -40,9 +45,14 @@ include_directories(
 # nodelet
 add_library(driver_nodelet src/driver_nodelet.cpp)
 target_link_libraries(driver_nodelet MetavisionSDK::driver ${catkin_LIBRARIES})
+# to ensure messages get built before executable
+add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
+
 # node
 add_executable(driver_node src/driver_node.cpp)
 target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
+# to ensure messages get built before executable
+add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
 
 
 #############

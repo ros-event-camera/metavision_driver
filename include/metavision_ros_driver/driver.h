@@ -17,12 +17,16 @@
 #define METAVISION_ROS_DRIVER_H_
 
 #include <dvs_msgs/EventArray.h>
+#include <dynamic_reconfigure/server.h>
 #include <metavision/sdk/driver/camera.h>
 #include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
 
 #include <memory>
 #include <string>
+#include <set>
+
+#include "metavision_ros_driver/MetaVisionDynConfig.h"
 
 namespace metavision_ros_driver
 {
@@ -33,6 +37,7 @@ class Driver
 {
 public:
   using EventCD = Metavision::EventCD;
+  using Config = MetaVisionDynConfig;
 
   Driver(const ros::NodeHandle & nh) : nh_(nh)
   {
@@ -40,6 +45,60 @@ public:
     eventCount_[1] = 0;
   }
   ~Driver() { shutdown(); }
+
+  static void set_from_map(
+    const std::map<std::string, int> & pmap, int * targ,
+    const std::string & name)
+  {
+    auto it = pmap.find(name);
+    if (it != pmap.end()) {
+      *targ = it->second;
+      ROS_INFO("setting camera parameter %-15s to %4d", name.c_str(), *targ);
+    }
+  }
+
+  void checkAndSet(int prev, int * current, const std::string & name)
+  {
+    std::set<std::string> dont_touch_set = {{"bias_diff"}};
+    if (dont_touch_set.count(name) != 0 && prev != *current) {
+      ROS_WARN_STREAM("ignoring change to parameter: " << name);
+      *current = prev;  // reset it to old level
+    } else if (*current != prev) {
+      Metavision::Biases & biases = cam_.biases();
+      Metavision::I_LL_Biases * hw_biases = biases.get_facility();
+      ROS_INFO_STREAM(
+        "changed param: " << name << " from " << prev << " to " << *current);
+      hw_biases->set(name, *current);
+    }
+  }
+
+  void configure(Config & config, int level)
+  {
+    if (level < 0) {  // initial call
+      Metavision::Biases & biases = cam_.biases();
+      Metavision::I_LL_Biases * hw_biases = biases.get_facility();
+      auto bias_map = hw_biases->get_all_biases();
+      // initialize config from current settings
+      set_from_map(bias_map, &config.bias_diff, "bias_diff");
+      set_from_map(bias_map, &config.bias_diff_off, "bias_diff_off");
+      set_from_map(bias_map, &config.bias_diff_on, "bias_diff_on");
+      set_from_map(bias_map, &config.bias_fo, "bias_fo");
+      set_from_map(bias_map, &config.bias_hpf, "bias_hpf");
+      set_from_map(bias_map, &config.bias_pr, "bias_pr");
+      set_from_map(bias_map, &config.bias_refr, "bias_refr");
+      ROS_INFO("initialized config to camera biases");
+    } else {
+      checkAndSet(config_.bias_diff, &config.bias_diff, "bias_diff");
+      checkAndSet(
+        config_.bias_diff_off, &config.bias_diff_off, "bias_diff_off");
+      checkAndSet(config_.bias_diff_on, &config.bias_diff_on, "bias_diff_on");
+      checkAndSet(config_.bias_fo, &config.bias_fo, "bias_fo");
+      checkAndSet(config_.bias_hpf, &config.bias_hpf, "bias_hpf");
+      checkAndSet(config_.bias_pr, &config.bias_pr, "bias_pr");
+      checkAndSet(config_.bias_refr, &config.bias_refr, "bias_refr");
+    }
+    config_ = config;  // remember current values
+  }
 
   bool initialize()
   {
@@ -54,6 +113,10 @@ public:
       ROS_ERROR_STREAM("could not start camera!");
       return (false);
     }
+    // hook up dynamic config server *after* the camera has
+    // been initialized so we can read the bias values
+    configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
+    configServer_->setCallback(boost::bind(&Driver::configure, this, _1, _2));
     ROS_INFO_STREAM("driver initialized successfully.");
     return (true);
   }
@@ -220,33 +283,35 @@ private:
     }
   }
 
-    // ------------ variables
-    ros::NodeHandle nh_;
-    ros::Publisher eventPublisher_;
-    Metavision::Camera cam_;
-    Metavision::CallbackId statusChangeCallbackId_;
-    bool statusChangeCallbackActive_{false};
-    Metavision::CallbackId runtimeErrorCallbackId_;
-    bool runtimeErrorCallbackActive_{false};
-    Metavision::CallbackId contrastCallbackId_;
-    bool contrastCallbackActive_{false};
-    uint64_t t0_;  // base for time stamp calc
-    // time span that will trigger a message to be send
-    ros::Duration messageTimeThreshold_;
-    std::string frameId_;  // ROS frame id
-    int width_;     // image width
-    int height_;    // image height
-    uint32_t seq_;  // ROS sequence number
-    boost::shared_ptr<MsgType> msg_;
-    // related to statistics
-    int64_t statisticsPrintInterval_{1000000};
-    float maxRate_{0};
-    uint64_t totalEvents_{0};
-    float totalTime_{0};
-    int64_t lastPrintTime_{0};
-    size_t totalMsgsSent_{0};
-    size_t totalEventsSent_{0};
-    uint32_t eventCount_[2];
+  // ------------ variables
+  ros::NodeHandle nh_;
+  ros::Publisher eventPublisher_;
+  Metavision::Camera cam_;
+  Metavision::CallbackId statusChangeCallbackId_;
+  bool statusChangeCallbackActive_{false};
+  Metavision::CallbackId runtimeErrorCallbackId_;
+  bool runtimeErrorCallbackActive_{false};
+  Metavision::CallbackId contrastCallbackId_;
+  bool contrastCallbackActive_{false};
+  uint64_t t0_;  // base for time stamp calc
+  // time span that will trigger a message to be send
+  ros::Duration messageTimeThreshold_;
+  std::string frameId_;  // ROS frame id
+  int width_;            // image width
+  int height_;           // image height
+  uint32_t seq_;         // ROS sequence number
+  boost::shared_ptr<MsgType> msg_;
+  // related to statistics
+  int64_t statisticsPrintInterval_{1000000};
+  float maxRate_{0};
+  uint64_t totalEvents_{0};
+  float totalTime_{0};
+  int64_t lastPrintTime_{0};
+  size_t totalMsgsSent_{0};
+  size_t totalEventsSent_{0};
+  uint32_t eventCount_[2];
+  std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
+  Config config_;
 };
 }  // namespace metavision_ros_driver
 #endif

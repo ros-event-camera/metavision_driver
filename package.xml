@@ -13,6 +13,7 @@
   <depend>prophesee_event_msgs</depend>
   <depend>roscpp</depend>
   <depend>nodelet</depend>
+  <depend>dynamic_reconfigure</depend>
   
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
