@@ -17,17 +17,31 @@
 
 #include "metavision_ros_driver/driver.h"
 
+template <class T>
+void run_node(ros::NodeHandle & pnh)
+{
+  metavision_ros_driver::Driver<T> node(pnh);
+  if (node.initialize()) {
+    ros::spin();
+  } else {
+    ROS_ERROR("driver initialization failed, exiting!");
+  }
+}
+
 int main(int argc, char ** argv)
 {
   ros::init(argc, argv, "driver_node");
   ros::NodeHandle pnh("~");
 
   try {
-    metavision_ros_driver::Driver node(pnh);
-    if (node.initialize()) {
-      ros::spin();
+    const std::string msg_mode = pnh.param<std::string>("message_type", "dvs");
+    ROS_INFO_STREAM("running in message mode: " << msg_mode);
+    if (msg_mode == "prophesee") {
+      run_node<prophesee_event_msgs::EventArray>(pnh);
+    } else if (msg_mode == "dvs") {
+      run_node<dvs_msgs::EventArray>(pnh);
     } else {
-      ROS_ERROR("driver initialization failed, exiting!");
+      ROS_ERROR_STREAM("exiting due to invalid message mode: " << msg_mode);
     }
   } catch (const std::exception & e) {
     ROS_ERROR("%s: %s", pnh.getNamespace().c_str(), e.what());

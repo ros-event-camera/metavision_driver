@@ -25,18 +25,34 @@ namespace metavision_ros_driver
 class DriverNodelet : public nodelet::Nodelet
 {
 public:
+  template <class T>
+  std::shared_ptr<Driver<T>> initDriver(ros::NodeHandle & pnh)
+  {
+    auto ptr = std::make_shared<Driver<T>>(pnh);
+    if (!ptr->initialize()) {
+      ROS_ERROR("driver initialization failed, exiting!");
+    }
+    return (ptr);
+  }
+
   void onInit() override
   {
     nh_ = getPrivateNodeHandle();
-    driver_ = std::make_shared<Driver>(nh_);
-    if (!driver_->initialize()) {
-      ROS_ERROR_STREAM("driver initialization failed!");
+    const std::string msg_mode = nh_.param<std::string>("message_type", "dvs");
+    ROS_INFO_STREAM("running in message mode: " << msg_mode);
+    if (msg_mode == "prophesee") {
+      prophDriver_ = initDriver<prophesee_event_msgs::EventArray>(nh_);
+    } else if (msg_mode == "dvs") {
+      dvsDriver_ = initDriver<dvs_msgs::EventArray>(nh_);
+    } else {
+      ROS_ERROR_STREAM("exiting due to invalid message mode: " << msg_mode);
     }
   }
 
 private:
   // ------ variables --------
-  std::shared_ptr<metavision_ros_driver::Driver> driver_;
+  std::shared_ptr<Driver<prophesee_event_msgs::EventArray>> prophDriver_;
+  std::shared_ptr<Driver<dvs_msgs::EventArray>> dvsDriver_;
   ros::NodeHandle nh_;
 };
 }  // namespace metavision_ros_driver

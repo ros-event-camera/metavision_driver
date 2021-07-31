@@ -37,15 +37,12 @@ include_directories(
 #
 # --------- driver -------------
 
-# library common to node and nodelet
-add_library(${PROJECT_NAME} src/driver.cpp)
-target_link_libraries(${PROJECT_NAME} MetavisionSDK::driver ${catkin_LIBRARIES})
 # nodelet
 add_library(driver_nodelet src/driver_nodelet.cpp)
-target_link_libraries(driver_nodelet ${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(driver_nodelet MetavisionSDK::driver ${catkin_LIBRARIES})
 # node
 add_executable(driver_node src/driver_node.cpp)
-target_link_libraries(driver_node ${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
 
 
 #############
@@ -55,7 +52,7 @@ target_link_libraries(driver_node ${PROJECT_NAME} ${catkin_LIBRARIES})
 install(TARGETS driver_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
-install(TARGETS ${PROJECT_NAME} driver_nodelet
+install(TARGETS driver_nodelet
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
