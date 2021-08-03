@@ -23,9 +23,15 @@
 #include <ros/ros.h>
 #include <std_srvs/Trigger.h>
 
+#include <chrono>
+#include <condition_variable>
+#include <deque>
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
+#include <thread>
+#include <utility>
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
 
@@ -39,6 +45,7 @@ class Driver
 public:
   using EventCD = Metavision::EventCD;
   using Config = MetaVisionDynConfig;
+  typedef std::pair<size_t, const void *> QueueElement;
 
   Driver(const ros::NodeHandle & nh) : nh_(nh)
   {
@@ -106,9 +113,12 @@ public:
 
   bool initialize()
   {
-    double print_interval;
-    nh_.param<double>("statistics_print_interval", print_interval, 1.0);
-    statisticsPrintInterval_ = (int)(print_interval * 1e6);
+    useMultithreading_ = nh_.param<bool>("use_multithreading", false);
+    if (useMultithreading_) {
+      thread_ = std::make_shared<std::thread>(&Driver::processingThread, this);
+    }
+    const double statItv = nh_.param<double>("statistics_print_interval", 1.0);
+    statisticsPrintInterval_ = (int)(statItv * 1e6);
     messageTimeThreshold_ =
       ros::Duration(nh_.param<double>("message_time_threshold", 1e-9));
     int qs = nh_.param<int>("send_queue_size", 1000);
@@ -147,6 +157,15 @@ private:
     if (statusChangeCallbackActive_) {
       cam_.remove_status_change_callback(statusChangeCallbackId_);
     }
+    if (thread_) {
+      keepRunning_ = false;
+      {
+        std::unique_lock<std::mutex> lock(mutex_);
+        cv_.notify_all();
+      }
+      thread_->join();
+      thread_.reset();
+    }
   }
 
   bool startCamera()
@@ -178,8 +197,13 @@ private:
       runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
         std::bind(&Driver::runtimeErrorCallback, this, ph::_1));
       runtimeErrorCallbackActive_ = true;
-      contrastCallbackId_ = cam_.cd().add_callback(
-        std::bind(&Driver::eventCallback, this, ph::_1, ph::_2));
+      if (useMultithreading_) {
+        contrastCallbackId_ = cam_.cd().add_callback(
+          std::bind(&Driver::eventCallbackMultithreaded, this, ph::_1, ph::_2));
+      } else {
+        contrastCallbackId_ = cam_.cd().add_callback(
+          std::bind(&Driver::eventCallback, this, ph::_1, ph::_2));
+      }
       contrastCallbackActive_ = true;
       // this will actually start the camera
       cam_.start();
@@ -254,8 +278,9 @@ private:
       const uint32_t totCount = eventCount_[1] + eventCount_[0];
       const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
       ROS_INFO(
-        "rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d",
-        avgRate, maxRate_, avgSize, pctOn);
+        "rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
+        "%4zu",
+        avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
       maxRate_ = 0;
       lastPrintTime_ += statisticsPrintInterval_;
       totalEvents_ = 0;
@@ -264,6 +289,7 @@ private:
       totalEventsSent_ = 0;
       eventCount_[0] = 0;
       eventCount_[1] = 0;
+      maxQueueSize_ = 0;
     }
   }
 
@@ -276,6 +302,51 @@ private:
         updateAndPublish(start, end);
       }
     }
+  }
+
+  void eventCallbackMultithreaded(const EventCD * start, const EventCD * end)
+  {
+    // queue stuff away quickly to prevent events from being
+    // dropped at the SDK level
+    const size_t n = end - start;
+    if (n != 0) {
+      const size_t n_bytes = n * sizeof(EventCD);
+      void * memblock = malloc(n_bytes);
+      memcpy(memblock, start, n_bytes);
+      std::unique_lock<std::mutex> lock(mutex_);
+      queue_.push_front(std::pair<size_t, void *>(n, memblock));
+      cv_.notify_all();
+    }
+  }
+
+  void processingThread()
+  {
+    const std::chrono::microseconds timeout((int64_t)(1000000LL));
+    while (ros::ok() && keepRunning_) {
+      QueueElement qe(0, 0);
+      size_t qs = 0;
+      {  // critical section, no processing done here
+        std::unique_lock<std::mutex> lock(mutex_);
+        while (ros::ok() && keepRunning_ && queue_.empty()) {
+          cv_.wait_for(lock, timeout);
+        }
+        if (!queue_.empty()) {
+          qs = queue_.size();
+          qe = queue_.back();  // makes copy
+          queue_.pop_back();
+        }
+      }
+      if (qe.first != 0) {
+        const EventCD * start = static_cast<const EventCD *>(qe.second);
+        const EventCD * end = start + qe.first;
+        maxQueueSize_ = std::max(maxQueueSize_, qs);
+        updateStatistics(start, end);
+        if (eventPublisher_.getNumSubscribers() > 0) {
+          updateAndPublish(start, end);
+        }
+      }
+    }
+    ROS_INFO("processing thread exited!");
   }
 
   void updateAndPublish(const EventCD * start, const EventCD * end)
@@ -345,11 +416,19 @@ private:
   int64_t lastPrintTime_{0};
   size_t totalMsgsSent_{0};
   size_t totalEventsSent_{0};
+  size_t maxQueueSize_{0};
   uint32_t eventCount_[2];
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   Config config_;
   std::string biasFile_;
   ros::ServiceServer saveService_;
+  // related to multi threading
+  bool useMultithreading_{false};
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  std::deque<std::pair<size_t, const void *>> queue_;
+  std::shared_ptr<std::thread> thread_;
+  bool keepRunning_{true};
 };
 }  // namespace metavision_ros_driver
 #endif

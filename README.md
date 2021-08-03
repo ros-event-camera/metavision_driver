@@ -63,6 +63,12 @@ Parameters:
 - ``message_type``: can be set to ``dvs`` or ``prophesee`` depending on
   what message types the driver should publish.
 - ``send_queue_size``: ros message send queue size (defaults to 1000).
+- ``use_multithreading``: decouples the SDK callback from the
+  processing to ensure the SDK does not drop messages (defaults to
+  false). The SDK already queues up messages but there is no documentation on
+  the queue size and no way to determine if messages are dropped. Use multithreading to
+  minimize the risk of dropping messages. However, be aware that this incurs an
+  extra memory copy and threading overhead, raising the maximum CPU load by about 50% of a CPU.
 
 
 Services:
@@ -83,13 +89,26 @@ Dynamic reconfiguration parameters (see [MetaVision documentation here](https://
 
 
 ```
-[ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48
+[ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48 qs: 0
 ```
 Prints out the average and maximum event rate (in million events per
-second) over the ``statistics_print_interval``. Note that for
-efficiency reasons the last column, the percentage of ON events,
-is only computed if a subscriber to the event topic is connected.
+second), the size (in number of events) of the outgoing ROS message, and the maximum
+queue size (only non-zero if running in multithreaded mode) over the
+``statistics_print_interval``. Note that for efficiency reasons the percentage of ON events,
+is only computed if a subscriber is connected to the event topic.
 
+## CPU load
+
+Here are some performance numbers on an 16 thread (8-core) AMD Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained by producing maximum event rates (50Mevs) with a SilkyEVCam:
+
+- driver idle, no subscriber: 47% CPU load
+- driver (nodelet) + dummy client connected (going through network): driver at 129%
+- combined driver + rosbag record nodelet (i.e. no network traffic): combined at 192%
+- separate driver (nodelet) and rosbag (nodelet): driver at 135%, rosbag nodelet at 110%
+  (adds up to 245%, so about 50% more than running nodelets combined)
+- combined driver + rosbag record nodelet (i.e. no network traffic),
+  but with ``use_multithreading`` parameter for the driver: combined at 230%.
+  
 ## License
 
 This software is issued under the Apache License Version 2.0.
