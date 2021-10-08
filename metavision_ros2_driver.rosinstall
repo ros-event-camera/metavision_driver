@@ -1,0 +1,2 @@
+- git: {local-name: dvs_msgs, uri: 'https://github.com/berndpfrommer/dvs_msgs.git', version: 'ros2'}
+- git: {local-name: prophesee_event_msgs, uri: 'https://github.com/berndpfrommer/prophesee_event_msgs.git', version: 'ros2'}

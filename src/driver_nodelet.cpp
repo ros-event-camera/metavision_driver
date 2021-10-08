@@ -1,4 +1,4 @@
-// -*-c++-*--------------------------------------------------------------------
+// -*-c++-*---------------------------------------------------------------------------------------
 // Copyright 2021 Bernd Pfrommer <bernd.pfrommer@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 
 #include <memory>
 
-#include "metavision_ros_driver/driver.h"
+#include "metavision_ros_driver/camera_driver_ros1.h"
 
 namespace metavision_ros_driver
 {
@@ -26,12 +26,9 @@ class DriverNodelet : public nodelet::Nodelet
 {
 public:
   template <class T>
-  std::shared_ptr<Driver<T>> initDriver(ros::NodeHandle & pnh)
+  std::shared_ptr<CameraDriverROS1<T>> initDriver(ros::NodeHandle & pnh)
   {
-    auto ptr = std::make_shared<Driver<T>>(pnh);
-    if (!ptr->initialize()) {
-      ROS_ERROR("driver initialization failed, exiting!");
-    }
+    auto ptr = std::make_shared<CameraDriverROS1<T>>(pnh);
     return (ptr);
   }
 
@@ -51,8 +48,8 @@ public:
 
 private:
   // ------ variables --------
-  std::shared_ptr<Driver<prophesee_event_msgs::EventArray>> prophDriver_;
-  std::shared_ptr<Driver<dvs_msgs::EventArray>> dvsDriver_;
+  std::shared_ptr<CameraDriverROS1<prophesee_event_msgs::EventArray>> prophDriver_;
+  std::shared_ptr<CameraDriverROS1<dvs_msgs::EventArray>> dvsDriver_;
   ros::NodeHandle nh_;
 };
 }  // namespace metavision_ros_driver

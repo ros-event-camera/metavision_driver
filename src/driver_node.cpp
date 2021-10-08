@@ -1,4 +1,4 @@
-// -*-c++-*--------------------------------------------------------------------
+// -*-c++-*---------------------------------------------------------------------------------------
 // Copyright 2021 Bernd Pfrommer <bernd.pfrommer@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,17 +15,13 @@
 
 #include <ros/ros.h>
 
-#include "metavision_ros_driver/driver.h"
+#include "metavision_ros_driver/camera_driver_ros1.h"
 
 template <class T>
 void run_node(ros::NodeHandle & pnh)
 {
-  metavision_ros_driver::Driver<T> node(pnh);
-  if (node.initialize()) {
-    ros::spin();
-  } else {
-    ROS_ERROR("driver initialization failed, exiting!");
-  }
+  metavision_ros_driver::CameraDriverROS1<T> node(pnh);
+  ros::spin();
 }
 
 int main(int argc, char ** argv)

@@ -8,9 +8,15 @@ You can find their official ROS driver
 
 ## Supported platforms
 
-Currently only tested under ROS Noetic on Ubuntu 20.04.
+Currently only tested under ROS Noetic and ROS galactic on Ubuntu 20.04.
 
 ## How to build
+Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
+For example for ROS1 noetic:
+```
+source /opt/ros/noetic/setup.bash
+```
+
 Create a workspace (``metavision_ros_driver_ws``), clone this repo, and use ``wstool``
 to pull in the remaining dependencies:
 
@@ -18,40 +24,42 @@ to pull in the remaining dependencies:
 mkdir -p ~/metavision_ros_driver_ws/src
 cd ~/metavision_ros_driver_ws
 git clone https://github.com/berndpfrommer/metavision_ros_driver src/metavision_ros_driver
-wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
-# to update an existing space:
-# wstool merge -t src src/metavision_ros_driver/metavision_ros_driver.rosinstall
+wstool init src src/metavision_ros_driver/metavision_ros${ROS_VERSION}_driver.rosinstall
+
+# or to update an existing space
+# wstool merge -t src src/metavision_ros_driver/metavision_ros${ROS_VERSION}_driver.rosinstall
 # wstool update -t src
 ```
 
 Now configure and build:
 
+ROS1:
 ```
 catkin config -DCMAKE_BUILD_TYPE=RelWithDebInfo  # (optionally add -DCMAKE_EXPORT_COMPILE_COMMANDS=1)
 catkin build
+. devel/setup.bash
 ```
 
-## Driver
+ROS2:
+```
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+. install/setup.bash
+```
 
-Replacement driver for the Prophesee driver with the following improvements/changes:
+## Driver Features
+
+This driver differs from the Prophesee ROS driver in the following ways:
 
 - can write ``dvs_msgs`` or ``prophesee_msgs``. This permits
   using ROS based pipelines that have been developed for the DVS
   camera.
 - less CPU consumption by avoiding unnecessary memory copies.
 - implemented as nodelet so can be run in the same address space as
-  e.g. a rosbag record nodelet without worrying of message loss in transmission.
+  e.g. a rosbag record nodelet without worrying about message loss in transmission.
 - prints out message rate statistics.
 - dynamic reconfiguration
 - NOTE: does not provide ``camera_info`` messages yet, does not play
   from raw files.
-
-How to run:
-
-```
-roslaunch metavision_ros_driver driver_node.launch   # (run as node)
-roslaunch metavision_ros_driver driver_nodelet.launch   # (run as nodelet)
-```
 
 Parameters:
 
@@ -88,6 +96,14 @@ Dynamic reconfiguration parameters (see [MetaVision documentation here](https://
 - ``bias_refr``
 
 
+# How to use (ROS1):
+
+```
+roslaunch metavision_ros_driver driver_node.launch   # (run as node)
+roslaunch metavision_ros_driver driver_nodelet.launch   # (run as nodelet)
+```
+
+The driver should print out message rate statistics like this:
 ```
 [ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48 qs: 0
 ```
@@ -97,9 +113,17 @@ queue size (only non-zero if running in multithreaded mode) over the
 ``statistics_print_interval``. Note that for efficiency reasons the percentage of ON events,
 is only computed if a subscriber is connected to the event topic.
 
+# How to use (ROS2):
+
+```
+ros2 launch metavision_ros_driver driver_node.launch.py        # (run as node)
+ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composable node)
+```
+The printout should be similar to the one for ROS1.
+
 ## CPU load
 
-Here are some performance numbers on an 16 thread (8-core) AMD Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained by producing maximum event rates (50Mevs) with a SilkyEVCam:
+Here are some (ROS1) performance numbers on a 16 thread (8-core) AMD Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained by producing maximum event rates (50Mevs) with a SilkyEVCam:
 
 - driver idle, no subscriber: 47% CPU load
 - driver (nodelet) + dummy client connected (going through network): driver at 129%

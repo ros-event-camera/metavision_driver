@@ -13,74 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(metavision_ros_driver)
 
-add_compile_options(-Wall -Wextra -pedantic -Werror)
-
-find_package(catkin REQUIRED COMPONENTS
-  dvs_msgs
-  prophesee_event_msgs
-  roscpp
-  nodelet
-  dynamic_reconfigure
-  std_srvs
-  )
-
-find_package(MetavisionSDK COMPONENTS driver REQUIRED)
-
-generate_dynamic_reconfigure_options(
-  cfg/MetaVisionDyn.cfg
-  )
-
-include_directories(
-  include
-  ${catkin_INCLUDE_DIRS}
-  )
-
-catkin_package(CATKIN_DEPENDS dynamic_reconfigure)
-
-#
-# --------- driver -------------
-
-# nodelet
-add_library(driver_nodelet src/driver_nodelet.cpp)
-target_link_libraries(driver_nodelet MetavisionSDK::driver ${catkin_LIBRARIES})
-# to ensure messages get built before executable
-add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
-
-# node
-add_executable(driver_node src/driver_node.cpp)
-target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
-# to ensure messages get built before executable
-add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
-
-
-#############
-## Install ##
-#############
-
-install(TARGETS driver_node
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-install(TARGETS driver_nodelet
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-  )
- 
-install(FILES nodelet_plugins.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
-
-install(DIRECTORY launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  FILES_MATCHING PATTERN "*.launch"
-  )
-
-
-#############
-## Testing ##
-#############
-
-# To be done...
+if(DEFINED ENV{ROS_VERSION})
+  if($ENV{ROS_VERSION} EQUAL "2")
+    # to avoid cmake warning: "Manually-specified variables were not used by the project"
+    unset(CATKIN_INSTALL_INTO_PREFIX_ROOT)
+    unset(CATKIN_SYMLINK_INSTALL)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeListsROS2.txt)
+  elseif($ENV{ROS_VERSION} EQUAL "1")
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeListsROS1.txt)
+  else()
+    message(ERROR "invalid ROS_VERSION environment variable: $ENV{ROS_VERSION}")
+  endif()
+else()
+  message(ERROR "ROS_VERSION environment variable is not set!")
+endif()
