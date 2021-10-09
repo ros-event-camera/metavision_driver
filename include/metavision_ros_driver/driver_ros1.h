@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__CAMERA_DRIVER_ROS1_H_
-#define METAVISION_ROS_DRIVER__CAMERA_DRIVER_ROS1_H_
+#ifndef METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
+#define METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
 
 #include <camera_info_manager/camera_info_manager.h>
 #include <dvs_msgs/EventArray.h>
@@ -38,11 +38,11 @@ namespace metavision_ros_driver
 namespace ph = std::placeholders;
 template <class MsgType>
 
-class CameraDriverROS1 : public CallbackHandler
+class DriverROS1 : public CallbackHandler
 {
 public:
   using Config = MetaVisionDynConfig;
-  explicit CameraDriverROS1(const ros::NodeHandle & nh) : nh_(nh)
+  explicit DriverROS1(const ros::NodeHandle & nh) : nh_(nh)
   {
     bool status = start();
     if (!status) {
@@ -50,7 +50,7 @@ public:
       throw std::runtime_error("startup of CameraDriver node failed!");
     }
   }
-  ~CameraDriverROS1()
+  ~DriverROS1()
   {
     stop();
     wrapper_.reset();  // invoke destructor
@@ -95,7 +95,7 @@ public:
 
     pub_ = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
 
-    wrapper_ = std::make_shared<MetavisionWrapper>(this);
+    wrapper_ = std::make_shared<MetavisionWrapper>();
 
     if (!wrapper_->initialize(
           nh_.param<bool>("use_multithreading", false),
@@ -111,6 +111,7 @@ public:
       const auto sn = wrapper_->getSerialNumber();
       frameId_ = sn.substr(sn.size() - 4);
     }
+    wrapper_->startCamera(this);
     ROS_INFO_STREAM("using frame id: " << frameId_);
 
     infoManager_ = std::make_shared<camera_info_manager::CameraInfoManager>(nh_, cameraInfoURL_);
@@ -120,9 +121,9 @@ public:
     // hook up dynamic config server *after* the camera has
     // been initialized so we can read the bias values
     configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
-    configServer_->setCallback(boost::bind(&CameraDriverROS1::configure, this, _1, _2));
+    configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
 
-    saveBiasService_ = nh_.advertiseService("save_biases", &CameraDriverROS1::saveBiases, this);
+    saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
 
     ROS_INFO_STREAM("driver initialized successfully.");
     return (true);
@@ -169,9 +170,9 @@ public:
     if (t_last > t_msg + messageTimeThreshold_) {
       msg_->header.stamp = t_msg;
       pub_.publish(msg_);
-      msg_.reset();  // no longer using this one
       wrapper_->updateEventsSent(events.size());
       wrapper_->updateMsgsSent(1);
+      msg_.reset();  // no longer using this one
     }
   }
 
@@ -219,4 +220,4 @@ private:
   uint32_t seq_;         // ROS sequence number
 };
 }  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__CAMERA_DRIVER_ROS1_H_
+#endif  // METAVISION_ROS_DRIVER__DRIVER_ROS1_H_

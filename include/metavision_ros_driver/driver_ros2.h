@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__CAMERA_DRIVER_H_
-#define METAVISION_ROS_DRIVER__CAMERA_DRIVER_H_
+#ifndef METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
+#define METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
 
 #include <camera_info_manager/camera_info_manager.hpp>
+#include <dvs_msgs/msg/event_array.hpp>
 #include <map>
 #include <memory>
 #include <prophesee_event_msgs/msg/event_array.hpp>
@@ -24,18 +25,16 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
-#include "metavision_ros_driver/callback_handler.h"
+#include "metavision_ros_driver/event_publisher_ros2.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 namespace metavision_ros_driver
 {
-class CameraDriver : public rclcpp::Node, public CallbackHandler
+class DriverROS2 : public rclcpp::Node
 {
 public:
-  explicit CameraDriver(const rclcpp::NodeOptions & options);
-  ~CameraDriver();
-  void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override;
-  bool keepRunning() override { return (rclcpp::ok()); }
+  explicit DriverROS2(const rclcpp::NodeOptions & options);
+  ~DriverROS2();
 
 private:
   bool stop();
@@ -57,15 +56,14 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr callbackHandle_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
-  rclcpp::Publisher<prophesee_event_msgs::msg::EventArray>::SharedPtr pub_;
   rclcpp::TimerBase::SharedPtr changeTimer_;
   ParameterMap biasParameters_;
 
   sensor_msgs::msg::CameraInfo cameraInfoMsg_;
-  std::unique_ptr<prophesee_event_msgs::msg::EventArray> msg_;
 
   std::string cameraInfoURL_;
-  rclcpp::Duration messageTimeThreshold_;  // duration for triggering a message
+  std::shared_ptr<EventPublisherROS2<prophesee_event_msgs::msg::EventArray>> prophPub_;
+  std::shared_ptr<EventPublisherROS2<dvs_msgs::msg::EventArray>> dvsPub_;
 
   uint64_t t0_{0};  // time base
   int width_;       // image width
@@ -73,4 +71,4 @@ private:
   std::string frameId_;
 };
 }  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__CAMERA_DRIVER_H_
+#endif  // METAVISION_ROS_DRIVER__DRIVER_ROS2_H_

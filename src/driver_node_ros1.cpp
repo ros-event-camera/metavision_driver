@@ -15,12 +15,12 @@
 
 #include <ros/ros.h>
 
-#include "metavision_ros_driver/camera_driver_ros1.h"
+#include "metavision_ros_driver/driver_ros1.h"
 
 template <class T>
 void run_node(ros::NodeHandle & pnh)
 {
-  metavision_ros_driver::CameraDriverROS1<T> node(pnh);
+  metavision_ros_driver::DriverROS1<T> node(pnh);
   ros::spin();
 }
 

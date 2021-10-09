@@ -21,9 +21,8 @@
 
 namespace metavision_ros_driver
 {
-MetavisionWrapper::MetavisionWrapper(CallbackHandler * h)
+MetavisionWrapper::MetavisionWrapper()
 {
-  callbackHandler_ = h;
   eventCount_[0] = 0;
   eventCount_[1] = 0;
 }
@@ -69,12 +68,10 @@ bool MetavisionWrapper::initialize(
 {
   biasFile_ = biasFile;
   useMultithreading_ = useMultithreading;
-  if (useMultithreading_) {
-    thread_ = std::make_shared<std::thread>(&MetavisionWrapper::processingThread, this);
-  }
+
   statisticsPrintInterval_ = static_cast<int>(statItv * 1e6);
-  if (!startCamera()) {
-    LOG_NAMED_ERROR("could not start camera!");
+  if (!initializeCamera()) {
+    LOG_NAMED_ERROR("could not initialize camera!");
     return (false);
   }
   return (true);
@@ -108,7 +105,7 @@ bool MetavisionWrapper::stop()
   return (status);
 }
 
-bool MetavisionWrapper::startCamera()
+bool MetavisionWrapper::initializeCamera()
 {
   try {
     cam_ = Metavision::Camera::from_first_available();
@@ -143,6 +140,20 @@ bool MetavisionWrapper::startCamera()
         cam_.cd().add_callback(std::bind(&MetavisionWrapper::eventCallback, this, ph::_1, ph::_2));
     }
     contrastCallbackActive_ = true;
+  } catch (const Metavision::CameraException & e) {
+    LOG_NAMED_ERROR("unexpected sdk error: " << e.what());
+    return (false);
+  }
+  return (true);
+}
+
+bool MetavisionWrapper::startCamera(CallbackHandler * h)
+{
+  try {
+    callbackHandler_ = h;
+    if (useMultithreading_) {
+      thread_ = std::make_shared<std::thread>(&MetavisionWrapper::processingThread, this);
+    }
     // this will actually start the camera
     cam_.start();
   } catch (const Metavision::CameraException & e) {

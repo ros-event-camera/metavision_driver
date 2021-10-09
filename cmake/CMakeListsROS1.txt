@@ -44,13 +44,13 @@ catkin_package(CATKIN_DEPENDS dynamic_reconfigure)
 # --------- driver -------------
 
 # nodelet
-add_library(driver_nodelet src/metavision_wrapper.cpp src/driver_nodelet.cpp)
+add_library(driver_nodelet src/metavision_wrapper.cpp src/driver_nodelet_ros1.cpp)
 target_link_libraries(driver_nodelet MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
 add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
 
 # node
-add_executable(driver_node src/metavision_wrapper.cpp src/driver_node.cpp)
+add_executable(driver_node src/metavision_wrapper.cpp src/driver_node_ros1.cpp)
 target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
 add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})

@@ -53,27 +53,27 @@ ament_auto_find_build_dependencies(REQUIRED ${ROS2_DEPENDENCIES})
 #
 # --------- driver (composable component) -------------
 
-ament_auto_add_library(camera_driver SHARED
+ament_auto_add_library(driver_ros2 SHARED
   src/metavision_wrapper.cpp
-  src/camera_driver.cpp)
+  src/driver_ros2.cpp)
 
-target_include_directories(camera_driver PRIVATE include)
-target_link_libraries(camera_driver MetavisionSDK::driver)
+target_include_directories(driver_ros2 PRIVATE include)
+target_link_libraries(driver_ros2 MetavisionSDK::driver)
 
-rclcpp_components_register_nodes(camera_driver "metavision_ros_driver::CameraDriver")
+rclcpp_components_register_nodes(driver_ros2 "metavision_ros_driver::DriverROS2")
 
 
 # --------- driver (plain old node) -------------
 
-ament_auto_add_executable(camera_driver_node
-  src/camera_driver_node.cpp)
+ament_auto_add_executable(driver_node
+  src/driver_node_ros2.cpp)
 
 
 # the node must go into the paroject specific lib directory or else
 # the launch file will not find it
 
 install(TARGETS
-  camera_driver_node
+  driver_node
   DESTINATION lib/${PROJECT_NAME}/
   )
 
@@ -81,7 +81,7 @@ install(TARGETS
 # be used as a composable node by other projects
 
 install(TARGETS
-  camera_driver
+  driver_ros2
   DESTINATION lib
 )
 

@@ -16,14 +16,14 @@
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 
-#include "metavision_ros_driver/camera_driver.h"
+#include "metavision_ros_driver/driver_ros2.h"
 
 int main(int argc, char * argv[])
 {
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<metavision_ros_driver::CameraDriver>(rclcpp::NodeOptions());
+  auto node = std::make_shared<metavision_ros_driver::DriverROS2>(rclcpp::NodeOptions());
 
-  RCLCPP_INFO(node->get_logger(), "camera_driver_node started up!");
+  RCLCPP_INFO(node->get_logger(), "driver_node started up!");
   // actually run the node
   rclcpp::spin(node);  // should not return
   rclcpp::shutdown();

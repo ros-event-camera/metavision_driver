@@ -39,7 +39,7 @@ public:
   using EventCD = Metavision::EventCD;
   typedef std::pair<size_t, const void *> QueueElement;
 
-  explicit MetavisionWrapper(CallbackHandler * h);
+  MetavisionWrapper();
   ~MetavisionWrapper();
 
   int getBias(const std::string & name);
@@ -53,9 +53,10 @@ public:
   int getWidth() const { return (width_); }
   int getHeight() const { return (height_); }
   const std::string & getSerialNumber() const { return (serialNumber_); }
+  bool startCamera(CallbackHandler * h);
 
 private:
-  bool startCamera();
+  bool initializeCamera();
   void runtimeErrorCallback(const Metavision::CameraException & e);
   void statusChangeCallback(const Metavision::CameraStatus & s);
   void updateStatistics(const EventCD * start, const EventCD * end);

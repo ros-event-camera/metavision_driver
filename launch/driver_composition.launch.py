@@ -38,7 +38,7 @@ def launch_setup(context, *args, **kwargs):
             composable_node_descriptions=[
                 ComposableNode(
                     package='metavision_ros_driver',
-                    plugin='metavision_ros_driver::CameraDriver',
+                    plugin='metavision_ros_driver::DriverROS2',
                     name=cam_name,
                     parameters=[
                         {'use_multithreading': True,

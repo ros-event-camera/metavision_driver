@@ -30,11 +30,11 @@ def launch_setup(context, *args, **kwargs):
     pkg_dir = 'metavision_ros_driver'
     bias_dir = get_package_share_directory(pkg_dir) + '/biases/'
     node = Node(package='metavision_ros_driver',
-                executable='camera_driver_node',
+                executable='driver_node',
                 output='screen',
                 name=cam_name,
                 parameters=[
-                    {'use_multithreading': True,
+                    {'use_multithreading': False,
                      'statistics_print_interval': 2.0,
                      'bias_file': bias_dir + 'silky_ev_cam.bias',
                      'camerainfo_url': '',

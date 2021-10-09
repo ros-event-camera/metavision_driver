@@ -18,17 +18,17 @@
 
 #include <memory>
 
-#include "metavision_ros_driver/camera_driver_ros1.h"
+#include "metavision_ros_driver/driver_ros1.h"
 
 namespace metavision_ros_driver
 {
-class DriverNodelet : public nodelet::Nodelet
+class DriverNodeletROS1 : public nodelet::Nodelet
 {
 public:
   template <class T>
-  std::shared_ptr<CameraDriverROS1<T>> initDriver(ros::NodeHandle & pnh)
+  std::shared_ptr<DriverROS1<T>> initDriver(ros::NodeHandle & pnh)
   {
-    auto ptr = std::make_shared<CameraDriverROS1<T>>(pnh);
+    auto ptr = std::make_shared<DriverROS1<T>>(pnh);
     return (ptr);
   }
 
@@ -48,11 +48,11 @@ public:
 
 private:
   // ------ variables --------
-  std::shared_ptr<CameraDriverROS1<prophesee_event_msgs::EventArray>> prophDriver_;
-  std::shared_ptr<CameraDriverROS1<dvs_msgs::EventArray>> dvsDriver_;
+  std::shared_ptr<DriverROS1<prophesee_event_msgs::EventArray>> prophDriver_;
+  std::shared_ptr<DriverROS1<dvs_msgs::EventArray>> dvsDriver_;
   ros::NodeHandle nh_;
 };
 }  // namespace metavision_ros_driver
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(metavision_ros_driver::DriverNodelet, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(metavision_ros_driver::DriverNodeletROS1, nodelet::Nodelet)

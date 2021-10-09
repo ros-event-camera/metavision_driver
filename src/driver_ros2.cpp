@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "metavision_ros_driver/camera_driver.h"
+#include "metavision_ros_driver/driver_ros2.h"
 
 #include <functional>
 #include <iostream>
@@ -24,23 +24,22 @@
 
 namespace metavision_ros_driver
 {
-CameraDriver::CameraDriver(const rclcpp::NodeOptions & options)
-: Node("metavision_ros_driver", options), messageTimeThreshold_(0, 0)
+DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_ros_driver", options)
 {
   bool status = start();
   if (!status) {
     LOG_ERROR("startup failed!");
-    throw std::runtime_error("startup of CameraDriver node failed!");
+    throw std::runtime_error("startup of DriverROS2 node failed!");
   }
 }
 
-CameraDriver::~CameraDriver()
+DriverROS2::~DriverROS2()
 {
   stop();
   wrapper_.reset();  // invoke destructor
 }
 
-void CameraDriver::initializeBiasParameters()
+void DriverROS2::initializeBiasParameters()
 {
   addBiasParameter("bias_diff", 0, 1800, "reference level for diff_off and diff_on");
   addBiasParameter("bias_diff_off", 0, 298, "off threshold level");
@@ -51,7 +50,7 @@ void CameraDriver::initializeBiasParameters()
   addBiasParameter("bias_refr", 0, 1800, "refractory time bias");
 }
 
-void CameraDriver::addBiasParameter(
+void DriverROS2::addBiasParameter(
   const std::string & name, int min_val, int max_val, const std::string & desc)
 {
   rcl_interfaces::msg::IntegerRange rg;
@@ -66,7 +65,7 @@ void CameraDriver::addBiasParameter(
   biasParameters_.insert(ParameterMap::value_type(name, pd));
 }
 
-void CameraDriver::declareBiasParameters()
+void DriverROS2::declareBiasParameters()
 {
   initializeBiasParameters();
   for (const auto & p : biasParameters_) {
@@ -87,7 +86,7 @@ void CameraDriver::declareBiasParameters()
   }
 }
 
-bool CameraDriver::stop()
+bool DriverROS2::stop()
 {
   if (wrapper_) {
     return (wrapper_->stop());
@@ -95,7 +94,7 @@ bool CameraDriver::stop()
   return false;
 }
 
-rcl_interfaces::msg::SetParametersResult CameraDriver::parameterChanged(
+rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
   const std::vector<rclcpp::Parameter> & params)
 {
   rcl_interfaces::msg::SetParametersResult res;
@@ -127,19 +126,11 @@ rcl_interfaces::msg::SetParametersResult CameraDriver::parameterChanged(
   return (res);
 }
 
-bool CameraDriver::start()
+bool DriverROS2::start()
 {
   cameraInfoURL_ = this->declare_parameter<std::string>("camerainfo_url", "");
   frameId_ = this->declare_parameter<std::string>("frame_id", "");
-  messageTimeThreshold_ = rclcpp::Duration::from_nanoseconds(
-    (uint64_t)(1e9 * this->declare_parameter<double>("message_time_threshold", 10e-6)));
-  callbackHandle_ = this->add_on_set_parameters_callback(
-    std::bind(&CameraDriver::parameterChanged, this, std::placeholders::_1));
-
-  pub_ = create_publisher<prophesee_event_msgs::msg::EventArray>(
-    "~/events", this->declare_parameter<int>("send_queue_size", 1000));
-
-  wrapper_ = std::make_shared<MetavisionWrapper>(this);
+  wrapper_ = std::make_shared<MetavisionWrapper>();
 
   if (!wrapper_->initialize(
         this->declare_parameter<bool>("use_multithreading", true),
@@ -148,8 +139,6 @@ bool CameraDriver::start()
     LOG_ERROR("driver initialization failed!");
     return (false);
   }
-  width_ = wrapper_->getWidth();
-  height_ = wrapper_->getHeight();
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
     const auto sn = wrapper_->getSerialNumber();
@@ -157,18 +146,33 @@ bool CameraDriver::start()
   }
   LOG_INFO("using frame id: " << frameId_);
 
+  const std::string msgType = this->declare_parameter<std::string>("message_type", "prophesee");
+  if (msgType == "prophesee") {
+    prophPub_.reset(
+      new EventPublisherROS2<prophesee_event_msgs::msg::EventArray>(this, wrapper_, frameId_));
+    wrapper_->startCamera(prophPub_.get());
+  } else if (msgType == "dvs") {
+    dvsPub_.reset(new EventPublisherROS2<dvs_msgs::msg::EventArray>(this, wrapper_, frameId_));
+    wrapper_->startCamera(dvsPub_.get());
+  } else {
+    LOG_ERROR("invalid msg type: " << msgType);
+    throw(std::runtime_error("invalid message type!"));
+  }
+
   infoManager_ =
     std::make_shared<camera_info_manager::CameraInfoManager>(this, get_name(), cameraInfoURL_);
   cameraInfoMsg_ = infoManager_->getCameraInfo();
   cameraInfoMsg_.header.frame_id = frameId_;
   declareBiasParameters();
+  callbackHandle_ = this->add_on_set_parameters_callback(
+    std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
   saveBiasesService_ = this->create_service<std_srvs::srv::Trigger>(
     "save_biases",
-    std::bind(&CameraDriver::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+    std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
   return (true);
 }
 
-void CameraDriver::saveBiases(
+void DriverROS2::saveBiases(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
   const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
 {
@@ -181,52 +185,6 @@ void CameraDriver::saveBiases(
   response->message += (response->success ? "succeeded" : "failed");
 }
 
-void CameraDriver::publish(const Metavision::EventCD * start, const Metavision::EventCD * end)
-{
-  if (t0_ == 0) {
-    t0_ = this->now().nanoseconds();
-  }
-  if (!msg_) {  // must allocate new message
-    msg_.reset(new prophesee_event_msgs::msg::EventArray());
-    msg_->header.frame_id = frameId_;
-    msg_->width = width_;
-    msg_->height = height_;
-    // under full load a 50 Mev/s camera will
-    // produce about 5000 events in a 100us
-    // time slice.
-    msg_->events.reserve(6000);
-  }
-  const size_t n = end - start;
-  auto & events = msg_->events;
-  const size_t old_size = events.size();
-  // The resize should not trigger a
-  // copy with proper reserved capacity.
-  events.resize(events.size() + n);
-  // copy data into ROS message. For the SilkyEvCam
-  // the full load packet size delivered by the SDK is 320
-  int eventCount[2] = {0, 0};
-  for (unsigned int i = 0; i < n; i++) {
-    const auto & e_src = start[i];
-    auto & e_trg = events[i + old_size];
-    e_trg.x = e_src.x;
-    e_trg.y = e_src.y;
-    e_trg.polarity = e_src.p;
-    e_trg.ts = rclcpp::Time(t0_ + (uint64_t)(e_src.t * 1e3), RCL_SYSTEM_TIME);
-    eventCount[e_src.p]++;
-  }
-  wrapper_->updateEventCount(0, eventCount[0]);
-  wrapper_->updateEventCount(1, eventCount[1]);
-  const rclcpp::Time t_msg(msg_->events.begin()->ts);
-  const rclcpp::Time t_last(msg_->events.rbegin()->ts);
-  if (t_last > t_msg + messageTimeThreshold_) {
-    msg_->header.stamp = t_msg;
-    // the move() will reset msg_ and transfer ownership
-    pub_->publish(std::move(msg_));
-    wrapper_->updateEventsSent(events.size());
-    wrapper_->updateMsgsSent(1);
-  }
-}
-
 }  // namespace metavision_ros_driver
 
-RCLCPP_COMPONENTS_REGISTER_NODE(metavision_ros_driver::CameraDriver)
+RCLCPP_COMPONENTS_REGISTER_NODE(metavision_ros_driver::DriverROS2)
