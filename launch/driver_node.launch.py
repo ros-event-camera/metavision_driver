@@ -35,12 +35,12 @@ def launch_setup(context, *args, **kwargs):
                 name=cam_name,
                 parameters=[
                     {'use_multithreading': False,
-                     'message_type': 'prophesee',
+                     'message_type': 'event_array2',
                      'statistics_print_interval': 2.0,
                      'bias_file': bias_dir + 'silky_ev_cam.bias',
                      'camerainfo_url': '',
                      'frame_id': '',
-                     'message_time_threshold': 1e-4,
+                     'message_time_threshold': 1e-3,
                      'send_queue_size': 1000}],
                 remappings=[
                     ('~/events', cam_str + '/events')])

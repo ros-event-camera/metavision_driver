@@ -3,13 +3,14 @@
   <node pkg="nodelet" type="nodelet"
     name="driver_nodelet" args="standalone metavision_ros_driver/DriverNodelet"
     clear_params="true" output="screen">
+    <param name="use_multithreading" value="false"/>
     <param name="message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="10.0"/>
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- what kind of messages to write (dvs or prophesee) -->
-    <param name="message_type" value="dvs"/>
+    <param name="message_type" value="event_array2"/>
     <remap from="~/events" to="/metavision_driver/events"/>
   </node>
 </launch>

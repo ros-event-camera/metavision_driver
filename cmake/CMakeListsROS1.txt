@@ -20,6 +20,7 @@ add_compile_definitions(USING_ROS_1)
 find_package(catkin REQUIRED COMPONENTS
   dvs_msgs
   prophesee_event_msgs
+  event_array2_msgs
   roscpp
   nodelet
   dynamic_reconfigure

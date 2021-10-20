@@ -40,6 +40,7 @@ set(ROS2_DEPENDENCIES
   "camera_info_manager"
   "dvs_msgs"
   "prophesee_event_msgs"
+  "event_array2_msgs"
   "sensor_msgs"
   "std_srvs"
 )

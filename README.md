@@ -1,10 +1,12 @@
 # metavision_ros_driver
 
 A ROS driver for cameras using the metavison toolkit (Prophesee and
-SilkyEVCam). This driver is not written or supported by Prophesee.
-You can find their official ROS driver
-[here](https://github.com/prophesee-ai/prophesee_ros_wrapper).
+SilkyEVCam). It has performance improvements over the 
+[official Prophesee
+driver](https://github.com/prophesee-ai/prophesee_ros_wrapper) and
+support ROS2.
 
+This driver is not written or supported by Prophesee.
 
 ## Supported platforms
 
@@ -50,14 +52,18 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 
 This driver differs from the Prophesee ROS driver in the following ways:
 
-- can write ``dvs_msgs`` or ``prophesee_msgs``. This permits
-  using ROS based pipelines that have been developed for the DVS
-  camera.
+- can publish:
+  - ``prophesee_msgs``: same as the Prophesee ROS driver
+  - ``dvs_msgs``: permits using ROS1 pipelines developed for the DVS
+    camera
+  - ``event_array2_msgs``: needed for ROS2 to get acceptable
+    performance, loads faster when accessed through rosbag read API
 - less CPU consumption by avoiding unnecessary memory copies.
-- implemented as nodelet so can be run in the same address space as
+- implemented as nodelet such that it can be run in the same address space as
   e.g. a rosbag record nodelet without worrying about message loss in transmission.
-- prints out message rate statistics.
-- dynamic reconfiguration
+- prints out message rate statistics so you know when the sensor
+  saturates bandwidth.
+- supports dynamic reconfiguration
 - NOTE: does not provide ``camera_info`` messages yet, does not play
   from raw files.
 
@@ -66,10 +72,13 @@ Parameters:
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
 - ``message_time_threshold``: approximate time span [sec] of events to be
-  aggregated before ROS message is sent.
+  aggregated before ROS message is sent. Defaults to 100us.
 - ``statistics_print_interval``: time in seconds between statistics printouts.
-- ``message_type``: can be set to ``dvs`` or ``prophesee`` depending on
-  what message types the driver should publish.
+- ``message_type``: can be set to ``dvs``, ``prophesee`` or ``event_array2``, depending on
+  what message types the driver should publish. For ROS2 you must set
+  it to ``event_array2`` to get acceptable performance, since the
+  marshalling/unmarshalling overhead is too large for the other
+  message types.
 - ``send_queue_size``: ros message send queue size (defaults to 1000).
 - ``use_multithreading``: decouples the SDK callback from the
   processing to ensure the SDK does not drop messages (defaults to
@@ -113,6 +122,19 @@ queue size (only non-zero if running in multithreaded mode) over the
 ``statistics_print_interval``. Note that for efficiency reasons the percentage of ON events,
 is only computed if a subscriber is connected to the event topic.
 
+To use the combined driver/recording facility:
+```
+roslaunch metavision_ros_driver recording_driver.launch bag:=`pwd`/test.bag
+```
+Then start/stop recording like this:
+```
+rosrun metavision_ros_driver start_recording.py
+```
+And stop recording:
+```
+rosrun metavision_ros_driver stop_recording.py
+```
+
 # How to use (ROS2):
 
 ```
@@ -123,16 +145,44 @@ The printout should be similar to the one for ROS1.
 
 ## CPU load
 
-Here are some (ROS1) performance numbers on a 16 thread (8-core) AMD Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained by producing maximum event rates (50Mevs) with a SilkyEVCam:
+Here are some approximate performance numbers on a 16 thread (8-core) AMD
+Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained
+by producing maximum event rates about (48Mevs) with a SilkyEVCam:
 
-- driver idle, no subscriber: 47% CPU load
-- driver (nodelet) + dummy client connected (going through network): driver at 129%
-- combined driver + rosbag record nodelet (i.e. no network traffic): combined at 192%
-- separate driver (nodelet) and rosbag (nodelet): driver at 135%, rosbag nodelet at 110%
-  (adds up to 245%, so about 50% more than running nodelets combined)
-- combined driver + rosbag record nodelet (i.e. no network traffic),
-  but with ``use_multithreading`` parameter for the driver: combined at 230%.
+### ROS1 
+
+All CPU loads below are with sensor saturating at close to 50Mevs.
+
+| settings                        | EventArray | EventArray2 | EventArray2  | note                                 |
+|                                 |            |             | (multithr)   |                                      |
+|---------------------------------|------------|-------------|--------------|--------------------------------------|
+| driver, no subscriber           | 49%        | 49%         | 106% (fluct) | no pub, extra copy for multithreaded |
+| driver, publish messages        | 81%        | 58%         | 109%         | forced publishing, no subscriber     |
+| driver(nodelet) + rostopic hz   | 135%       | 101%        | 151%         | does interprocess communication      |
+| driver + rosbag record nodelet  | 190%       | 147%        | 191%         | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 131%+115%  | 100%+100%   | 155%+100%    | does interproc. comm + disk i/o      |
   
+
+### ROS2
+
+All CPU loads below are with sensor saturating at close to 50Mevs.
+
+| settings                        | EventArray | EventArray2 | EventArray2  | note                                 |
+|                                 |            |             | (multithr)   |                                      |
+|---------------------------------|------------|-------------|--------------|--------------------------------------|
+| driver, no subscriber           | 63%        | 63%         | 105% (fluct) | no pub, extra copy for multithreaded |
+| driver, publish messages        | 63%        | 63%         | 110%         | forced publishing, no subscriber(\*) |
+| driver(nodelet) + rostopic hz   | 102% (\**) | 71%         | 115%         | does interprocess communication      |
+| driver + rosbag record nodelet  | n/a%       | n/a%        | n/a%         | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | n/a%       | n/a%        | n/a%         | does interproc. comm + disk i/o      |
+
+
+(\*) The forced publishing makes no difference because in either case
+the data received from the SDK is parsed to get ON/OFF statistics (not
+done for ROS1 driver). That memory read access apparently dominates
+over the message creation. 
+(\**) driver is dropping messages
+
 ## License
 
 This software is issued under the Apache License Version 2.0.

@@ -19,6 +19,7 @@
 #include <camera_info_manager/camera_info_manager.h>
 #include <dvs_msgs/EventArray.h>
 #include <dynamic_reconfigure/server.h>
+#include <event_array2_msgs/EventArray2.h>
 #include <metavision/sdk/driver/camera.h>
 #include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
@@ -91,7 +92,9 @@ public:
   {
     cameraInfoURL_ = nh_.param<std::string>("camerainfo_url", "");
     frameId_ = nh_.param<std::string>("frame_id", "");
-    messageTimeThreshold_ = ros::Duration(nh_.param<double>("message_time_threshold", 10e-6));
+    const double mtt = nh_.param<double>("message_time_threshold", 100e-6);
+    messageTimeThreshold_ = ros::Duration(mtt);
+    reserveSize_ = (size_t)(nh_.param<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
 
     pub_ = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
 
@@ -134,16 +137,16 @@ public:
     if (t0_ == 0) {
       t0_ = ros::Time::now().toNSec();
     }
+    if (pub_.getNumSubscribers() == 0) {
+      return;
+    }
     if (!msg_) {  // must allocate new message
       msg_.reset(new MsgType());
       msg_->header.frame_id = frameId_;
       msg_->header.seq = seq_++;
       msg_->width = width_;
       msg_->height = height_;
-      // under full load a 50 Mev/s camera will
-      // produce about 5000 events in a 100us
-      // time slice.
-      msg_->events.reserve(6000);
+      msg_->events.reserve(reserveSize_);
     }
     const size_t n = end - start;
     auto & events = msg_->events;
@@ -212,12 +215,62 @@ private:
 
   std::string cameraInfoURL_;
   ros::Duration messageTimeThreshold_;  // duration for triggering a message
-
+  size_t reserveSize_{0};               // how many events to preallocate per message
   uint64_t t0_{0};       // time base
   int width_;            // image width
   int height_;           // image height
   std::string frameId_;  // ROS frame id
   uint32_t seq_;         // ROS sequence number
 };
+
+template <>
+void DriverROS1<event_array2_msgs::EventArray2>::publish(
+  const Metavision::EventCD * start, const Metavision::EventCD * end)
+{
+  if (t0_ == 0) {
+    t0_ = ros::Time::now().toNSec();
+  }
+  if (pub_.getNumSubscribers() == 0) {
+    return;
+  }
+  if (!msg_) {  // must allocate new message
+    msg_.reset(new event_array2_msgs::EventArray2());
+    msg_->header.frame_id = frameId_;
+    msg_->header.seq = seq_++;
+    msg_->width = width_;
+    msg_->height = height_;
+    msg_->time_base = t0_ + (uint64_t)(start->t * 1e3);
+    msg_->header.stamp.fromNSec(msg_->time_base);
+    msg_->p_y_x_t.reserve(reserveSize_);
+  }
+  const size_t n = end - start;
+  const size_t old_size = msg_->p_y_x_t.size();
+  // The resize should not trigger a
+  // copy with proper reserved capacity.
+  msg_->p_y_x_t.resize(old_size + n);
+  // copy data into ROS message. For the SilkyEvCam
+  // the full load packet size delivered by the SDK is n = 320
+  int eventCount[2] = {0, 0};
+  uint64_t * pyxt = &(msg_->p_y_x_t[old_size]);
+  const uint64_t t_base = msg_->time_base;
+  for (unsigned int i = 0; i < n; i++) {
+    const auto & e = start[i];
+    const uint64_t ts = t0_ + (uint64_t)(e.t * 1e3);
+    const uint64_t dt = (ts - t_base) & 0xFFFFFFFFULL;
+    pyxt[i] = (uint64_t)e.p << 63 | (uint64_t)e.y << 48 | (uint64_t)e.x << 32 | dt;
+    eventCount[e.p]++;
+  }
+  wrapper_->updateEventCount(0, eventCount[0]);
+  wrapper_->updateEventCount(1, eventCount[1]);
+  ros::Time t_last;
+  t_last.fromNSec(t0_ + (uint64_t)(start[n - 1].t * 1e3));
+  if (t_last > msg_->header.stamp + messageTimeThreshold_) {
+    wrapper_->updateEventsSent(msg_->p_y_x_t.size());
+    wrapper_->updateMsgsSent(1);
+    pub_.publish(msg_);
+    msg_.reset();  // no longer using this one
+  }
+}
+
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS1_H_

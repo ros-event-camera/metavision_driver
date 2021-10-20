@@ -41,6 +41,8 @@ public:
       prophDriver_ = initDriver<prophesee_event_msgs::EventArray>(nh_);
     } else if (msg_mode == "dvs") {
       dvsDriver_ = initDriver<dvs_msgs::EventArray>(nh_);
+    } else if (msg_mode == "event_array2") {
+      eventArray2Driver_ = initDriver<event_array2_msgs::EventArray2>(nh_);
     } else {
       ROS_ERROR_STREAM("exiting due to invalid message mode: " << msg_mode);
     }
@@ -50,6 +52,7 @@ private:
   // ------ variables --------
   std::shared_ptr<DriverROS1<prophesee_event_msgs::EventArray>> prophDriver_;
   std::shared_ptr<DriverROS1<dvs_msgs::EventArray>> dvsDriver_;
+  std::shared_ptr<DriverROS1<event_array2_msgs::EventArray2>> eventArray2Driver_;
   ros::NodeHandle nh_;
 };
 }  // namespace metavision_ros_driver

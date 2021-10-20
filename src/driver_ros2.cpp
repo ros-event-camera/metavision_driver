@@ -154,6 +154,11 @@ bool DriverROS2::start()
   } else if (msgType == "dvs") {
     dvsPub_.reset(new EventPublisherROS2<dvs_msgs::msg::EventArray>(this, wrapper_, frameId_));
     wrapper_->startCamera(dvsPub_.get());
+  } else if (msgType == "event_array2") {
+    LOG_INFO("started driver with EventArray2 msg type");
+    eventArray2Pub_.reset(
+      new EventPublisherROS2<event_array2_msgs::msg::EventArray2>(this, wrapper_, frameId_));
+    wrapper_->startCamera(eventArray2Pub_.get());
   } else {
     LOG_ERROR("invalid msg type: " << msgType);
     throw(std::runtime_error("invalid message type!"));
