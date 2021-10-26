@@ -216,11 +216,11 @@ private:
   std::string cameraInfoURL_;
   ros::Duration messageTimeThreshold_;  // duration for triggering a message
   size_t reserveSize_{0};               // how many events to preallocate per message
-  uint64_t t0_{0};       // time base
-  int width_;            // image width
-  int height_;           // image height
-  std::string frameId_;  // ROS frame id
-  uint32_t seq_;         // ROS sequence number
+  uint64_t t0_{0};                      // time base
+  int width_;                           // image width
+  int height_;                          // image height
+  std::string frameId_;                 // ROS frame id
+  uint64_t seq_{0};                     // ROS sequence number
 };
 
 template <>
@@ -236,12 +236,13 @@ void DriverROS1<event_array2_msgs::EventArray2>::publish(
   if (!msg_) {  // must allocate new message
     msg_.reset(new event_array2_msgs::EventArray2());
     msg_->header.frame_id = frameId_;
-    msg_->header.seq = seq_++;
+    msg_->header.seq = static_cast<uint32_t>(seq_++);
     msg_->width = width_;
     msg_->height = height_;
     msg_->time_base = t0_ + (uint64_t)(start->t * 1e3);
     msg_->header.stamp.fromNSec(msg_->time_base);
     msg_->p_y_x_t.reserve(reserveSize_);
+    msg_->seq = seq_;  // duplicate, but wanted symmetry with ROS2
   }
   const size_t n = end - start;
   const size_t old_size = msg_->p_y_x_t.size();

@@ -26,10 +26,10 @@ to pull in the remaining dependencies:
 mkdir -p ~/metavision_ros_driver_ws/src
 cd ~/metavision_ros_driver_ws
 git clone https://github.com/berndpfrommer/metavision_ros_driver src/metavision_ros_driver
-wstool init src src/metavision_ros_driver/metavision_ros${ROS_VERSION}_driver.rosinstall
+wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
 
 # or to update an existing space
-# wstool merge -t src src/metavision_ros_driver/metavision_ros${ROS_VERSION}_driver.rosinstall
+# wstool merge -t src src/metavision_ros_driver/metavision_ros_driver.rosinstall
 # wstool update -t src
 ```
 
@@ -143,6 +143,13 @@ ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composa
 ```
 The printout should be similar to the one for ROS1.
 
+To use the combined driver/recorder and start the recording:
+```
+ros2 launch recording_driver.launch.py
+ros2 service call /start_recording std_srvs/srv/Trigger
+```
+To stop the recording you have to kill (Ctrl-C) the recording driver.
+
 ## CPU load
 
 Here are some approximate performance numbers on a 16 thread (8-core) AMD
@@ -166,22 +173,24 @@ All CPU loads below are with sensor saturating at close to 50Mevs.
 ### ROS2
 
 All CPU loads below are with sensor saturating at close to 50Mevs.
+Middleware used was cyclonedds.
 
-| settings                        | EventArray | EventArray2 | EventArray2  | note                                 |
-|                                 |            |             | (multithr)   |                                      |
-|---------------------------------|------------|-------------|--------------|--------------------------------------|
-| driver, no subscriber           | 63%        | 63%         | 105% (fluct) | no pub, extra copy for multithreaded |
-| driver, publish messages        | 63%        | 63%         | 110%         | forced publishing, no subscriber(\*) |
-| driver(nodelet) + rostopic hz   | 102% (\**) | 71%         | 115%         | does interprocess communication      |
-| driver + rosbag record nodelet  | n/a%       | n/a%        | n/a%         | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | n/a%       | n/a%        | n/a%         | does interproc. comm + disk i/o      |
+| settings                        | EventArray    | EventArray2 | EventArray2  | note                                 |
+|                                 |               |             | (multithr)   |                                      |
+|---------------------------------|---------------|-------------|--------------|--------------------------------------|
+| driver, no subscriber           | 63%           | 63%         | 105% (fluct) | no pub, extra copy for multithreaded |
+| driver, publish messages        | 63%           | 63%         | 110%         | forced publishing, no subscriber(1)  |
+| driver + rostopic hz            | 102% (2)      | 71%         | 115%         | does interprocess communication      |
+| driver + rosbag record composed | 117% (3)      | 120%        | 175%         | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%   | 122% + 94%   | does interproc. comm + disk i/o      |
 
 
-(\*) The forced publishing makes no difference because in either case
+(1) The forced publishing makes no difference because in either case
 the data received from the SDK is parsed to get ON/OFF statistics (not
 done for ROS1 driver). That memory read access apparently dominates
 over the message creation. 
-(\**) driver is dropping messages
+(2) driver is dropping messages
+(3) driver spends virtually all time in publish(), does not produce messages at full rate
 
 ## License
 

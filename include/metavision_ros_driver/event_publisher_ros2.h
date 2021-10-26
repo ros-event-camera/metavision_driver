@@ -25,10 +25,8 @@
 #include "metavision_ros_driver/callback_handler.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
-using namespace std::chrono;
-
 #define ACTUALLY_PUBLISH true
-//#define DEBUG_PERFORMANCE
+// #define DEBUG_PERFORMANCE
 
 namespace metavision_ros_driver
 {
@@ -116,10 +114,11 @@ private:
   std::unique_ptr<MsgType> msg_;
   rclcpp::Duration messageTimeThreshold_;  // duration for triggering a message
   uint64_t t0_{0};                         // time base
-  int width_;       // image width
-  int height_;      // image height
+  int width_;                              // image width
+  int height_;                             // image height
   std::string frameId_;
   size_t reserveSize_{0};  // how many events to preallocate per message
+  uint64_t seq_{0};        // sequence number for gap detection
 #ifdef DEBUG_PERFORMANCE
   microseconds dt_{0};  // total time spent in ros calls (perf debugging)
   high_resolution_clock::time_point startTime_;
@@ -161,6 +160,7 @@ void EventPublisherROS2<event_array2_msgs::msg::EventArray2>::publish(
     if (!msg_) {  // must allocate new message
       const uint64_t time_base = t0_ + (uint64_t)(start->t * 1e3);
       msg_.reset(allocate_message(time_base, width_, height_, frameId_, reserveSize_));
+      msg_->seq = seq_++;
     }
     // The resize should not trigger a
     // copy if the capacity is sufficient

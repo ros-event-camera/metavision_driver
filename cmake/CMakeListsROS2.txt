@@ -43,6 +43,7 @@ set(ROS2_DEPENDENCIES
   "event_array2_msgs"
   "sensor_msgs"
   "std_srvs"
+  "rosbag2_transport"
 )
 
 foreach(pkg ${ROS2_DEPENDENCIES})
@@ -63,16 +64,38 @@ target_link_libraries(driver_ros2 MetavisionSDK::driver)
 
 rclcpp_components_register_nodes(driver_ros2 "metavision_ros_driver::DriverROS2")
 
-
 # --------- driver (plain old node) -------------
 
 ament_auto_add_executable(driver_node
   src/driver_node_ros2.cpp)
 
 
-# the node must go into the paroject specific lib directory or else
-# the launch file will not find it
 
+#
+# --------- recorder (composable component and node) -------------
+
+if (HAVE_HACKED_ROSBAG2_TRANSPORT)
+  ament_auto_add_library(recorder SHARED
+    src/recorder_ros2.cpp)
+
+  target_include_directories(recorder PRIVATE include)
+
+  rclcpp_components_register_nodes(recorder "metavision_ros_driver::Recorder")
+
+  ament_auto_add_executable(recorder_node
+    src/recorder_node_ros2.cpp)
+
+  install(TARGETS
+    recorder
+    DESTINATION lib)
+
+  install(TARGETS
+    recorder_node
+    DESTINATION lib/${PROJECT_NAME}/)
+endif()
+
+# the node must go into the project specific lib directory or else
+# the launch file will not find it
 install(TARGETS
   driver_node
   DESTINATION lib/${PROJECT_NAME}/

@@ -27,8 +27,9 @@
   <depend>nodelet</depend>
 
   <!-- ROS2 specific dependencies -->
-  <depend>rclcpp</depend>
-  <depend>rclcpp_components</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
+  <depend condition="$ROS_VERSION == 2">rosbag2_transport</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
