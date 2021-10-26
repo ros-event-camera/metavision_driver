@@ -160,14 +160,13 @@ by producing maximum event rates about (48Mevs) with a SilkyEVCam:
 
 All CPU loads below are with sensor saturating at close to 50Mevs.
 
-| settings                        | EventArray | EventArray2 | EventArray2  | note                                 |
-|                                 |            |             | (multithr)   |                                      |
-|---------------------------------|------------|-------------|--------------|--------------------------------------|
-| driver, no subscriber           | 49%        | 49%         | 106% (fluct) | no pub, extra copy for multithreaded |
-| driver, publish messages        | 81%        | 58%         | 109%         | forced publishing, no subscriber     |
-| driver(nodelet) + rostopic hz   | 135%       | 101%        | 151%         | does interprocess communication      |
-| driver + rosbag record nodelet  | 190%       | 147%        | 191%         | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 131%+115%  | 100%+100%   | 155%+100%    | does interproc. comm + disk i/o      |
+| settings                        | EventArray | EventArray2 | EventArray2 (multithr) | note                                 |
+|---------------------------------|------------|-------------|------------------------|--------------------------------------|
+| driver, no subscriber           | 49%        | 49%         | 106% (fluct)           | no pub, extra copy for multithreaded |
+| driver, publish messages        | 81%        | 58%         | 109%                   | forced publishing, no subscriber     |
+| driver(nodelet) + rostopic hz   | 135%       | 101%        | 151%                   | does interprocess communication      |
+| driver + rosbag record nodelet  | 190%       | 147%        | 191%                   | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 131%+115%  | 100%+100%   | 155%+100%              | does interproc. comm + disk i/o      |
   
 
 ### ROS2
@@ -175,14 +174,13 @@ All CPU loads below are with sensor saturating at close to 50Mevs.
 All CPU loads below are with sensor saturating at close to 50Mevs.
 Middleware used was cyclonedds.
 
-| settings                        | EventArray    | EventArray2 | EventArray2  | note                                 |
-|                                 |               |             | (multithr)   |                                      |
-|---------------------------------|---------------|-------------|--------------|--------------------------------------|
-| driver, no subscriber           | 63%           | 63%         | 105% (fluct) | no pub, extra copy for multithreaded |
-| driver, publish messages        | 63%           | 63%         | 110%         | forced publishing, no subscriber(1)  |
-| driver + rostopic hz            | 102% (2)      | 71%         | 115%         | does interprocess communication      |
-| driver + rosbag record composed | 117% (3)      | 120%        | 175%         | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%   | 122% + 94%   | does interproc. comm + disk i/o      |
+| settings                        | EventArray    | EventArray2 | EventArray2 (multithr) | note                                 |
+|---------------------------------|---------------|-------------|------------------------|--------------------------------------|
+| driver, no subscriber           | 63%           | 63%         | 105% (fluct)           | no pub, extra copy for multithreaded |
+| driver, publish messages        | 63%           | 63%         | 110%                   | forced publishing, no subscriber(1)  |
+| driver + rostopic hz            | 102% (2)      | 71%         | 115%                   | does interprocess communication      |
+| driver + rosbag record composed | 117% (3)      | 120%        | 175%                   | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%   | 122% + 94%             | does interproc. comm + disk i/o      |
 
 
 (1) The forced publishing makes no difference because in either case
