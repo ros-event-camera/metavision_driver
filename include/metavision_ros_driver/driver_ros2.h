@@ -18,7 +18,7 @@
 
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <dvs_msgs/msg/event_array.hpp>
-#include <event_array2_msgs/msg/event_array2.hpp>
+#include <event_array_msgs/msg/event_array.hpp>
 #include <map>
 #include <memory>
 #include <prophesee_event_msgs/msg/event_array.hpp>
@@ -65,7 +65,7 @@ private:
   std::string cameraInfoURL_;
   std::shared_ptr<EventPublisherROS2<prophesee_event_msgs::msg::EventArray>> prophPub_;
   std::shared_ptr<EventPublisherROS2<dvs_msgs::msg::EventArray>> dvsPub_;
-  std::shared_ptr<EventPublisherROS2<event_array2_msgs::msg::EventArray2>> eventArray2Pub_;
+  std::shared_ptr<EventPublisherROS2<event_array_msgs::msg::EventArray>> eventArrayPub_;
 
   uint64_t t0_{0};  // time base
   int width_;       // image width

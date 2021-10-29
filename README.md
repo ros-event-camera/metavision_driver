@@ -56,7 +56,7 @@ This driver differs from the Prophesee ROS driver in the following ways:
   - ``prophesee_msgs``: same as the Prophesee ROS driver
   - ``dvs_msgs``: permits using ROS1 pipelines developed for the DVS
     camera
-  - ``event_array2_msgs``: needed for ROS2 to get acceptable
+  - ``event_array_msgs``: needed for ROS2 to get acceptable
     performance, loads faster when accessed through rosbag read API
 - less CPU consumption by avoiding unnecessary memory copies.
 - implemented as nodelet such that it can be run in the same address space as
@@ -74,9 +74,9 @@ Parameters:
 - ``message_time_threshold``: approximate time span [sec] of events to be
   aggregated before ROS message is sent. Defaults to 100us.
 - ``statistics_print_interval``: time in seconds between statistics printouts.
-- ``message_type``: can be set to ``dvs``, ``prophesee`` or ``event_array2``, depending on
+- ``message_type``: can be set to ``dvs``, ``prophesee`` or ``event_array``, depending on
   what message types the driver should publish. For ROS2 you must set
-  it to ``event_array2`` to get acceptable performance, since the
+  it to ``event_array`` to get acceptable performance, since the
   marshalling/unmarshalling overhead is too large for the other
   message types.
 - ``send_queue_size``: ros message send queue size (defaults to 1000).
@@ -137,6 +137,12 @@ rosrun metavision_ros_driver stop_recording.py
 
 # How to use (ROS2):
 
+For efficient recording of the events you need to run the
+driver and the recorder in the same address space as ROS2 composable
+nodes. For this you will need to install the
+[composable recorder](https://github.com/berndpfrommer/rosbag2_composable_recorder)
+into your workspace as well.
+
 ```
 ros2 launch metavision_ros_driver driver_node.launch.py        # (run as node)
 ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composable node)
@@ -160,13 +166,13 @@ by producing maximum event rates about (48Mevs) with a SilkyEVCam:
 
 All CPU loads below are with sensor saturating at close to 50Mevs.
 
-| settings                        | EventArray | EventArray2 | EventArray2 (multithr) | note                                 |
-|---------------------------------|------------|-------------|------------------------|--------------------------------------|
-| driver, no subscriber           | 49%        | 49%         | 106% (fluct)           | no pub, extra copy for multithreaded |
-| driver, publish messages        | 81%        | 58%         | 109%                   | forced publishing, no subscriber     |
-| driver(nodelet) + rostopic hz   | 135%       | 101%        | 151%                   | does interprocess communication      |
-| driver + rosbag record nodelet  | 190%       | 147%        | 191%                   | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 131%+115%  | 100%+100%   | 155%+100%              | does interproc. comm + disk i/o      |
+| settings                        | DvsMsg    | EventArray | EventArray (multithr) | note                                 |
+|---------------------------------|-----------|------------|-----------------------|--------------------------------------|
+| driver, no subscriber           | 49%       | 49%        | 106% (fluct)          | no pub, extra copy for multithreaded |
+| driver, publish messages        | 81%       | 58%        | 109%                  | forced publishing, no subscriber     |
+| driver(nodelet) + rostopic hz   | 135%      | 101%       | 151%                  | does interprocess communication      |
+| driver + rosbag record nodelet  | 190%      | 147%       | 191%                  | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 131%+115% | 100%+100%  | 155%+100%             | does interproc. comm + disk i/o      |
   
 
 ### ROS2
@@ -174,13 +180,13 @@ All CPU loads below are with sensor saturating at close to 50Mevs.
 All CPU loads below are with sensor saturating at close to 50Mevs.
 Middleware used was cyclonedds.
 
-| settings                        | EventArray    | EventArray2 | EventArray2 (multithr) | note                                 |
-|---------------------------------|---------------|-------------|------------------------|--------------------------------------|
-| driver, no subscriber           | 63%           | 63%         | 105% (fluct)           | no pub, extra copy for multithreaded |
-| driver, publish messages        | 63%           | 63%         | 110%                   | forced publishing, no subscriber(1)  |
-| driver + rostopic hz            | 102% (2)      | 71%         | 115%                   | does interprocess communication      |
-| driver + rosbag record composed | 117% (3)      | 120%        | 175%                   | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%   | 122% + 94%             | does interproc. comm + disk i/o      |
+| settings                        | DvsMsg        | EventArray | EventArray (multithr) | note                                 |
+|---------------------------------|---------------|------------|-----------------------|--------------------------------------|
+| driver, no subscriber           | 63%           | 63%        | 105% (fluct)          | no pub, extra copy for multithreaded |
+| driver, publish messages        | 63%           | 63%        | 110%                  | forced publishing, no subscriber(1)  |
+| driver + rostopic hz            | 102% (2)      | 71%        | 115%                  | does interprocess communication      |
+| driver + rosbag record composed | 117% (3)      | 120%       | 175%                  | no interproc. comm, but disk i/o     |
+| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%  | 122% + 94%            | does interproc. comm + disk i/o      |
 
 
 (1) The forced publishing makes no difference because in either case

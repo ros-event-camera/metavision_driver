@@ -32,10 +32,11 @@ def launch_setup(context, *args, **kwargs):
     node = Node(package='metavision_ros_driver',
                 executable='driver_node',
                 output='screen',
+                # prefix=['xterm -e gdb -ex run --args'],
                 name=cam_name,
                 parameters=[
                     {'use_multithreading': False,
-                     'message_type': 'event_array2',
+                     'message_type': 'event_array',
                      'statistics_print_interval': 2.0,
                      'bias_file': bias_dir + 'silky_ev_cam.bias',
                      'camerainfo_url': '',

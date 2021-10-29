@@ -1,6 +1,6 @@
 <launch>
   <arg name="bias_file" default=""/>
-  <node pkg="metavision_ros_driver" type="driver_node" name="metavision_driver" clear_params="true"
+  <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
     <!-- "message_time_threshold" sets time span for how long events
 	 will be buffered until a new ROS message is generated -->
@@ -12,6 +12,6 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- what kind of messages to write (dvs or prophesee) -->
-    <param name="message_type" value="event_array2"/>
+    <param name="message_type" value="event_array"/>
   </node>
 </launch>

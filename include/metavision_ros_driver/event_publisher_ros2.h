@@ -16,8 +16,10 @@
 #ifndef METAVISION_ROS_DRIVER__EVENT_PUBLISHER_ROS2_H_
 #define METAVISION_ROS_DRIVER__EVENT_PUBLISHER_ROS2_H_
 
+#include <event_array_msgs/encode.h>
+
 #include <chrono>
-#include <event_array2_msgs/msg/event_array2.hpp>
+#include <event_array_msgs/msg/event_array.hpp>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
@@ -52,7 +54,13 @@ public:
 
     width_ = wrapper_->getWidth();
     height_ = wrapper_->getHeight();
+    const union {
+      uint32_t i;
+      char c[4];
+    } combined_int = {0x01020304};  // from stackoverflow
+    isBigEndian_ = (combined_int.c[0] == 1);
   }
+
   ~EventPublisherROS2() {}
 
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
@@ -119,6 +127,7 @@ private:
   std::string frameId_;
   size_t reserveSize_{0};  // how many events to preallocate per message
   uint64_t seq_{0};        // sequence number for gap detection
+  bool isBigEndian_{false};
 #ifdef DEBUG_PERFORMANCE
   microseconds dt_{0};  // total time spent in ros calls (perf debugging)
   high_resolution_clock::time_point startTime_;
@@ -126,29 +135,32 @@ private:
 #endif
 };
 
-event_array2_msgs::msg::EventArray2 * allocate_message(
-  uint64_t time_base, uint16_t width, uint16_t height, const std::string & frameId, size_t reserve)
+event_array_msgs::msg::EventArray * allocate_message(
+  uint64_t time_base, uint16_t width, uint16_t height, const std::string & frameId,
+  bool isBigEndian, size_t reserve)
 {
-  auto msg = new event_array2_msgs::msg::EventArray2();
+  auto msg = new event_array_msgs::msg::EventArray();
   msg->header.frame_id = frameId;
   msg->header.stamp = rclcpp::Time(time_base, RCL_SYSTEM_TIME);
   msg->width = width;
   msg->height = height;
+  msg->is_bigendian = isBigEndian;
+  msg->encoding = "mono";
   msg->time_base = time_base;
-  msg->p_y_x_t.reserve(reserve);
+  msg->events.reserve(reserve * 8);  // 8 bytes per event
   return (msg);
 }
 
-inline size_t resize_message(event_array2_msgs::msg::EventArray2 * msg, size_t n)
+inline size_t resize_message(event_array_msgs::msg::EventArray * msg, size_t n)
 {
-  const size_t oldSize = msg->p_y_x_t.size();
-  const size_t newSize = oldSize + n;
-  msg->p_y_x_t.resize(newSize);
+  const size_t oldSize = msg->events.size();
+  const size_t newSize = oldSize + n * 8;
+  msg->events.resize(newSize);
   return (oldSize);
 }
 
 template <>
-void EventPublisherROS2<event_array2_msgs::msg::EventArray2>::publish(
+void EventPublisherROS2<event_array_msgs::msg::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   if (t0_ == 0) {
@@ -159,21 +171,23 @@ void EventPublisherROS2<event_array2_msgs::msg::EventArray2>::publish(
   if (pub_->get_subscription_count() > 0) {
     if (!msg_) {  // must allocate new message
       const uint64_t time_base = t0_ + (uint64_t)(start->t * 1e3);
-      msg_.reset(allocate_message(time_base, width_, height_, frameId_, reserveSize_));
+      msg_.reset(
+        allocate_message(time_base, width_, height_, frameId_, isBigEndian_, reserveSize_));
       msg_->seq = seq_++;
     }
     // The resize should not trigger a
     // copy if the capacity is sufficient
     const size_t old_size = resize_message(msg_.get(), n);
+
     // Copy data into ROS message. For the SilkyEvCam
     // the full load packet size delivered by the SDK is n = 320
-    uint64_t * pyxt = &(msg_->p_y_x_t[old_size]);
+    uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
     const uint64_t t_base = msg_->time_base;
     for (unsigned int i = 0; i < n; i++) {
       const auto & e = start[i];
       const uint64_t ts = t0_ + (uint64_t)(e.t * 1e3);
-      const uint64_t dt = (ts - t_base) & 0xFFFFFFFFULL;
-      pyxt[i] = (uint64_t)e.p << 63 | (uint64_t)e.y << 48 | (uint64_t)e.x << 32 | dt;
+      const uint32_t dt = static_cast<uint32_t>((ts - t_base) & 0xFFFFFFFFULL);
+      event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
       eventCount[e.p]++;
     }
 
@@ -182,7 +196,7 @@ void EventPublisherROS2<event_array2_msgs::msg::EventArray2>::publish(
 #ifdef DEBUG_PERFORMANCE
       auto t_start = high_resolution_clock::now();
 #endif
-      wrapper_->updateEventsSent(msg_->p_y_x_t.size());
+      wrapper_->updateEventsSent(msg_->events.size() / 8);
       wrapper_->updateMsgsSent(1);
       if (ACTUALLY_PUBLISH) {
         // the move() will reset msg_ and transfer ownership

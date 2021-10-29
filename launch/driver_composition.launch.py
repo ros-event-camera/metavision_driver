@@ -42,7 +42,7 @@ def launch_setup(context, *args, **kwargs):
                     name=cam_name,
                     parameters=[
                         {'use_multithreading': True,
-                         'message_type': 'event_array2',
+                         'message_type': 'event_array',
                          'statistics_print_interval': 2.0,
                          'bias_file': bias_dir + 'silky_ev_cam.bias',
                          'camerainfo_url': '',

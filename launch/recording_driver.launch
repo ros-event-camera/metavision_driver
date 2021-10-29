@@ -8,10 +8,10 @@
 	args="load nodelet_rosbag/NodeletRosbag recording_driver" output="screen">
     <param name="rosbag_path" value="$(arg bag)"/>
     <param name="receive_queue_size" value="1000"/>
-    <rosparam param="rosbag_record_topics"> ["/metavision_driver/events"]</rosparam>
+    <rosparam param="rosbag_record_topics"> ["/event_camera/events"]</rosparam>
   </node>
   <node pkg="nodelet" type="nodelet"
-    name="metavision_driver" args="load
+    name="event_camera" args="load
 				metavision_ros_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
     <param name="message_time_threshold" value="0.0001"/>
@@ -21,7 +21,7 @@
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
-    <!-- what kind of messages to write (dvs or prophesee, event_array2) -->
-    <param name="message_type" value="event_array2"/>
+    <!-- what kind of messages to write (dvs or prophesee, event_array) -->
+    <param name="message_type" value="event_array"/>
   </node>
 </launch>

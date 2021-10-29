@@ -19,7 +19,8 @@
 #include <camera_info_manager/camera_info_manager.h>
 #include <dvs_msgs/EventArray.h>
 #include <dynamic_reconfigure/server.h>
-#include <event_array2_msgs/EventArray2.h>
+#include <event_array_msgs/EventArray.h>
+#include <event_array_msgs/encode.h>
 #include <metavision/sdk/driver/camera.h>
 #include <prophesee_event_msgs/EventArray.h>
 #include <ros/ros.h>
@@ -224,7 +225,7 @@ private:
 };
 
 template <>
-void DriverROS1<event_array2_msgs::EventArray2>::publish(
+void DriverROS1<event_array_msgs::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   if (t0_ == 0) {
@@ -234,31 +235,33 @@ void DriverROS1<event_array2_msgs::EventArray2>::publish(
     return;
   }
   if (!msg_) {  // must allocate new message
-    msg_.reset(new event_array2_msgs::EventArray2());
+    msg_.reset(new event_array_msgs::EventArray());
     msg_->header.frame_id = frameId_;
     msg_->header.seq = static_cast<uint32_t>(seq_++);
     msg_->width = width_;
     msg_->height = height_;
+    msg_->encoding = "mono";
     msg_->time_base = t0_ + (uint64_t)(start->t * 1e3);
     msg_->header.stamp.fromNSec(msg_->time_base);
-    msg_->p_y_x_t.reserve(reserveSize_);
+    msg_->events.reserve(reserveSize_ * 8);
     msg_->seq = seq_;  // duplicate, but wanted symmetry with ROS2
   }
   const size_t n = end - start;
-  const size_t old_size = msg_->p_y_x_t.size();
+  const size_t old_size = msg_->events.size();
   // The resize should not trigger a
   // copy with proper reserved capacity.
-  msg_->p_y_x_t.resize(old_size + n);
+  msg_->events.resize(old_size + n * 8);
   // copy data into ROS message. For the SilkyEvCam
   // the full load packet size delivered by the SDK is n = 320
   int eventCount[2] = {0, 0};
-  uint64_t * pyxt = &(msg_->p_y_x_t[old_size]);
+  uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
   const uint64_t t_base = msg_->time_base;
   for (unsigned int i = 0; i < n; i++) {
     const auto & e = start[i];
     const uint64_t ts = t0_ + (uint64_t)(e.t * 1e3);
     const uint64_t dt = (ts - t_base) & 0xFFFFFFFFULL;
-    pyxt[i] = (uint64_t)e.p << 63 | (uint64_t)e.y << 48 | (uint64_t)e.x << 32 | dt;
+
+    event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
     eventCount[e.p]++;
   }
   wrapper_->updateEventCount(0, eventCount[0]);
@@ -266,7 +269,7 @@ void DriverROS1<event_array2_msgs::EventArray2>::publish(
   ros::Time t_last;
   t_last.fromNSec(t0_ + (uint64_t)(start[n - 1].t * 1e3));
   if (t_last > msg_->header.stamp + messageTimeThreshold_) {
-    wrapper_->updateEventsSent(msg_->p_y_x_t.size());
+    wrapper_->updateEventsSent(msg_->events.size() / 8);
     wrapper_->updateMsgsSent(1);
     pub_.publish(msg_);
     msg_.reset();  // no longer using this one

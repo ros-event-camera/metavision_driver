@@ -43,7 +43,7 @@ def launch_setup(context, *args, **kwargs):
                 name=cam_name,
                 parameters=[
                     {'use_multithreading': False,
-                     'message_type': 'event_array2',
+                     'message_type': 'event_array',
                      'statistics_print_interval': 2.0,
                      'bias_file': bias_dir + 'silky_ev_cam.bias',
                      'camerainfo_url': '',
@@ -62,14 +62,14 @@ def launch_setup(context, *args, **kwargs):
         output='screen',
         composable_node_descriptions=[
             ComposableNode(
-                package='metavision_ros_driver',
-                plugin='metavision_ros_driver::Recorder',
+                package='rosbag2_composable_recorder',
+                plugin='rosbag2_composable_recorder::ComposableRecorder',
                 name="recorder",
                 parameters=[{'topics': ['/event_camera/events'],
-                             'base_name': 'events_'}],
+                             'bag_prefix': 'events_'}],
                 remappings=[
                     ('~/events', cam_str + '/events')],
-                extra_arguments=[{'use_intra_process_comms': False}],
+                extra_arguments=[{'use_intra_process_comms': True}],
             )
         ])
     return [container_1, container_2]

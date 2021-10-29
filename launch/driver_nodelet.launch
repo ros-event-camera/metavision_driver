@@ -10,7 +10,7 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- what kind of messages to write (dvs or prophesee) -->
-    <param name="message_type" value="event_array2"/>
-    <remap from="~/events" to="/metavision_driver/events"/>
+    <param name="message_type" value="event_array"/>
+    <remap from="~/events" to="/event_camera/events"/>
   </node>
 </launch>

@@ -30,14 +30,14 @@ int main(int argc, char ** argv)
   ros::NodeHandle pnh("~");
 
   try {
-    const std::string msg_mode = pnh.param<std::string>("message_type", "event_array2");
+    const std::string msg_mode = pnh.param<std::string>("message_type", "event_array");
     ROS_INFO_STREAM("running in message mode: " << msg_mode);
     if (msg_mode == "prophesee") {
       run_node<prophesee_event_msgs::EventArray>(pnh);
     } else if (msg_mode == "dvs") {
       run_node<dvs_msgs::EventArray>(pnh);
-    } else if (msg_mode == "event_array2") {
-      run_node<event_array2_msgs::EventArray2>(pnh);
+    } else if (msg_mode == "event_array") {
+      run_node<event_array_msgs::EventArray>(pnh);
     } else {
       ROS_ERROR_STREAM("exiting due to invalid message mode: " << msg_mode);
     }

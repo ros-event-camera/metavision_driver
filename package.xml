@@ -18,7 +18,7 @@
   <depend>camera_info_manager</depend>
   <depend>dvs_msgs</depend>
   <depend>prophesee_event_msgs</depend>
-  <depend>event_array2_msgs</depend>
+  <depend>event_array_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>std_srvs</depend>
   
@@ -29,7 +29,7 @@
   <!-- ROS2 specific dependencies -->
   <depend condition="$ROS_VERSION == 2">rclcpp</depend>
   <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
-  <depend condition="$ROS_VERSION == 2">rosbag2_transport</depend>
+  <exec_depend condition="$ROS_VERSION == 2">rosbag2_composable_recorder</exec_depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
