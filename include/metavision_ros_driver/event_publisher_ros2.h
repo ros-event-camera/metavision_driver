@@ -27,8 +27,7 @@
 #include "metavision_ros_driver/callback_handler.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
-#define ACTUALLY_PUBLISH true
-// #define DEBUG_PERFORMANCE
+//#define DEBUG_PERFORMANCE
 
 namespace metavision_ros_driver
 {
@@ -42,13 +41,14 @@ public:
   : node_(node), wrapper_(wrapper), messageTimeThreshold_(0, 0), frameId_(frameId)
   {
     const double mtt = node->declare_parameter<double>("message_time_threshold", 100e-6);
+    RCLCPP_INFO_STREAM(node->get_logger(), "using message time threshold: " << mtt << "s");
     messageTimeThreshold_ = rclcpp::Duration::from_nanoseconds((uint64_t)(1e9 * mtt));
     reserveSize_ =
       (size_t)(node->declare_parameter<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
     RCLCPP_INFO_STREAM(node->get_logger(), "using reserve size: " << reserveSize_);
     auto qosProf = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
 #ifdef DEBUG_PERFORMANCE
-    startTime_ = high_resolution_clock::now();
+    startTime_ = std::chrono::high_resolution_clock::now();
 #endif
     pub_ = node->create_publisher<MsgType>("~/events", qosProf);
 
@@ -129,8 +129,8 @@ private:
   uint64_t seq_{0};        // sequence number for gap detection
   bool isBigEndian_{false};
 #ifdef DEBUG_PERFORMANCE
-  microseconds dt_{0};  // total time spent in ros calls (perf debugging)
-  high_resolution_clock::time_point startTime_;
+  std::chrono::microseconds dt_{0};  // total time spent in ros calls (perf debugging)
+  std::chrono::high_resolution_clock::time_point startTime_;
   size_t msgCnt_{0};
 #endif
 };
@@ -194,35 +194,34 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::publish(
     const rclcpp::Time t_last(t0_ + (uint64_t)(start[n - 1].t * 1e3), RCL_SYSTEM_TIME);
     if (t_last > rclcpp::Time(msg_->time_base, RCL_SYSTEM_TIME) + messageTimeThreshold_) {
 #ifdef DEBUG_PERFORMANCE
-      auto t_start = high_resolution_clock::now();
+      auto t_start = std::chrono::high_resolution_clock::now();
 #endif
       wrapper_->updateEventsSent(msg_->events.size() / 8);
       wrapper_->updateMsgsSent(1);
-      if (ACTUALLY_PUBLISH) {
-        // the move() will reset msg_ and transfer ownership
-        pub_->publish(std::move(msg_));
-      } else {
-        msg_.reset();
-      }
+      // the move() will reset msg_ and transfer ownership
+      pub_->publish(std::move(msg_));
+
 #ifdef DEBUG_PERFORMANCE
       msgCnt_++;
-      auto t_stop = high_resolution_clock::now();
-      dt_ = dt_ + duration_cast<microseconds>(t_stop - t_start);
+      auto t_stop = std::chrono::high_resolution_clock::now();
+      dt_ = dt_ + std::chrono::duration_cast<std::chrono::microseconds>(t_stop - t_start);
 #endif
     }
 #ifdef DEBUG_PERFORMANCE
     if (msgCnt_ >= 1000) {
-      auto t_now = high_resolution_clock::now();
-      auto dt_tot = duration_cast<microseconds>(t_now - startTime_).count();
+      auto t_now = std::chrono::high_resolution_clock::now();
+      auto dt_tot =
+        std::chrono::duration_cast<std::chrono::microseconds>(t_now - startTime_).count();
       std::cout << "call duration [us]: " << dt_.count() / msgCnt_
                 << " rate: " << (msgCnt_ * 1e6) / dt_tot << std::endl;
       msgCnt_ = 0;
-      dt_ = microseconds::zero();
+      dt_ = std::chrono::microseconds::zero();
       startTime_ = t_now;
     }
 #endif
   } else {
-    // no subscribers, just gather event statistics
+    // no subscribers: clear out unfinished message and gather event statistics
+    msg_.reset();
     for (unsigned int i = 0; i < n; i++) {
       eventCount[start[i].p]++;
     }
