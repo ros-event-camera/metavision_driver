@@ -196,6 +196,48 @@ over the message creation.
 (2) driver is dropping messages
 (3) driver spends virtually all time in publish(), does not produce messages at full rate
 
+### About ROS time stamps
+
+The SDK provides hardware event time stamps directly from the
+camera. However first there is a unknown offset between the clocks,
+and second there is clock drift because the camera's clock is not synchronized with the ROS
+host's. For this reason the ROS driver implements an ugly scheme for
+time stamping the ROS messages as follows:
+
+
+    - within one ROS message, the time stamp differences between events are
+      identical to the SDK provided hardware time stamps
+
+    - *inbetween* ROS messages however, the event time gaps can differ
+	  from the hardware time stamps. This is necessary to catch up with
+	  the sensor clock, or to wait for the sensor clock.
+
+    - the event time stamps are never allowed to have negative
+      differences, i.e. the last event in a ROS message will have a time
+      stamp that is no later than the first one in the following message.
+
+    - the header stamps are managed such that there is no long-term
+      drift vs the host clock, i.e. the ROS time stamps of events
+      should align with those of other sensor data collected on the
+      same host.
+
+	- this occasionally leads to ROS time stamps being in the future,
+      i.e. a message may have a header stamp slightly ahead of it's
+      recording time stamp. The driver will try to remedy such a
+      situation the moment the incoming sensor data will permit.
+
+The following graph shows the clock skew between a SilkyEVCam and the
+host clock (green line). It also shows the difference between rosbag
+recording time stamp and ROS message header stamp. Note that a) there
+is no long-term drift between header stamps and recording stamps and
+b) there is very little variance between header stamps and sensor time
+stamps (aside from the drift).
+
+![timestamp image](images/time_offset_example.png)
+
+Note that using the ``time_base`` field of the ``EventArray`` message
+permits recovery of the original sensor timestamps.
+
 ## License
 
 This software is issued under the Apache License Version 2.0.

@@ -94,9 +94,9 @@ public:
     cameraInfoURL_ = nh_.param<std::string>("camerainfo_url", "");
     frameId_ = nh_.param<std::string>("frame_id", "");
     const double mtt = nh_.param<double>("message_time_threshold", 100e-6);
-    messageTimeThreshold_ = ros::Duration(mtt);
-    reserveSize_ = (size_t)(nh_.param<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
-
+    messageTimeThreshold_ = static_cast<uint64_t>(mtt * 1e9);
+    reserveSize_ =
+      static_cast<size_t>(nh_.param<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
     pub_ = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
 
     wrapper_ = std::make_shared<MetavisionWrapper>();
@@ -135,25 +135,27 @@ public:
 
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
-    if (t0_ == 0) {
-      t0_ = ros::Time::now().toNSec();
-    }
-    if (pub_.getNumSubscribers() == 0) {
+    const double sensorElapsedTime = start->t * 1e3;  // nanosec
+    if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
       return;
     }
     if (!msg_) {  // must allocate new message
+      // update the rosTimeOffset only when a new ROS message is started.
+      // This reduces compute load but more crucially it ensures that
+      // the time basis stays constant within each ROS message.
+      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
       msg_.reset(new MsgType());
       msg_->header.frame_id = frameId_;
       msg_->header.seq = seq_++;
       msg_->width = width_;
       msg_->height = height_;
+      msg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
       msg_->events.reserve(reserveSize_);
     }
     const size_t n = end - start;
     auto & events = msg_->events;
     const size_t old_size = events.size();
-    // The resize should not trigger a
-    // copy with proper reserved capacity.
+    // With proper reserved capacity, the resize should not trigger a copy.
     events.resize(events.size() + n);
     // copy data into ROS message. For the SilkyEvCam
     // the full load packet size delivered by the SDK is 320
@@ -164,15 +166,13 @@ public:
       e_trg.x = e_src.x;
       e_trg.y = e_src.y;
       e_trg.polarity = e_src.p;
-      e_trg.ts.fromNSec(t0_ + e_src.t * 1e3);
+      e_trg.ts.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(e_src.t * 1e3));
       eventCount[e_src.p]++;
     }
     wrapper_->updateEventCount(0, eventCount[0]);
     wrapper_->updateEventCount(1, eventCount[1]);
-    const ros::Time & t_msg = msg_->events.begin()->ts;
-    const ros::Time & t_last = msg_->events.rbegin()->ts;
-    if (t_last > t_msg + messageTimeThreshold_) {
-      msg_->header.stamp = t_msg;
+    lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+    if (lastROSTime_ > msg_->header.stamp.toNSec() + messageTimeThreshold_) {
       pub_.publish(msg_);
       wrapper_->updateEventsSent(events.size());
       wrapper_->updateMsgsSent(1);
@@ -202,6 +202,70 @@ private:
     return (res.success);
   }
 
+  inline uint64_t updateROSTimeOffset(double dt_sensor)
+  {
+    const uint64_t rosT = ros::Time::now().toNSec();
+    if (rosT0_ == 0) {
+      rosT0_ = rosT;
+      // initialize to dt_ros - dt_sensor because dt_ros == 0
+      averageTimeDifference_ = -dt_sensor;
+      lastROSTime_ = rosT;
+      bufferingDelay_ = 0;
+      prevSensorTime_ = dt_sensor;
+    }
+    // compute time in seconds elapsed since ROS startup
+    const double dt_ros = static_cast<double>(rosT - rosT0_);
+    // difference between elapsed ROS time and elapsed sensor Time
+    const double dt = dt_ros - dt_sensor;
+    // compute moving average of elapsed time difference
+    // average over 10 seconds
+    constexpr double f = 1.0 / (10e9);
+    const double sensor_inc = dt_sensor - prevSensorTime_;
+    const double alpha = std::min(sensor_inc * f, 0.1);
+    averageTimeDifference_ = averageTimeDifference_ * (1.0 - alpha) + alpha * dt;
+    prevSensorTime_ = dt_sensor;
+    //
+    // We want to use sensor time, but adjust it for the average clock
+    // skew between sensor time and ros time, plus some unknown buffering delay dt_buf
+    // (to be estimated)
+    //
+    // t_ros_adj
+    //  = t_sensor + avg(t_ros - t_sensor) + dt_buf
+    //  = t_sensor_0 + dt_sensor + avg(t_ros_0 + dt_ros - (t_sensor_0 + dt_sensor)) + dt_buf
+    //          [now use t_sensor_0 and t_ros_0 == constant]
+    //  = t_ros_0 + avg(dt_ros - dt_sensor) + dt_sensor + dt_buf
+    //  =: ros_time_offset + dt_sensor;
+    //
+    // Meaning once ros_time_offset has been computed, the adjusted ros timestamp
+    // is obtained by just adding the sensor elapsed time (dt_sensor) that is reported
+    // by the SDK.
+
+    const uint64_t dt_sensor_int = static_cast<uint64_t>(dt_sensor);
+    const int64_t avg_timediff_int = static_cast<int64_t>(averageTimeDifference_);
+    const uint64_t MIN_EVENT_DELTA_T = 0LL;  // minimum time gap between packets
+
+    // First test if the new ros time stamp (trialTime) would be in future. If yes, then
+    // the buffering delay has been underestimated and must be adjusted.
+
+    const uint64_t trialTime = rosT0_ + avg_timediff_int + dt_sensor_int;
+    const int64_t oldDelay = bufferingDelay_;
+    if (rosT < trialTime + bufferingDelay_) {  // time stamp would be in the future
+      bufferingDelay_ = -(trialTime - rosT);
+    }
+
+    // The buffering delay could make the time stamps go backwards.
+    // Ensure that this does not happen. This safeguard may cause
+    // time stamps to be (temporarily) in the future, there is no way around
+    // that.
+    if (trialTime + bufferingDelay_ < lastROSTime_ + MIN_EVENT_DELTA_T) {
+      bufferingDelay_ = (int64_t)(lastROSTime_ + MIN_EVENT_DELTA_T) - (int64_t)trialTime;
+    }
+
+    const uint64_t rosTimeOffset = rosT0_ + avg_timediff_int + bufferingDelay_;
+
+    return (rosTimeOffset);
+  }
+
   // ------------ variables
   ros::NodeHandle nh_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
@@ -215,64 +279,71 @@ private:
   boost::shared_ptr<MsgType> msg_;
 
   std::string cameraInfoURL_;
-  ros::Duration messageTimeThreshold_;  // duration for triggering a message
-  size_t reserveSize_{0};               // how many events to preallocate per message
-  uint64_t t0_{0};                      // time base
-  int width_;                           // image width
-  int height_;                          // image height
-  std::string frameId_;                 // ROS frame id
-  uint64_t seq_{0};                     // ROS sequence number
+  uint64_t messageTimeThreshold_;    // duration (nsec) for triggering a ROS message
+  size_t reserveSize_{0};            // how many events to preallocate per message
+  int width_;                        // image width
+  int height_;                       // image height
+  std::string frameId_;              // ROS frame id
+  uint64_t seq_{0};                  // ROS sequence number
+  uint64_t rosT0_{0};                // time when first callback happened
+  double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
+  double prevSensorTime_{0};         // sensor time during previous update
+  int64_t bufferingDelay_{0};        // estimate of buffering delay
+  uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
+  uint64_t lastROSTime_{0};          // the last event's ROS time stamp
 };
 
 template <>
 void DriverROS1<event_array_msgs::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
-  if (t0_ == 0) {
-    t0_ = ros::Time::now().toNSec();
-  }
-  if (pub_.getNumSubscribers() == 0) {
+  const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  // skip the first 2 seconds of packets to work around bad initial time stamps
+  // on SilkyEV
+  if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
     return;
   }
   if (!msg_) {  // must allocate new message
+    // update the rosTimeOffset only when a new ROS message is started.
+    // This reduces compute load but more crucially it ensures that
+    // the time basis stays constant within each ROS message.
+    rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
     msg_.reset(new event_array_msgs::EventArray());
     msg_->header.frame_id = frameId_;
     msg_->header.seq = static_cast<uint32_t>(seq_++);
     msg_->width = width_;
     msg_->height = height_;
     msg_->encoding = "mono";
-    msg_->time_base = t0_ + (uint64_t)(start->t * 1e3);
-    msg_->header.stamp.fromNSec(msg_->time_base);
+    msg_->time_base = static_cast<uint64_t>(sensorElapsedTime);
+    msg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
     msg_->events.reserve(reserveSize_ * 8);
     msg_->seq = seq_;  // duplicate, but wanted symmetry with ROS2
   }
   const size_t n = end - start;
   const size_t old_size = msg_->events.size();
-  // The resize should not trigger a
-  // copy with proper reserved capacity.
+  // With proper reserved capacity the resize should not trigger a
+  // copy
   msg_->events.resize(old_size + n * 8);
   // copy data into ROS message. For the SilkyEvCam
   // the full load packet size delivered by the SDK is n = 320
   int eventCount[2] = {0, 0};
   uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
-  const uint64_t t_base = msg_->time_base;
+  const uint64_t headerStamp = msg_->header.stamp.toNSec();
   for (unsigned int i = 0; i < n; i++) {
     const auto & e = start[i];
-    const uint64_t ts = t0_ + (uint64_t)(e.t * 1e3);
-    const uint64_t dt = (ts - t_base) & 0xFFFFFFFFULL;
-
+    const uint64_t ts = rosTimeOffset_ + static_cast<uint64_t>(e.t * 1e3);
+    const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
     event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
     eventCount[e.p]++;
   }
   wrapper_->updateEventCount(0, eventCount[0]);
   wrapper_->updateEventCount(1, eventCount[1]);
-  ros::Time t_last;
-  t_last.fromNSec(t0_ + (uint64_t)(start[n - 1].t * 1e3));
-  if (t_last > msg_->header.stamp + messageTimeThreshold_) {
+  lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+  if (lastROSTime_ > headerStamp + messageTimeThreshold_) {
     wrapper_->updateEventsSent(msg_->events.size() / 8);
     wrapper_->updateMsgsSent(1);
     pub_.publish(msg_);
-    msg_.reset();  // no longer using this one
+    msg_.reset();  // start a new message
   }
 }
 
