@@ -57,6 +57,7 @@ def read_bag(args):
         ros_times.append(t_ros[0] - t0_ros)
         sensor_times.append(t_sensor[0] - t0_sensor)
         rec_times.append(t_rec_nsec - t0_rec)
+
     return np.array(ros_times).astype(np.float), \
         np.array(sensor_times).astype(np.float), \
         np.array(rec_times).astype(np.float)
