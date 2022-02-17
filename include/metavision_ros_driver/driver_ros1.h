@@ -248,7 +248,7 @@ private:
     // the buffering delay has been underestimated and must be adjusted.
 
     const uint64_t trialTime = rosT0_ + avg_timediff_int + dt_sensor_int;
-    const int64_t oldDelay = bufferingDelay_;
+
     if (rosT < trialTime + bufferingDelay_) {  // time stamp would be in the future
       bufferingDelay_ = -(trialTime - rosT);
     }
