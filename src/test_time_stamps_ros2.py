@@ -16,8 +16,9 @@
 #
 #
 """
-test code for eventarray time stamp debugging
-some code snippets for rosbag reading were taken from
+Test code for eventarray time stamp debugging.
+
+Some code snippets for rosbag reading were taken from
 https://github.com/ros2/rosbag2/blob/master/rosbag2_py/test/test_sequential_reader.py
 """
 
@@ -87,7 +88,7 @@ def read_bag(args):
             print('ERROR: timestamp going backward at time: ', t_ros[0])
         if t_ros[-1] > t_rec_nsec:
             num_ts_future += 1
-            #print('WARN: timestamp from the future (can happen): ',
+            # print('WARN: timestamp from the future (can happen): ',
             # f'{t_ros[0]} diff: {(t_ros[-1] - t_rec_nsec) * 1e-9}')
         t_last_evt = t_ros[-1]
         ros_times.append(t_ros[0] - t0_ros)
@@ -110,7 +111,7 @@ if __name__ == '__main__':
                         default='/event_camera/events', type=str)
     ros_times, sensor_times, rec_times = read_bag(parser.parse_args())
     fig = plt.figure()
-    ax = fig.add_subplot(111);
+    ax = fig.add_subplot(111)
     ax.plot(ros_times * 1e-9, (ros_times - sensor_times) * 1e-9,
             'g', label='ros stamp - sensor time')
     ax.plot(ros_times * 1e-9, (rec_times - ros_times) * 1e-9,

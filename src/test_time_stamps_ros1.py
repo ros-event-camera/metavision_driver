@@ -15,9 +15,7 @@
 # limitations under the License.
 #
 #
-"""
-test code for eventarray time stamp debugging
-"""
+"""test code for eventarray time stamp debugging."""
 
 import rosbag
 import argparse
@@ -72,7 +70,7 @@ if __name__ == '__main__':
                         default='/event_camera/events', type=str)
     ros_times, sensor_times, rec_times = read_bag(parser.parse_args())
     fig = plt.figure()
-    ax = fig.add_subplot(111);
+    ax = fig.add_subplot(111)
     ax.plot(ros_times * 1e-9, (ros_times - sensor_times) * 1e-9,
             'g', label='ros stamp - sensor time')
     ax.plot(ros_times * 1e-9, (rec_times - ros_times) * 1e-9,

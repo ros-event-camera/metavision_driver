@@ -27,7 +27,7 @@
 #include "metavision_ros_driver/callback_handler.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
-//#define DEBUG_PERFORMANCE
+// #define DEBUG_PERFORMANCE
 
 // skip first few packets that may have bad time stamps
 #define SKIP_TIME 2e9

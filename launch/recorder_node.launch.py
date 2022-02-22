@@ -17,7 +17,6 @@
 
 import launch
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
 
 
