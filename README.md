@@ -152,7 +152,7 @@ The printout should be similar to the one for ROS1.
 To use the combined driver/recorder and start the recording:
 ```
 ros2 launch recording_driver.launch.py
-ros2 service call /start_recording std_srvs/srv/Trigger
+ros2 run metavision_ros_driver start_recording_ros2.py
 ```
 To stop the recording you have to kill (Ctrl-C) the recording driver.
 
