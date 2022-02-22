@@ -29,6 +29,8 @@
 
 //#define DEBUG_PERFORMANCE
 
+// skip first few packets that may have bad time stamps
+#define SKIP_TIME 2e9
 namespace metavision_ros_driver
 {
 template <class MsgType>
@@ -38,11 +40,11 @@ public:
   EventPublisherROS2(
     rclcpp::Node * node, const std::shared_ptr<MetavisionWrapper> & wrapper,
     const std::string & frameId)
-  : node_(node), wrapper_(wrapper), messageTimeThreshold_(0, 0), frameId_(frameId)
+  : node_(node), wrapper_(wrapper), messageTimeThreshold_(0), frameId_(frameId)
   {
     const double mtt = node->declare_parameter<double>("message_time_threshold", 100e-6);
-    RCLCPP_INFO_STREAM(node->get_logger(), "using message time threshold: " << mtt << "s");
-    messageTimeThreshold_ = rclcpp::Duration::from_nanoseconds((uint64_t)(1e9 * mtt));
+    messageTimeThreshold_ = static_cast<uint64_t>(1e9 * mtt);
+    RCLCPP_INFO_STREAM(node->get_logger(), "message time threshold: " << (mtt * 1e-9) << "s");
     reserveSize_ =
       (size_t)(node->declare_parameter<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
     RCLCPP_INFO_STREAM(node->get_logger(), "using reserve size: " << reserveSize_);
@@ -65,17 +67,19 @@ public:
 
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
-    if (t0_ == 0) {
-      t0_ = node_->now().nanoseconds();
-    }
+    const double sensorElapsedTime = start->t * 1e3;  // nanosec
+    const uint64_t sensorElapsedTimeInt = static_cast<uint64_t>(sensorElapsedTime);
+
     const size_t n = end - start;
     int eventCount[2] = {0, 0};
-    if (pub_->get_subscription_count() > 0) {
+    if (pub_->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
       if (!msg_) {  // must allocate new message
+        rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
         msg_.reset(new MsgType());
         msg_->header.frame_id = frameId_;
         msg_->width = width_;
         msg_->height = height_;
+        msg_->header.stamp = rclcpp::Time(rosTimeOffset_ + sensorElapsedTimeInt, RCL_SYSTEM_TIME);
         msg_->events.reserve(reserveSize_ * 2);
       }
       auto & events = msg_->events;
@@ -91,13 +95,11 @@ public:
         e_trg.x = e_src.x;
         e_trg.y = e_src.y;
         e_trg.polarity = e_src.p;
-        e_trg.ts = rclcpp::Time(t0_ + (uint64_t)(e_src.t * 1e3), RCL_SYSTEM_TIME);
+        e_trg.ts = rclcpp::Time(rosTimeOffset_ + (uint64_t)(e_src.t * 1e3), RCL_SYSTEM_TIME);
         eventCount[e_src.p]++;
       }
-      const rclcpp::Time t_msg(msg_->events.begin()->ts);
-      const rclcpp::Time t_last(msg_->events.rbegin()->ts);
-      if (t_last > t_msg + messageTimeThreshold_) {
-        msg_->header.stamp = t_msg;
+      lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+      if (lastROSTime_ > rclcpp::Time(msg_->header.stamp).nanoseconds() + messageTimeThreshold_) {
         wrapper_->updateEventsSent(events.size());
         wrapper_->updateMsgsSent(1);
         pub_->publish(std::move(msg_));
@@ -115,18 +117,87 @@ public:
   bool keepRunning() override { return (rclcpp::ok()); }
 
 private:
+  inline uint64_t updateROSTimeOffset(double dt_sensor)
+  {
+    const uint64_t rosT = node_->now().nanoseconds();
+    if (rosT0_ == 0) {
+      rosT0_ = rosT;
+      // initialize to dt_ros - dt_sensor because dt_ros == 0
+      averageTimeDifference_ = -dt_sensor;
+      lastROSTime_ = rosT;
+      bufferingDelay_ = 0;
+      prevSensorTime_ = dt_sensor;
+    }
+    // compute time in seconds elapsed since ROS startup
+    const double dt_ros = static_cast<double>(rosT - rosT0_);
+    // difference between elapsed ROS time and elapsed sensor Time
+    const double dt = dt_ros - dt_sensor;
+    // compute moving average of elapsed time difference
+    // average over 10 seconds
+    constexpr double f = 1.0 / (10e9);
+    const double sensor_inc = dt_sensor - prevSensorTime_;
+    const double alpha = std::min(sensor_inc * f, 0.1);
+    averageTimeDifference_ = averageTimeDifference_ * (1.0 - alpha) + alpha * dt;
+    prevSensorTime_ = dt_sensor;
+    //
+    // We want to use sensor time, but adjust it for the average clock
+    // skew between sensor time and ros time, plus some unknown buffering delay dt_buf
+    // (to be estimated)
+    //
+    // t_ros_adj
+    //  = t_sensor + avg(t_ros - t_sensor) + dt_buf
+    //  = t_sensor_0 + dt_sensor + avg(t_ros_0 + dt_ros - (t_sensor_0 + dt_sensor)) + dt_buf
+    //          [now use t_sensor_0 and t_ros_0 == constant]
+    //  = t_ros_0 + avg(dt_ros - dt_sensor) + dt_sensor + dt_buf
+    //  =: ros_time_offset + dt_sensor;
+    //
+    // Meaning once ros_time_offset has been computed, the adjusted ros timestamp
+    // is obtained by just adding the sensor elapsed time (dt_sensor) that is reported
+    // by the SDK.
+
+    const uint64_t dt_sensor_int = static_cast<uint64_t>(dt_sensor);
+    const int64_t avg_timediff_int = static_cast<int64_t>(averageTimeDifference_);
+    const uint64_t MIN_EVENT_DELTA_T = 0LL;  // minimum time gap between packets
+
+    // First test if the new ros time stamp (trialTime) would be in future. If yes, then
+    // the buffering delay has been underestimated and must be adjusted.
+
+    const uint64_t trialTime = rosT0_ + avg_timediff_int + dt_sensor_int;
+
+    if (rosT < trialTime + bufferingDelay_) {  // time stamp would be in the future
+      bufferingDelay_ = -(trialTime - rosT);
+    }
+
+    // The buffering delay could make the time stamps go backwards.
+    // Ensure that this does not happen. This safeguard may cause
+    // time stamps to be (temporarily) in the future, there is no way around
+    // that.
+    if (trialTime + bufferingDelay_ < lastROSTime_ + MIN_EVENT_DELTA_T) {
+      bufferingDelay_ = (int64_t)(lastROSTime_ + MIN_EVENT_DELTA_T) - (int64_t)trialTime;
+    }
+
+    const uint64_t rosTimeOffset = rosT0_ + avg_timediff_int + bufferingDelay_;
+
+    return (rosTimeOffset);
+  }
   // ---------  variables
   rclcpp::Node * node_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
   typename rclcpp::Publisher<MsgType>::SharedPtr pub_;
   std::unique_ptr<MsgType> msg_;
-  rclcpp::Duration messageTimeThreshold_;  // duration for triggering a message
-  uint64_t t0_{0};                         // time base
-  int width_;                              // image width
-  int height_;                             // image height
+  uint64_t messageTimeThreshold_;  // duration (nsec) for triggering a ROS message
+  uint64_t t0_{0};                 // time base
+  int width_;                      // image width
+  int height_;                     // image height
   std::string frameId_;
-  size_t reserveSize_{0};  // how many events to preallocate per message
-  uint64_t seq_{0};        // sequence number for gap detection
+  size_t reserveSize_{0};            // how many events to preallocate per message
+  uint64_t seq_{0};                  // sequence number for gap detection
+  uint64_t rosT0_{0};                // time when first callback happened
+  double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
+  double prevSensorTime_{0};         // sensor time during previous update
+  int64_t bufferingDelay_{0};        // estimate of buffering delay
+  uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
+  uint64_t lastROSTime_{0};          // the last event's ROS time stamp
   bool isBigEndian_{false};
 #ifdef DEBUG_PERFORMANCE
   std::chrono::microseconds dt_{0};  // total time spent in ros calls (perf debugging)
@@ -136,12 +207,12 @@ private:
 };
 
 event_array_msgs::msg::EventArray * allocate_message(
-  uint64_t time_base, uint16_t width, uint16_t height, const std::string & frameId,
+  uint64_t time_base, uint64_t stamp, uint16_t width, uint16_t height, const std::string & frameId,
   bool isBigEndian, size_t reserve)
 {
   auto msg = new event_array_msgs::msg::EventArray();
   msg->header.frame_id = frameId;
-  msg->header.stamp = rclcpp::Time(time_base, RCL_SYSTEM_TIME);
+  msg->header.stamp = rclcpp::Time(stamp, RCL_SYSTEM_TIME);
   msg->width = width;
   msg->height = height;
   msg->is_bigendian = isBigEndian;
@@ -163,36 +234,36 @@ template <>
 void EventPublisherROS2<event_array_msgs::msg::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
-  if (t0_ == 0) {
-    t0_ = node_->now().nanoseconds();
-  }
+  const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  const uint64_t sensorElapsedTimeInt = static_cast<uint64_t>(sensorElapsedTime);
   const size_t n = end - start;
   int eventCount[2] = {0, 0};
-  if (pub_->get_subscription_count() > 0) {
+  if (pub_->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
     if (!msg_) {  // must allocate new message
-      const uint64_t time_base = t0_ + (uint64_t)(start->t * 1e3);
-      msg_.reset(
-        allocate_message(time_base, width_, height_, frameId_, isBigEndian_, reserveSize_));
+      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+      msg_.reset(allocate_message(
+        sensorElapsedTimeInt, rosTimeOffset_ + sensorElapsedTimeInt, width_, height_, frameId_,
+        isBigEndian_, reserveSize_));
       msg_->seq = seq_++;
     }
-    // The resize should not trigger a
-    // copy if the capacity is sufficient
+    // If capacity is sufficient the resize should not trigger a copy
     const size_t old_size = resize_message(msg_.get(), n);
 
     // Copy data into ROS message. For the SilkyEvCam
     // the full load packet size delivered by the SDK is n = 320
     uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
-    const uint64_t t_base = msg_->time_base;
+    const uint64_t headerStamp = rclcpp::Time(msg_->header.stamp).nanoseconds();
+
     for (unsigned int i = 0; i < n; i++) {
       const auto & e = start[i];
-      const uint64_t ts = t0_ + (uint64_t)(e.t * 1e3);
-      const uint32_t dt = static_cast<uint32_t>((ts - t_base) & 0xFFFFFFFFULL);
+      const uint64_t ts = rosTimeOffset_ + static_cast<uint64_t>(e.t * 1e3);
+      const uint32_t dt = static_cast<uint32_t>((ts - headerStamp) & 0xFFFFFFFFULL);
       event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
       eventCount[e.p]++;
     }
 
-    const rclcpp::Time t_last(t0_ + (uint64_t)(start[n - 1].t * 1e3), RCL_SYSTEM_TIME);
-    if (t_last > rclcpp::Time(msg_->time_base, RCL_SYSTEM_TIME) + messageTimeThreshold_) {
+    lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+    if (lastROSTime_ > headerStamp + messageTimeThreshold_) {
 #ifdef DEBUG_PERFORMANCE
       auto t_start = std::chrono::high_resolution_clock::now();
 #endif
