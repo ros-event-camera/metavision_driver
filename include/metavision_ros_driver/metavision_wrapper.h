@@ -39,7 +39,7 @@ public:
   using EventCD = Metavision::EventCD;
   typedef std::pair<size_t, const void *> QueueElement;
 
-  MetavisionWrapper();
+  explicit MetavisionWrapper(const std::string & loggerName);
   ~MetavisionWrapper();
 
   int getBias(const std::string & name);
@@ -53,7 +53,10 @@ public:
   int getWidth() const { return (width_); }
   int getHeight() const { return (height_); }
   const std::string & getSerialNumber() const { return (serialNumber_); }
+  void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
+  void setSyncMode(const std::string & sm) { syncMode_ = sm; }
   bool startCamera(CallbackHandler * h);
+  void setLoggerName(const std::string & s) { loggerName_ = s; }
 
 private:
   bool initializeCamera();
@@ -86,6 +89,7 @@ private:
   uint32_t eventCount_[2];
   std::string biasFile_;
   std::string serialNumber_;
+  std::string syncMode_;
   std::string loggerName_{"driver"};
   // related to multi threading
   bool useMultithreading_{false};

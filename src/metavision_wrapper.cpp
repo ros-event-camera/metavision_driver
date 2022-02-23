@@ -15,14 +15,17 @@
 
 #include "metavision_ros_driver/metavision_wrapper.h"
 
+#include <metavision/hal/facilities/i_device_control.h>
+
 #include <set>
 
 #include "metavision_ros_driver/logging.h"
 
 namespace metavision_ros_driver
 {
-MetavisionWrapper::MetavisionWrapper()
+MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
+  setLoggerName(loggerName);
   eventCount_[0] = 0;
   eventCount_[1] = 0;
 }
@@ -108,7 +111,11 @@ bool MetavisionWrapper::stop()
 bool MetavisionWrapper::initializeCamera()
 {
   try {
-    cam_ = Metavision::Camera::from_first_available();
+    if (!serialNumber_.empty()) {
+      cam_ = Metavision::Camera::from_serial(serialNumber_);
+    } else {
+      cam_ = Metavision::Camera::from_first_available();
+    }
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
@@ -119,12 +126,25 @@ bool MetavisionWrapper::initializeCamera()
     } else {
       LOG_NAMED_INFO("no bias file provided, using camera defaults");
     }
+    // overwrite serial in case it was not set
     serialNumber_ = cam_.get_camera_configuration().serial_number;
+    LOG_NAMED_INFO("camera serial number: " << serialNumber_);
     const auto & g = cam_.geometry();
     width_ = g.width();
     height_ = g.height();
-    LOG_NAMED_INFO("camera serial number: " << serialNumber_);
     LOG_NAMED_INFO("sensor geometry: " << width_ << " x " << height_);
+    Metavision::I_DeviceControl * control =
+      cam_.get_device().get_facility<Metavision::I_DeviceControl>();
+    if (syncMode_ == "standalone") {
+      control->set_mode_standalone();
+    } else if (syncMode_ == "primary") {
+      control->set_mode_master();
+    } else if (syncMode_ == "secondary") {
+      control->set_mode_slave();
+    } else {
+      std::cerr << "INVALID SYNC MODE: " << syncMode_ << std::endl;
+      throw std::runtime_error("invalid sync mode!");
+    }
 
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));

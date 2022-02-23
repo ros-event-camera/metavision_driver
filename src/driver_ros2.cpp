@@ -26,10 +26,24 @@ namespace metavision_ros_driver
 {
 DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_ros_driver", options)
 {
-  bool status = start();
-  if (!status) {
-    LOG_ERROR("startup failed!");
-    throw std::runtime_error("startup of DriverROS2 node failed!");
+  wrapper_ = std::make_shared<MetavisionWrapper>(get_name());
+  wrapper_->setSerialNumber(this->declare_parameter<std::string>("serial", ""));
+  cameraInfoURL_ = this->declare_parameter<std::string>("camerainfo_url", "");
+  frameId_ = this->declare_parameter<std::string>("frame_id", "");
+  const std::string syncMode = this->declare_parameter<std::string>("sync_mode", "standalone");
+  LOG_INFO("sync mode: " << syncMode);
+  wrapper_->setSyncMode(syncMode);
+  if (syncMode == "primary") {  // defer starting until secondary is up
+    const std::string topic = "~/ready";
+    LOG_INFO("waiting for secondary to publish ready message on topic \"" << topic << "\"");
+    auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
+    secondaryReadySub_ = this->create_subscription<std_msgs::msg::Header>(
+      topic, qos, std::bind(&DriverROS2::secondaryReady, this, std::placeholders::_1));
+  } else {
+    if (!start()) {
+      LOG_ERROR("startup failed!");
+      throw std::runtime_error("startup of DriverROS2 node failed!");
+    }
   }
 }
 
@@ -128,10 +142,6 @@ rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
 
 bool DriverROS2::start()
 {
-  cameraInfoURL_ = this->declare_parameter<std::string>("camerainfo_url", "");
-  frameId_ = this->declare_parameter<std::string>("frame_id", "");
-  wrapper_ = std::make_shared<MetavisionWrapper>();
-
   if (!wrapper_->initialize(
         this->declare_parameter<bool>("use_multithreading", true),
         this->declare_parameter<double>("statistics_print_interval", 1.0),
@@ -139,6 +149,7 @@ bool DriverROS2::start()
     LOG_ERROR("driver initialization failed!");
     return (false);
   }
+
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
     const auto sn = wrapper_->getSerialNumber();
@@ -188,6 +199,19 @@ void DriverROS2::saveBiases(
     response->success = wrapper_->saveBiases();
   }
   response->message += (response->success ? "succeeded" : "failed");
+}
+
+void DriverROS2::secondaryReady(std_msgs::msg::Header::ConstSharedPtr msg)
+{
+  (void)msg;
+  if (secondaryReadySub_) {
+    secondaryReadySub_.reset();  // unsubscribe
+  }
+  LOG_INFO("secondary is ready, starting primary!");
+  if (!start()) {
+    LOG_ERROR("startup failed!");
+    throw std::runtime_error("startup of DriverROS2 node failed!");
+  }
 }
 
 }  // namespace metavision_ros_driver

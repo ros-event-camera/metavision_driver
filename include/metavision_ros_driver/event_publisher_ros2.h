@@ -40,11 +40,15 @@ public:
   EventPublisherROS2(
     rclcpp::Node * node, const std::shared_ptr<MetavisionWrapper> & wrapper,
     const std::string & frameId)
-  : node_(node), wrapper_(wrapper), messageTimeThreshold_(0), frameId_(frameId)
+  : node_(node),
+    wrapper_(wrapper),
+    messageTimeThreshold_(0),
+    frameId_(frameId),
+    readyIntervalTime_(rclcpp::Duration::from_seconds(1.0))
   {
     const double mtt = node->declare_parameter<double>("message_time_threshold", 100e-6);
     messageTimeThreshold_ = static_cast<uint64_t>(1e9 * mtt);
-    RCLCPP_INFO_STREAM(node->get_logger(), "message time threshold: " << (mtt * 1e-9) << "s");
+    RCLCPP_INFO_STREAM(node->get_logger(), "message time threshold: " << mtt << "s");
     reserveSize_ =
       (size_t)(node->declare_parameter<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
     RCLCPP_INFO_STREAM(node->get_logger(), "using reserve size: " << reserveSize_);
@@ -53,6 +57,11 @@ public:
     startTime_ = std::chrono::high_resolution_clock::now();
 #endif
     pub_ = node->create_publisher<MsgType>("~/events", qosProf);
+    bool hasSync = node->get_parameter("sync_mode", syncMode_);
+    if (hasSync && syncMode_ == "secondary") {
+      auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
+      secondaryReadyPub_ = node->create_publisher<std_msgs::msg::Header>("~/ready", qos);
+    }
 
     width_ = wrapper_->getWidth();
     height_ = wrapper_->getHeight();
@@ -61,6 +70,7 @@ public:
       char c[4];
     } combined_int = {0x01020304};  // from stackoverflow
     isBigEndian_ = (combined_int.c[0] == 1);
+    lastReadyTime_ = node->now() - readyIntervalTime_;  // move to past
   }
 
   ~EventPublisherROS2() {}
@@ -68,8 +78,10 @@ public:
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
     const double sensorElapsedTime = start->t * 1e3;  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      return;
+    }
     const uint64_t sensorElapsedTimeInt = static_cast<uint64_t>(sensorElapsedTime);
-
     const size_t n = end - start;
     int eventCount[2] = {0, 0};
     if (pub_->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
@@ -180,16 +192,35 @@ private:
 
     return (rosTimeOffset);
   }
+
+  inline bool waitForGoodTimestamp(double sensorElapsedTime)
+  {
+    if (sensorElapsedTime == 0 && syncMode_ == "secondary") {
+      const rclcpp::Time t = node_->now();
+      if (lastReadyTime_ < t - readyIntervalTime_) {
+        RCLCPP_INFO_STREAM(node_->get_logger(), "secondary waiting for primary to come up");
+        std_msgs::msg::Header header;
+        header.stamp = t;
+        header.frame_id = frameId_;
+        secondaryReadyPub_->publish(header);
+        lastReadyTime_ = t;
+      }
+      return (true);
+    }
+    return (false);
+  }
   // ---------  variables
   rclcpp::Node * node_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
   typename rclcpp::Publisher<MsgType>::SharedPtr pub_;
+  rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
   std::unique_ptr<MsgType> msg_;
-  uint64_t messageTimeThreshold_;  // duration (nsec) for triggering a ROS message
-  uint64_t t0_{0};                 // time base
-  int width_;                      // image width
-  int height_;                     // image height
+  uint64_t messageTimeThreshold_;    // duration (nsec) for triggering a ROS message
+  uint64_t t0_{0};                   // time base
+  int width_;                        // image width
+  int height_;                       // image height
   std::string frameId_;
+  std::string syncMode_;             // primary, secondary, standalone
   size_t reserveSize_{0};            // how many events to preallocate per message
   uint64_t seq_{0};                  // sequence number for gap detection
   uint64_t rosT0_{0};                // time when first callback happened
@@ -199,6 +230,8 @@ private:
   uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
   uint64_t lastROSTime_{0};          // the last event's ROS time stamp
   bool isBigEndian_{false};
+  rclcpp::Duration readyIntervalTime_;  // frequency of publishing ready messages
+  rclcpp::Time lastReadyTime_;          // last time ready message was published
 #ifdef DEBUG_PERFORMANCE
   std::chrono::microseconds dt_{0};  // total time spent in ros calls (perf debugging)
   std::chrono::high_resolution_clock::time_point startTime_;
@@ -235,6 +268,9 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  if (waitForGoodTimestamp(sensorElapsedTime)) {
+    return;
+  }
   const uint64_t sensorElapsedTimeInt = static_cast<uint64_t>(sensorElapsedTime);
   const size_t n = end - start;
   int eventCount[2] = {0, 0};

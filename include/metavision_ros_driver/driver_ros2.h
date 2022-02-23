@@ -44,12 +44,12 @@ private:
   bool start();
   void addBiasParameter(
     const std::string & name, int min_val, int max_val, const std::string & desc);
-
   void initializeBiasParameters();
   void declareBiasParameters();
   void saveBiases(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     const std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+  void secondaryReady(std_msgs::msg::Header::ConstSharedPtr msg);
 
   // ---------  variables
   typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
@@ -59,10 +59,10 @@ private:
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
   rclcpp::TimerBase::SharedPtr changeTimer_;
   ParameterMap biasParameters_;
-
   sensor_msgs::msg::CameraInfo cameraInfoMsg_;
-
   std::string cameraInfoURL_;
+  rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr secondaryReadySub_;
+  // different types of publishers depending on message type
   std::shared_ptr<EventPublisherROS2<prophesee_event_msgs::msg::EventArray>> prophPub_;
   std::shared_ptr<EventPublisherROS2<dvs_msgs::msg::EventArray>> dvsPub_;
   std::shared_ptr<EventPublisherROS2<event_array_msgs::msg::EventArray>> eventArrayPub_;
