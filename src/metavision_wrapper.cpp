@@ -226,10 +226,17 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
     const float avgSize = totalEventsSent_ * (totalMsgsSent_ != 0 ? 1.0 / totalMsgsSent_ : 0);
     const uint32_t totCount = eventCount_[1] + eventCount_[0];
     const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
+#ifndef USING_ROS_1
     LOG_NAMED_INFO_FMT(
       "rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
       "%4zu",
       avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
+#else
+    LOG_NAMED_INFO_FMT(
+      "%s: rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
+      "%4zu",
+      loggerName_.c_str(), avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
+#endif
     maxRate_ = 0;
     lastPrintTime_ += statisticsPrintInterval_;
     totalEvents_ = 0;

@@ -20,7 +20,7 @@
 template <class T>
 void run_node(ros::NodeHandle & pnh)
 {
-  metavision_ros_driver::DriverROS1<T> node(pnh);
+  metavision_ros_driver::DriverROS1<T> node(pnh, pnh.getNamespace());
   ros::spin();
 }
 

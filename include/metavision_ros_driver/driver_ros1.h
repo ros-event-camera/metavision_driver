@@ -44,12 +44,24 @@ class DriverROS1 : public CallbackHandler
 {
 public:
   using Config = MetaVisionDynConfig;
-  explicit DriverROS1(const ros::NodeHandle & nh) : nh_(nh)
+  explicit DriverROS1(const ros::NodeHandle & nh, const std::string & name) : nh_(nh)
   {
-    bool status = start();
-    if (!status) {
-      ROS_ERROR("startup failed!");
-      throw std::runtime_error("startup of CameraDriver node failed!");
+    wrapper_ = std::make_shared<MetavisionWrapper>(name);
+    wrapper_->setSerialNumber(nh_.param<std::string>("serial", ""));
+    cameraInfoURL_ = nh_.param<std::string>("camerainfo_url", "");
+    frameId_ = nh_.param<std::string>("frame_id", "");
+    syncMode_ = nh_.param<std::string>("sync_mode", "standalone");
+    ROS_INFO_STREAM("sync mode: " << syncMode_);
+    wrapper_->setSyncMode(syncMode_);
+    if (syncMode_ == "primary") {  // defer starting until secondary is up
+      const std::string topic = "ready";
+      ROS_INFO_STREAM("waiting for ready message from secondary on topic \"" << topic << "\"");
+      secondaryReadySub_ = nh_.subscribe(topic, 1, &DriverROS1::secondaryReady, this);
+    } else {
+      if (!start()) {
+        ROS_ERROR("startup failed!");
+        throw std::runtime_error("startup of CameraDriver node failed!");
+      }
     }
   }
   ~DriverROS1()
@@ -91,15 +103,14 @@ public:
 
   bool start()
   {
-    cameraInfoURL_ = nh_.param<std::string>("camerainfo_url", "");
-    frameId_ = nh_.param<std::string>("frame_id", "");
     const double mtt = nh_.param<double>("message_time_threshold", 100e-6);
     messageTimeThreshold_ = static_cast<uint64_t>(mtt * 1e9);
     reserveSize_ =
       static_cast<size_t>(nh_.param<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
     pub_ = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
-
-    wrapper_ = std::make_shared<MetavisionWrapper>();
+    if (syncMode_ == "secondary") {
+      secondaryReadyPub_ = nh_.advertise<std_msgs::Header>("ready", 1);
+    }
 
     if (!wrapper_->initialize(
           nh_.param<bool>("use_multithreading", false),
@@ -136,6 +147,9 @@ public:
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
     const double sensorElapsedTime = start->t * 1e3;  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      return;
+    }
     if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
       return;
     }
@@ -187,6 +201,34 @@ private:
   {
     if (wrapper_) {
       return (wrapper_->stop());
+    }
+    return (false);
+  }
+
+  void secondaryReady(const std_msgs::Header::ConstPtr & msg)
+  {
+    (void)msg;
+    secondaryReadySub_.shutdown();
+    ROS_INFO("secondary is ready, starting primary!");
+    if (!start()) {
+      ROS_ERROR("startup failed!");
+      throw std::runtime_error("startup of DriverROS1 node failed!");
+    }
+  }
+
+  inline bool waitForGoodTimestamp(double sensorElapsedTime)
+  {
+    if (sensorElapsedTime == 0 && syncMode_ == "secondary") {
+      const ros::Time t = ros::Time::now();
+      if (lastReadyTime_ < t - readyIntervalTime_) {
+        ROS_INFO_STREAM("secondary waiting for primary to come up");
+        std_msgs::Header header;
+        header.stamp = t;
+        header.frame_id = frameId_;
+        secondaryReadyPub_.publish(header);
+        lastReadyTime_ = t;
+      }
+      return (true);
     }
     return (false);
   }
@@ -272,6 +314,8 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   ros::ServiceServer saveBiasService_;
   ros::Publisher pub_;
+  ros::Publisher secondaryReadyPub_;
+  ros::Subscriber secondaryReadySub_;
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   Config config_;
 
@@ -284,6 +328,7 @@ private:
   int width_;                        // image width
   int height_;                       // image height
   std::string frameId_;              // ROS frame id
+  std::string syncMode_;             // standalone, primary, secondary
   uint64_t seq_{0};                  // ROS sequence number
   uint64_t rosT0_{0};                // time when first callback happened
   double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
@@ -291,6 +336,8 @@ private:
   int64_t bufferingDelay_{0};        // estimate of buffering delay
   uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
   uint64_t lastROSTime_{0};          // the last event's ROS time stamp
+  ros::Duration readyIntervalTime_{1.0};  // frequency of publishing ready messages
+  ros::Time lastReadyTime_;               // last time ready message was published
 };
 
 template <>
@@ -298,6 +345,10 @@ void DriverROS1<event_array_msgs::EventArray>::publish(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  if (waitForGoodTimestamp(sensorElapsedTime)) {
+    return;
+  }
+
   // skip the first 2 seconds of packets to work around bad initial time stamps
   // on SilkyEV
   if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
