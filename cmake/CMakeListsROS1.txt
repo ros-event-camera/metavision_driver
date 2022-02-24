@@ -56,6 +56,11 @@ target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
 add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
 
+# sync test
+add_executable(sync_test src/sync_test_ros1.cpp src/sync_test_node_ros1.cpp)
+# to ensure messages get built before executable
+add_dependencies(sync_test ${metavision_ros_driver_EXPORTED_TARGETS})
+target_link_libraries(sync_test ${catkin_LIBRARIES})
 
 #############
 ## Install ##
