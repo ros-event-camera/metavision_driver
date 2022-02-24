@@ -60,7 +60,7 @@ public:
   // ROI is a double vector with length multiple of 4:
   // (x_top_1, y_top_1, width_1, height_1,
   //  x_top_2, y_top_2, width_2, height_2, .....)
-  void setROI(const std::vector<long> & roi) { roi_ = roi; }
+  void setROI(const std::vector<int> & roi) { roi_ = roi; }
 
 private:
   bool initializeCamera();
@@ -70,7 +70,7 @@ private:
   void eventCallback(const EventCD * start, const EventCD * end);
   void eventCallbackMultithreaded(const EventCD * start, const EventCD * end);
   void processingThread();
-  void applyROI(const std::vector<long> & roi);
+  void applyROI(const std::vector<int> & roi);
   void applySyncMode(const std::string & mode);
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
@@ -97,7 +97,7 @@ private:
   std::string serialNumber_;
   std::string syncMode_;
   std::string loggerName_{"driver"};
-  std::vector<long> roi_;
+  std::vector<int> roi_;
   // related to multi threading
   bool useMultithreading_{false};
   std::mutex mutex_;

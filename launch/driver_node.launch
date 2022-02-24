@@ -2,10 +2,10 @@
   <arg name="bias_file" default=""/>
   <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
-    <!-- "message_time_threshold" sets time span for how long events
-	 will be buffered until a new ROS message is generated -->
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
+    <!-- "message_time_threshold" sets time span for how long events
+	 will be buffered until a new ROS message is generated -->
     <param name="message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="1.0"/>
@@ -13,5 +13,8 @@
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- what kind of messages to write (dvs or prophesee) -->
     <param name="message_type" value="event_array"/>
+    <!-- define region of interest: top left (x, y) then width, height
+    <rosparam param="roi">[315, 235, 20, 10]</rosparam>
+    -->
   </node>
 </launch>

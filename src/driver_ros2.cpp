@@ -33,7 +33,8 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_r
   const std::string syncMode = this->declare_parameter<std::string>("sync_mode", "standalone");
   LOG_INFO("sync mode: " << syncMode);
   wrapper_->setSyncMode(syncMode);
-  const auto roi = this->declare_parameter<std::vector<long>>("roi", std::vector<long>());
+  const auto roi_long = this->declare_parameter<std::vector<long>>("roi", std::vector<long>());
+  std::vector<int> roi(roi_long.begin(), roi_long.end());
   if (!roi.empty()) {
     LOG_INFO("using ROI with " << (roi.size() / 4) << " rectangle(s)");
   }

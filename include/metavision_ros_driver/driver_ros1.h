@@ -53,6 +53,12 @@ public:
     syncMode_ = nh_.param<std::string>("sync_mode", "standalone");
     ROS_INFO_STREAM("sync mode: " << syncMode_);
     wrapper_->setSyncMode(syncMode_);
+    auto roi = nh_.param<std::vector<int>>("roi", std::vector<int>());
+    if (!roi.empty()) {
+      ROS_INFO_STREAM("using ROI with " << (roi.size() / 4) << " rectangle(s)");
+    }
+    wrapper_->setROI(roi);
+
     if (syncMode_ == "primary") {  // defer starting until secondary is up
       const std::string topic = "ready";
       ROS_INFO_STREAM("waiting for ready message from secondary on topic \"" << topic << "\"");

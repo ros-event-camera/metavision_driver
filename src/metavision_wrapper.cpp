@@ -108,7 +108,7 @@ bool MetavisionWrapper::stop()
   return (status);
 }
 
-void MetavisionWrapper::applyROI(const std::vector<long> & roi)
+void MetavisionWrapper::applyROI(const std::vector<int> & roi)
 {
   if (!roi.empty()) {
     if (roi.size() % 4 != 0) {
