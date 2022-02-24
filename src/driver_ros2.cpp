@@ -33,6 +33,11 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_r
   const std::string syncMode = this->declare_parameter<std::string>("sync_mode", "standalone");
   LOG_INFO("sync mode: " << syncMode);
   wrapper_->setSyncMode(syncMode);
+  const auto roi = this->declare_parameter<std::vector<long>>("roi", std::vector<long>());
+  if (!roi.empty()) {
+    LOG_INFO("using ROI with " << (roi.size() / 4) << " rectangle(s)");
+  }
+  wrapper_->setROI(roi);
   if (syncMode == "primary") {  // defer starting until secondary is up
     const std::string topic = "~/ready";
     LOG_INFO("waiting for secondary to publish ready message on topic \"" << topic << "\"");

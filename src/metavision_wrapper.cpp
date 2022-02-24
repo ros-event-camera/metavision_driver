@@ -108,6 +108,44 @@ bool MetavisionWrapper::stop()
   return (status);
 }
 
+void MetavisionWrapper::applyROI(const std::vector<long> & roi)
+{
+  if (!roi.empty()) {
+    if (roi.size() % 4 != 0) {
+      LOG_NAMED_ERROR("ROI vec must be multiple of 4, but is: " << roi.size());
+    } else {
+      std::vector<Metavision::Roi::Rectangle> rects;
+      for (size_t i = 0; i < roi.size(); i += 4) {
+        Metavision::Roi::Rectangle rect;
+        rect.x = roi[i];
+        rect.y = roi[i + 1];
+        rect.width = roi[i + 2];
+        rect.height = roi[i + 3];
+        rects.push_back(rect);
+      }
+      cam_.roi().set(rects);
+    }
+  } else {
+    cam_.roi().unset();
+  }
+}
+
+void MetavisionWrapper::applySyncMode(const std::string & mode)
+{
+  Metavision::I_DeviceControl * control =
+    cam_.get_device().get_facility<Metavision::I_DeviceControl>();
+  if (mode == "standalone") {
+    control->set_mode_standalone();
+  } else if (mode == "primary") {
+    control->set_mode_master();
+  } else if (mode == "secondary") {
+    control->set_mode_slave();
+  } else {
+    LOG_NAMED_ERROR("INVALID SYNC MODE: " << mode);
+    throw std::runtime_error("invalid sync mode!");
+  }
+}
+
 bool MetavisionWrapper::initializeCamera()
 {
   try {
@@ -133,19 +171,8 @@ bool MetavisionWrapper::initializeCamera()
     width_ = g.width();
     height_ = g.height();
     LOG_NAMED_INFO("sensor geometry: " << width_ << " x " << height_);
-    Metavision::I_DeviceControl * control =
-      cam_.get_device().get_facility<Metavision::I_DeviceControl>();
-    if (syncMode_ == "standalone") {
-      control->set_mode_standalone();
-    } else if (syncMode_ == "primary") {
-      control->set_mode_master();
-    } else if (syncMode_ == "secondary") {
-      control->set_mode_slave();
-    } else {
-      std::cerr << "INVALID SYNC MODE: " << syncMode_ << std::endl;
-      throw std::runtime_error("invalid sync mode!");
-    }
-
+    applySyncMode(syncMode_);
+    applyROI(roi_);
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
     statusChangeCallbackActive_ = true;

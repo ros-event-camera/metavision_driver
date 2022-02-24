@@ -41,6 +41,7 @@ def launch_setup(context, *args, **kwargs):
                      'bias_file': bias_dir + 'silky_ev_cam.bias',
                      'camerainfo_url': '',
                      'frame_id': '',
+                     # 'roi': [315, 235, 20, 10],
                      'message_time_threshold': 1e-3,
                      'send_queue_size': 1000}],
                 remappings=[
