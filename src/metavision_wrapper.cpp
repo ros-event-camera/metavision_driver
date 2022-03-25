@@ -16,6 +16,8 @@
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 #include <metavision/hal/facilities/i_device_control.h>
+#include <metavision/hal/facilities/i_trigger_in.h>
+#include <metavision/hal/facilities/i_plugin_software_info.h>
 
 #include <set>
 
@@ -95,6 +97,9 @@ bool MetavisionWrapper::stop()
   if (statusChangeCallbackActive_) {
     cam_.remove_status_change_callback(statusChangeCallbackId_);
   }
+  if (extTriggerCallbackActive_) {
+    cam_.ext_trigger().remove_callback(extTriggerCallbackId_);
+  }
   if (thread_) {
     keepRunning_ = false;
     {
@@ -145,6 +150,37 @@ void MetavisionWrapper::applySyncMode(const std::string & mode)
   }
 }
 
+void MetavisionWrapper::configureExternalTriggers(const std::string & mode_in, const std::string & mode_out, const int period, const double duty_cycle) {
+
+  if (mode_out == "enabled"){
+    Metavision::I_TriggerOut *i_trigger_out = cam_.get_device().get_facility<Metavision::I_TriggerOut>();
+    if (i_trigger_out) {
+      i_trigger_out->set_period(period);
+      i_trigger_out->set_duty_cycle(duty_cycle);
+      i_trigger_out->enable();
+      LOG_NAMED_INFO("Enabled trigger output");
+    } else {
+      LOG_NAMED_ERROR("Failed enabling trigger output");
+    }
+  }
+
+  if (mode_in == "external" || mode_in == "loopback"){
+    Metavision::I_TriggerIn *i_trigger_in   = cam_.get_device().get_facility<Metavision::I_TriggerIn>();
+
+    if (i_trigger_in){
+      int pin = hardwarePinConfig_[softwareInfo_][mode_in];
+      i_trigger_in->enable( pin );
+      LOG_NAMED_INFO("Enabled trigger input " << mode_in << " on " << pin);
+    } else {
+      LOG_NAMED_ERROR("Failed enabling trigger input");
+    }
+
+    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(
+        std::bind(&MetavisionWrapper::extTriggerCallback, this, ph::_1, ph::_2));
+    extTriggerCallbackActive_ = true;
+  }
+}
+
 bool MetavisionWrapper::initializeCamera()
 {
   try {
@@ -153,6 +189,13 @@ bool MetavisionWrapper::initializeCamera()
     } else {
       cam_ = Metavision::Camera::from_first_available();
     }
+
+    // Record the plugin software information about the camera.
+    Metavision::I_PluginSoftwareInfo * psi =
+      cam_.get_device().get_facility<Metavision::I_PluginSoftwareInfo>();
+    softwareInfo_ = psi->get_plugin_name();
+    LOG_NAMED_INFO("Plugin Software Name: " << softwareInfo_);
+
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
@@ -173,6 +216,7 @@ bool MetavisionWrapper::initializeCamera()
     LOG_NAMED_INFO("sensor geometry: " << width_ << " x " << height_);
     applySyncMode(syncMode_);
     applyROI(roi_);
+    configureExternalTriggers(triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
     statusChangeCallbackActive_ = true;
@@ -187,6 +231,7 @@ bool MetavisionWrapper::initializeCamera()
         cam_.cd().add_callback(std::bind(&MetavisionWrapper::eventCallback, this, ph::_1, ph::_2));
     }
     contrastCallbackActive_ = true;
+
   } catch (const Metavision::CameraException & e) {
     LOG_NAMED_ERROR("unexpected sdk error: " << e.what());
     return (false);
@@ -273,6 +318,14 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
     eventCount_[0] = 0;
     eventCount_[1] = 0;
     maxQueueSize_ = 0;
+  }
+}
+
+void MetavisionWrapper::extTriggerCallback(const EventExtTrigger * start, const EventExtTrigger * end)
+{
+  const size_t n = end - start;
+  if (n != 0) {
+    callbackHandler_->publishExtTrigger(start, end);
   }
 }
 

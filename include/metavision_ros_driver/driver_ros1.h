@@ -29,6 +29,7 @@
 #include <memory>
 #include <mutex>
 #include <set>
+#include <tuple>
 #include <string>
 #include <utility>
 
@@ -58,6 +59,14 @@ public:
       ROS_INFO_STREAM("using ROI with " << (roi.size() / 4) << " rectangle(s)");
     }
     wrapper_->setROI(roi);
+
+    triggerInMode_ = nh_.param<std::string>("trigger_in_mode", "disabled");
+    triggerOutMode_ = nh_.param<std::string>("trigger_out_mode", "disabled");
+    triggerOutPeriod_ = nh_.param<int>("trigger_out_period", 100000);
+    triggerOutDutyCycle_ = nh_.param<double>("trigger_duty_cycle", 0.5);
+
+    wrapper_->setExternalTriggerInMode(triggerInMode_);
+    wrapper_->setExternalTriggerOutMode(triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
 
     if (syncMode_ == "primary") {  // defer starting until secondary is up
       const std::string topic = "ready";
@@ -118,6 +127,14 @@ public:
       secondaryReadyPub_ = nh_.advertise<std_msgs::Header>("ready", 1);
     }
 
+    if (triggerInMode_ != "disabled"){
+      externalTriggerPub_ = nh_.advertise<MsgType>("special_events", nh_.param<int>("send_queue_size", 1000));
+    }
+
+    // Get information on external pin configuration per hardware setup
+    getHardwarePinConfig();
+    wrapper_->setHardwarePinConfig( hardwarePinConfig_ );
+
     if (!wrapper_->initialize(
           nh_.param<bool>("use_multithreading", false),
           nh_.param<double>("statistics_print_interval", 1.0),
@@ -148,6 +165,75 @@ public:
 
     ROS_INFO_STREAM("driver initialized successfully.");
     return (true);
+  }
+
+  void getHardwarePinConfig()
+  {
+    XmlRpc::XmlRpcValue hardware_pin_config;
+    nh_.getParam("prophesee_pin_config", hardware_pin_config);
+    ROS_ASSERT(hardware_pin_config.getType() == XmlRpc::XmlRpcValue::TypeStruct);
+
+    auto iter = hardware_pin_config.begin();
+
+    for (;iter!=hardware_pin_config.end();iter++) {
+      hardwarePinConfig_.emplace(iter->first, std::map<std::string, int>{});
+      
+      auto pin_map_iter = iter->second.begin();
+
+      for (;pin_map_iter!=iter->second.end(); pin_map_iter++) {
+        hardwarePinConfig_[iter->first][pin_map_iter->first] = static_cast<int>(pin_map_iter->second);
+      }
+    }
+  }
+
+  void publishExtTrigger(const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) override
+  {
+    const double sensorElapsedTime = start->t * 1e3;  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      return;
+    }
+    if (externalTriggerPub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
+      return;
+    }
+    if (!externalTriggerMsg_) {  // must allocate new message
+      // update the rosTimeOffset only when a new ROS message is started.
+      // This reduces compute load but more crucially it ensures that
+      // the time basis stays constant within each ROS message.
+      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+      externalTriggerMsg_.reset(new MsgType());
+      externalTriggerMsg_->header.frame_id = frameId_;
+      externalTriggerMsg_->header.seq = extTriggerSeq_++;
+      externalTriggerMsg_->width = -1;
+      externalTriggerMsg_->height = -1;
+      externalTriggerMsg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
+      externalTriggerMsg_->events.reserve(reserveSize_);
+    }
+    const size_t n = end - start;
+    auto & events = externalTriggerMsg_->events;
+    const size_t old_size = events.size();
+    // With proper reserved capacity, the resize should not trigger a copy.
+    events.resize(events.size() + n);
+    // copy data into ROS message. For the SilkyEvCam
+    // the full load packet size delivered by the SDK is 320
+    int eventCount[2] = {0, 0};
+    for (unsigned int i = 0; i < n; i++) {
+      const auto & e_src = start[i];
+      auto & e_trg = events[i + old_size];
+      e_trg.x = -1;
+      e_trg.y = -1;
+      e_trg.polarity = e_src.p;
+      e_trg.ts.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(e_src.t * 1e3));
+      eventCount[e_src.p]++;
+    }
+    wrapper_->updateEventCount(0, eventCount[0]);
+    wrapper_->updateEventCount(1, eventCount[1]);
+    lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+    if (lastROSTime_ > externalTriggerMsg_->header.stamp.toNSec() + messageTimeThreshold_) {
+      externalTriggerPub_.publish(externalTriggerMsg_);
+      wrapper_->updateEventsSent(events.size());
+      wrapper_->updateMsgsSent(1);
+      externalTriggerMsg_.reset();  // no longer using this one
+    }
   }
 
   void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
@@ -320,13 +406,16 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   ros::ServiceServer saveBiasService_;
   ros::Publisher pub_;
+  ros::Publisher externalTriggerPub_;
   ros::Publisher secondaryReadyPub_;
   ros::Subscriber secondaryReadySub_;
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   Config config_;
+  std::map<std::string, std::map<std::string, int >> hardwarePinConfig_;
 
   sensor_msgs::CameraInfo cameraInfoMsg_;
   boost::shared_ptr<MsgType> msg_;
+  boost::shared_ptr<MsgType> externalTriggerMsg_;
 
   std::string cameraInfoURL_;
   uint64_t messageTimeThreshold_;    // duration (nsec) for triggering a ROS message
@@ -334,6 +423,11 @@ private:
   int width_;                        // image width
   int height_;                       // image height
   std::string frameId_;              // ROS frame id
+  std::string triggerInMode_;        // disabled, enabled, loopback
+  uint64_t extTriggerSeq_{0};                  // ROS sequence number
+  std::string triggerOutMode_;       // disabled, enabled
+  int triggerOutPeriod_;             // period (in microseconds) of trigger out
+  double triggerOutDutyCycle_;       // duty cycle (fractional) of trigger out
   std::string syncMode_;             // standalone, primary, secondary
   uint64_t seq_{0};                  // ROS sequence number
   uint64_t rosT0_{0};                // time when first callback happened
@@ -345,6 +439,65 @@ private:
   ros::Duration readyIntervalTime_{1.0};  // frequency of publishing ready messages
   ros::Time lastReadyTime_;               // last time ready message was published
 };
+
+template <>
+void DriverROS1<event_array_msgs::EventArray>::publishExtTrigger(
+    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end)
+{
+  const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  if (waitForGoodTimestamp(sensorElapsedTime)) {
+    return;
+  }
+
+  // skip the first 2 seconds of packets to work around bad initial time stamps
+  // on SilkyEV
+  if (externalTriggerPub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
+    return;
+  }
+  if (!externalTriggerMsg_) {  // must allocate new message
+    // update the rosTimeOffset only when a new ROS message is started.
+    // This reduces compute load but more crucially it ensures that
+    // the time basis stays constant within each ROS message.
+    rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+    externalTriggerMsg_.reset(new event_array_msgs::EventArray());
+    externalTriggerMsg_->header.frame_id = frameId_;
+    externalTriggerMsg_->header.seq = static_cast<uint32_t>(extTriggerSeq_++);
+    externalTriggerMsg_->width = 0;
+    externalTriggerMsg_->height = 0;
+    externalTriggerMsg_->encoding = "special";
+    externalTriggerMsg_->time_base = static_cast<uint64_t>(sensorElapsedTime);
+    externalTriggerMsg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
+    externalTriggerMsg_->events.reserve(reserveSize_ * 8);
+    externalTriggerMsg_->seq = extTriggerSeq_;  // duplicate, but wanted symmetry with ROS2
+  }
+  const size_t n = end - start;
+  const size_t old_size = externalTriggerMsg_->events.size();
+  // With proper reserved capacity the resize should not trigger a
+  // copy
+  externalTriggerMsg_->events.resize(old_size + n * 8);
+  // copy data into ROS message. For the SilkyEvCam
+  // the full load packet size delivered by the SDK is n = 320
+  int eventCount[2] = {0, 0};
+  uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(externalTriggerMsg_->events[old_size]));
+  const uint64_t headerStamp = externalTriggerMsg_->header.stamp.toNSec();
+  for (unsigned int i = 0; i < n; i++) {
+    const auto & e = start[i];
+    const uint64_t ts = rosTimeOffset_ + static_cast<uint64_t>(e.t * 1e3);
+    const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
+    event_array_msgs::special::encode(pyxt + i, e.p, dt);
+    eventCount[e.p]++;
+  }
+  wrapper_->updateEventCount(0, eventCount[0]);
+  wrapper_->updateEventCount(1, eventCount[1]);
+  // Is it an issue to update here?...
+  lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
+  if (lastROSTime_ > headerStamp + messageTimeThreshold_) {
+    wrapper_->updateEventsSent(externalTriggerMsg_->events.size() / 8);
+    wrapper_->updateMsgsSent(1);
+    externalTriggerPub_.publish(externalTriggerMsg_);
+    externalTriggerMsg_.reset();  // start a new message
+  }
+}
 
 template <>
 void DriverROS1<event_array_msgs::EventArray>::publish(

@@ -114,6 +114,18 @@ Parameters:
      publishing data until it receives a ``ready`` message from the secondary.
    - ``secondary``: camera receiving the sync clock. Will send
      ``ready`` messages until it receives a sync signal from the primary.
+- ``trigger_in_mode``: Controls the mode of the trigger input hardware.
+  Allowed values:
+   - ``disabled`` (default): Does not enable this functionality within the hardware
+   - ``enabled``: Enables the external hardware pin to route to the trigger input hardware.
+     This will be the pin on the camera's connector.
+   - ``loopback``: Connects the trigger out pin to the trigger input hardware.
+- ``trigger_out_mode``: Controls the mode of the trigger output hardware.
+  Allowed values:
+   - ``disabled`` (default): Does not enable this functionality within the hardware
+   - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
+- ``trigger_out_period``: Controls the period in microseconds of the trigger out pulse.
+- ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger out pulse.
 
 Services:
 
@@ -263,6 +275,15 @@ stamps (aside from the drift).
 
 Note that using the ``time_base`` field of the ``EventArray`` message
 permits recovery of the original sensor timestamps.
+
+## About Trigger Pins
+
+External triggers on prophesee cameras allows for a singal to be injected
+into the event stream. This is useful for synchronizing external devices.
+This becomes a new topic to which an ``EventArray`` message gets published.
+The encoding type is ``special`` which denotes that it is a single stream and
+only contains polarity and time information.
+
 
 ## License
 
