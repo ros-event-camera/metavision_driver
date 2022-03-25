@@ -56,13 +56,12 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
   Metavision::I_LL_Biases * hw_biases = biases.get_facility();
   const int prev = hw_biases->get(name);
   if (val != prev) {
-    hw_biases->set(name, val);
+    if (!hw_biases->set(name, val)) {
+      LOG_NAMED_WARN("cannot set parameter" << name << " to " << val);
+    }
   }
   const int now = hw_biases->get(name);  // read back what actually took hold
-  if (now != prev) {
-    LOG_NAMED_INFO(
-      "changed param: " << name << " from " << prev << " to " << val << " adj to: " << now);
-  }
+  LOG_NAMED_INFO("changed  " << name << " from " << prev << " to " << val << " adj to: " << now);
   return (now);
 }
 
@@ -157,6 +156,7 @@ bool MetavisionWrapper::initializeCamera()
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
+        LOG_NAMED_INFO("using bias file: " << biasFile_);
       } catch (const Metavision::CameraException & e) {
         LOG_NAMED_WARN("reading bias file failed with error: " << e.what());
         LOG_NAMED_WARN("continuing with default biases!");
@@ -265,7 +265,7 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
       loggerName_.c_str(), avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
 #endif
     maxRate_ = 0;
-    lastPrintTime_ += statisticsPrintInterval_;
+    lastPrintTime_ = t_end;
     totalEvents_ = 0;
     totalTime_ = 0;
     totalMsgsSent_ = 0;

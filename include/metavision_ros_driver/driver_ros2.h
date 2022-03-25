@@ -41,6 +41,7 @@ private:
   bool stop();
   rcl_interfaces::msg::SetParametersResult parameterChanged(
     const std::vector<rclcpp::Parameter> & params);
+  void onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::ParameterEvent> event);
   bool start();
   void addBiasParameter(
     const std::string & name, int min_val, int max_val, const std::string & desc);
@@ -57,7 +58,8 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr callbackHandle_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
-  rclcpp::TimerBase::SharedPtr changeTimer_;
+  std::shared_ptr<rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent, std::allocator<void>>>
+    parameterSubscription_;
   ParameterMap biasParameters_;
   sensor_msgs::msg::CameraInfo cameraInfoMsg_;
   std::string cameraInfoURL_;

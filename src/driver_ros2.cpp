@@ -17,6 +17,7 @@
 
 #include <functional>
 #include <iostream>
+#include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
 #include "metavision_ros_driver/logging.h"
@@ -34,11 +35,14 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_r
   LOG_INFO("sync mode: " << syncMode);
   wrapper_->setSyncMode(syncMode);
   const auto roi_long = this->declare_parameter<std::vector<long>>("roi", std::vector<long>());
-  std::vector<int> roi(roi_long.begin(), roi_long.end());
-  if (!roi.empty()) {
-    LOG_INFO("using ROI with " << (roi.size() / 4) << " rectangle(s)");
+  std::vector<int> r(roi_long.begin(), roi_long.end());
+  if (!r.empty()) {
+    LOG_INFO("using ROI with " << (r.size() / 4) << " rectangle(s)");
+    for (size_t i = 0; i < r.size() / 4; i += 4) {
+      LOG_INFO(r[4 * i] << " " << r[4 * i + 1] << " " << r[4 * i + 2] << " " << r[4 * i + 3]);
+    }
   }
-  wrapper_->setROI(roi);
+  wrapper_->setROI(r);
   if (syncMode == "primary") {  // defer starting until secondary is up
     const std::string topic = "~/ready";
     LOG_INFO("waiting for secondary to publish ready message on topic \"" << topic << "\"");
@@ -124,26 +128,47 @@ rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
     const auto it = biasParameters_.find(p.get_name());
     if (it != biasParameters_.end()) {
       if (wrapper_) {
-        const int newVal = wrapper_->setBias(p.get_name(), p.as_int());
-        if (newVal == p.as_int()) {
-          res.successful = true;
-          res.reason = "successfully set";
-        } else {
-          LOG_INFO(p.get_name() << " was adjusted from  " << p.as_int() << " to " << newVal);
-          changeTimer_ = rclcpp::create_timer(
-            this, this->get_clock(), rclcpp::Duration::from_nanoseconds(1000000), [=]() {
-              // LOG_INFO("setting back: " << p.get_name() << " to " << newVal);
-              changeTimer_->cancel();
-              this->set_parameter(rclcpp::Parameter(p.get_name(), newVal));
-            });
-        }
+        // TODO (Bernd): check value if possible and reject if out of bounds
+        res.successful = true;
+        res.reason = "successfully set";
       }
     } else {
       res.successful = true;
-      res.reason = "ignored";
+      res.reason = "ignored unknown bias";
     }
   }
   return (res);
+}
+
+void DriverROS2::onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::ParameterEvent> event)
+{
+  if (event->node != this->get_fully_qualified_name()) {
+    return;
+  }
+  std::vector<std::string> validEvents;
+  for (auto it = biasParameters_.begin(); it != biasParameters_.end(); ++it) {
+    validEvents.push_back(it->first);
+  }
+  rclcpp::ParameterEventsFilter filter(
+    event, validEvents, {rclcpp::ParameterEventsFilter::EventType::CHANGED});
+  for (auto & it : filter.get_events()) {
+    const std::string & name = it.second->name;
+    const auto bp_it = biasParameters_.find(name);
+    if (bp_it != biasParameters_.end()) {
+      if (wrapper_) {
+        // apply bias to SDK. The driver may adjust the parameter value!
+        const int oldVal = wrapper_->getBias(name);
+        const int val = it.second->value.integer_value;
+        if (oldVal != val) {
+          const int newVal = wrapper_->setBias(name, val);
+          if (val != newVal) {
+            // communicate adjusted value to ROS world
+            this->set_parameter(rclcpp::Parameter(name, newVal));
+          }
+        }
+      }
+    }
+  }
 }
 
 bool DriverROS2::start()
@@ -188,6 +213,10 @@ bool DriverROS2::start()
   declareBiasParameters();
   callbackHandle_ = this->add_on_set_parameters_callback(
     std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
+  parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+    this->get_node_topics_interface(),
+    std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
+
   saveBiasesService_ = this->create_service<std_srvs::srv::Trigger>(
     "save_biases",
     std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
