@@ -12,5 +12,6 @@
     <!-- what kind of messages to write (dvs or prophesee) -->
     <param name="message_type" value="event_array"/>
     <remap from="~/events" to="/event_camera/events"/>
+    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins.yaml"/>
   </node>
 </launch>

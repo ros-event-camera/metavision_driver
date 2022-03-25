@@ -37,6 +37,7 @@ class MetavisionWrapper
 {
 public:
   using EventCD = Metavision::EventCD;
+  using EventExtTrigger = Metavision::EventExtTrigger;
   typedef std::pair<size_t, const void *> QueueElement;
 
   explicit MetavisionWrapper(const std::string & loggerName);
@@ -53,6 +54,7 @@ public:
   int getWidth() const { return (width_); }
   int getHeight() const { return (height_); }
   const std::string & getSerialNumber() const { return (serialNumber_); }
+  const std::string & getSoftwareInfo() const { return (softwareInfo_); }
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
   void setSyncMode(const std::string & sm) { syncMode_ = sm; }
   bool startCamera(CallbackHandler * h);
@@ -61,17 +63,29 @@ public:
   // (x_top_1, y_top_1, width_1, height_1,
   //  x_top_2, y_top_2, width_2, height_2, .....)
   void setROI(const std::vector<int> & roi) { roi_ = roi; }
+  void setExternalTriggerInMode(const std::string & mode) { triggerInMode_ = mode; }
+  void setExternalTriggerOutMode(const std::string & mode, const int period, const double duty_cycle) {
+    triggerOutMode_ = mode;
+    triggerOutPeriod_ = period;
+    triggerOutDutyCycle_ = duty_cycle;
+  };
+
+  void setHardwarePinConfig(const std::map<std::string, std::map<std::string, int>> & config) {
+    hardwarePinConfig_ = config;
+  };
 
 private:
   bool initializeCamera();
   void runtimeErrorCallback(const Metavision::CameraException & e);
   void statusChangeCallback(const Metavision::CameraStatus & s);
   void updateStatistics(const EventCD * start, const EventCD * end);
+  void extTriggerCallback(const EventExtTrigger * start, const EventExtTrigger * end);
   void eventCallback(const EventCD * start, const EventCD * end);
   void eventCallbackMultithreaded(const EventCD * start, const EventCD * end);
   void processingThread();
   void applyROI(const std::vector<int> & roi);
   void applySyncMode(const std::string & mode);
+  void configureExternalTriggers(const std::string & mode_in, const std::string & mode_out, const int period, const double duty_cycle);
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
   Metavision::Camera cam_;
@@ -81,6 +95,8 @@ private:
   bool runtimeErrorCallbackActive_{false};
   Metavision::CallbackId contrastCallbackId_;
   bool contrastCallbackActive_{false};
+  Metavision::CallbackId extTriggerCallbackId_;
+  bool extTriggerCallbackActive_{false};
   int width_{0};   // image width
   int height_{0};  // image height
   // related to statistics
@@ -95,7 +111,13 @@ private:
   uint32_t eventCount_[2];
   std::string biasFile_;
   std::string serialNumber_;
+  std::string softwareInfo_;
   std::string syncMode_;
+  std::string triggerInMode_;        // disabled, enabled, loopback
+  std::string triggerOutMode_;       // disabled, enabled
+  int triggerOutPeriod_;             // period (in microseconds) of trigger out
+  double triggerOutDutyCycle_;       // duty cycle (fractional) of trigger out
+  std::map<std::string,std::map<std::string,int>> hardwarePinConfig_;
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
   // related to multi threading
