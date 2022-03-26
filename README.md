@@ -32,7 +32,7 @@ to pull in the remaining dependencies:
 ```
 mkdir -p ~/metavision_ros_driver_ws/src
 cd ~/metavision_ros_driver_ws
-git clone https://github.com/berndpfrommer/metavision_ros_driver src/metavision_ros_driver
+git clone git@github.com:berndpfrommer/metavision_ros_driver src/metavision_ros_driver
 wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
 
 # or to update an existing space
