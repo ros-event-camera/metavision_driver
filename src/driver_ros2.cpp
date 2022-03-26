@@ -19,22 +19,31 @@
 #include <iostream>
 #include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <sstream>
+#include <vector>
 
 #include "metavision_ros_driver/logging.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 namespace metavision_ros_driver
 {
-DriverROS2::DriverROS2(const rclcpp::NodeOptions & options) : Node("metavision_ros_driver", options)
+DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
+: Node(
+    "metavision_ros_driver",
+    rclcpp::NodeOptions(options).automatically_declare_parameters_from_overrides(true))
 {
   wrapper_ = std::make_shared<MetavisionWrapper>(get_name());
-  wrapper_->setSerialNumber(this->declare_parameter<std::string>("serial", ""));
-  cameraInfoURL_ = this->declare_parameter<std::string>("camerainfo_url", "");
-  frameId_ = this->declare_parameter<std::string>("frame_id", "");
-  const std::string syncMode = this->declare_parameter<std::string>("sync_mode", "standalone");
+  std::string sn;
+  this->get_parameter_or("serial", sn, std::string(""));
+  wrapper_->setSerialNumber(sn);
+  this->get_parameter_or("camerainfo_url", cameraInfoURL_, std::string(""));
+  this->get_parameter_or("frame_id", frameId_, std::string(""));
+  std::string syncMode;
+  this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   LOG_INFO("sync mode: " << syncMode);
   wrapper_->setSyncMode(syncMode);
-  const auto roi_long = this->declare_parameter<std::vector<long>>("roi", std::vector<long>());
+  std::vector<long> roi_long;
+  this->get_parameter_or("roi", roi_long, std::vector<long>());
   std::vector<int> r(roi_long.begin(), roi_long.end());
   if (!r.empty()) {
     LOG_INFO("using ROI with " << (r.size() / 4) << " rectangle(s)");
@@ -171,12 +180,69 @@ void DriverROS2::onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::Par
   }
 }
 
+std::vector<std::string> split_string(const std::string & s)
+{
+  std::stringstream ss(s);
+  std::string tmp;
+  std::vector<std::string> words;
+  while (getline(ss, tmp, '.')) {
+    words.push_back(tmp);
+  }
+  return (words);
+}
+
+MetavisionWrapper::HardwarePinConfig DriverROS2::getHardwarePinConfig() const
+{
+  MetavisionWrapper::HardwarePinConfig config;
+  // builds map, e.g:
+  // config["evc3a_plugin_gen31"]["external"] = 0
+  // config["evc3a_plugin_gen31"]["loopback"] = 6
+  const auto params = this->list_parameters({"prophesee_pin_config"}, 10 /* 10 deep */);
+  for (const auto name : params.names) {
+    auto a = split_string(name);
+    if (a.size() != 3) {
+      LOG_ERROR("invalid pin config found: " << name);
+    } else {
+      long pin;
+      this->get_parameter(name, pin);
+      auto it_bool = config.insert({a[1], std::map<std::string, int>()});
+      it_bool.first->second.insert({a[2], pin});
+    }
+  }
+  return (config);
+}
+
 bool DriverROS2::start()
 {
-  if (!wrapper_->initialize(
-        this->declare_parameter<bool>("use_multithreading", true),
-        this->declare_parameter<double>("statistics_print_interval", 1.0),
-        this->declare_parameter<std::string>("bias_file", ""))) {
+  std::string tInMode;
+  this->get_parameter_or("trigger_in_mode", tInMode, std::string("disabled"));
+  bool useMT;
+  this->get_parameter_or("use_multithreading", useMT, true);
+  double printInterval;
+  this->get_parameter_or("statistics_print_interval", printInterval, 1.0);
+  std::string biasFile;
+  this->get_parameter_or("bias_file", biasFile, std::string(""));
+  MetavisionWrapper::HardwarePinConfig pinConfig = getHardwarePinConfig();
+  wrapper_->setHardwarePinConfig(pinConfig);
+  std::string tOutMode;
+  this->get_parameter_or("trigger_out_mode", tOutMode, std::string("disabled"));
+  long tOutPeriod;
+  this->get_parameter_or("trigger_out_period", tOutPeriod, 100000L);
+  double tOutCycle;
+  this->get_parameter_or("trigger_duty_cycle", tOutCycle, 0.5);
+  wrapper_->setExternalTriggerInMode(tInMode);
+  wrapper_->setExternalTriggerOutMode(tOutMode, tOutPeriod, tOutCycle);
+  if (tOutMode != "disabled") {
+    LOG_INFO("trigger out mode:       " << tOutMode);
+    LOG_INFO("trigger out period:     " << tOutPeriod);
+    LOG_INFO("trigger out duty cycle: " << tOutCycle);
+  }
+  if (tInMode != "disabled") {
+    LOG_INFO("trigger in mode:        " << tInMode);
+  }
+
+  // must wait with initialize() until all trigger params have been set
+  if (!wrapper_->initialize(useMT, printInterval, biasFile)) {
     LOG_ERROR("driver initialization failed!");
     return (false);
   }
@@ -188,23 +254,23 @@ bool DriverROS2::start()
   }
   LOG_INFO("using frame id: " << frameId_);
 
-  const std::string msgType = this->declare_parameter<std::string>("message_type", "prophesee");
+  std::string msgType;
+  this->get_parameter_or("message_type", msgType, std::string("event_array"));
+  const bool pubTrig = tInMode != "disabled";
   if (msgType == "prophesee") {
-    prophPub_.reset(
-      new EventPublisherROS2<prophesee_event_msgs::msg::EventArray>(this, wrapper_, frameId_));
+    prophPub_.reset(new PropheseePublisher(this, wrapper_, frameId_, pubTrig));
     wrapper_->startCamera(prophPub_.get());
   } else if (msgType == "dvs") {
-    dvsPub_.reset(new EventPublisherROS2<dvs_msgs::msg::EventArray>(this, wrapper_, frameId_));
+    dvsPub_.reset(new DVSPublisher(this, wrapper_, frameId_, pubTrig));
     wrapper_->startCamera(dvsPub_.get());
   } else if (msgType == "event_array") {
-    LOG_INFO("started driver with event_array msg type");
-    eventArrayPub_.reset(
-      new EventPublisherROS2<event_array_msgs::msg::EventArray>(this, wrapper_, frameId_));
+    eventArrayPub_.reset(new EventArrayPublisher(this, wrapper_, frameId_, pubTrig));
     wrapper_->startCamera(eventArrayPub_.get());
   } else {
     LOG_ERROR("invalid msg type: " << msgType);
     throw(std::runtime_error("invalid message type!"));
   }
+  LOG_INFO("started driver with msg type: " << msgType);
 
   infoManager_ =
     std::make_shared<camera_info_manager::CameraInfoManager>(this, get_name(), cameraInfoURL_);

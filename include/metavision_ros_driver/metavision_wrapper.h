@@ -21,6 +21,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -39,6 +40,7 @@ public:
   using EventCD = Metavision::EventCD;
   using EventExtTrigger = Metavision::EventExtTrigger;
   typedef std::pair<size_t, const void *> QueueElement;
+  typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
 
   explicit MetavisionWrapper(const std::string & loggerName);
   ~MetavisionWrapper();
@@ -64,15 +66,15 @@ public:
   //  x_top_2, y_top_2, width_2, height_2, .....)
   void setROI(const std::vector<int> & roi) { roi_ = roi; }
   void setExternalTriggerInMode(const std::string & mode) { triggerInMode_ = mode; }
-  void setExternalTriggerOutMode(const std::string & mode, const int period, const double duty_cycle) {
+  void setExternalTriggerOutMode(
+    const std::string & mode, const int period, const double duty_cycle)
+  {
     triggerOutMode_ = mode;
     triggerOutPeriod_ = period;
     triggerOutDutyCycle_ = duty_cycle;
   };
 
-  void setHardwarePinConfig(const std::map<std::string, std::map<std::string, int>> & config) {
-    hardwarePinConfig_ = config;
-  };
+  void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; };
 
 private:
   bool initializeCamera();
@@ -85,7 +87,9 @@ private:
   void processingThread();
   void applyROI(const std::vector<int> & roi);
   void applySyncMode(const std::string & mode);
-  void configureExternalTriggers(const std::string & mode_in, const std::string & mode_out, const int period, const double duty_cycle);
+  void configureExternalTriggers(
+    const std::string & mode_in, const std::string & mode_out, const int period,
+    const double duty_cycle);
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
   Metavision::Camera cam_;
@@ -113,11 +117,11 @@ private:
   std::string serialNumber_;
   std::string softwareInfo_;
   std::string syncMode_;
-  std::string triggerInMode_;        // disabled, enabled, loopback
-  std::string triggerOutMode_;       // disabled, enabled
-  int triggerOutPeriod_;             // period (in microseconds) of trigger out
-  double triggerOutDutyCycle_;       // duty cycle (fractional) of trigger out
-  std::map<std::string,std::map<std::string,int>> hardwarePinConfig_;
+  std::string triggerInMode_;   // disabled, enabled, loopback
+  std::string triggerOutMode_;  // disabled, enabled
+  int triggerOutPeriod_;        // period (in microseconds) of trigger out
+  double triggerOutDutyCycle_;  // duty cycle (fractional) of trigger out
+  HardwarePinConfig hardwarePinConfig_;
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
   // related to multi threading

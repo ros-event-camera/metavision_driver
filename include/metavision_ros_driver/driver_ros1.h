@@ -186,7 +186,8 @@ public:
     }
   }
 
-  void publishExtTrigger(const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) override
+  void triggerCallback(
+    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) override
   {
     const double sensorElapsedTime = start->t * 1e3;  // nanosec
     if (waitForGoodTimestamp(sensorElapsedTime)) {
@@ -205,7 +206,8 @@ public:
       externalTriggerMsg_->header.seq = extTriggerSeq_++;
       externalTriggerMsg_->width = -1;
       externalTriggerMsg_->height = -1;
-      externalTriggerMsg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
+      externalTriggerMsg_->header.stamp.fromNSec(
+        rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
       externalTriggerMsg_->events.reserve(reserveSize_);
     }
     const size_t n = end - start;
@@ -213,8 +215,7 @@ public:
     const size_t old_size = events.size();
     // With proper reserved capacity, the resize should not trigger a copy.
     events.resize(events.size() + n);
-    // copy data into ROS message. For the SilkyEvCam
-    // the full load packet size delivered by the SDK is 320
+    // copy data into ROS message.
     int eventCount[2] = {0, 0};
     for (unsigned int i = 0; i < n; i++) {
       const auto & e_src = start[i];
@@ -236,7 +237,7 @@ public:
     }
   }
 
-  void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) override
+  void eventCallback(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
     const double sensorElapsedTime = start->t * 1e3;  // nanosec
     if (waitForGoodTimestamp(sensorElapsedTime)) {
@@ -441,8 +442,8 @@ private:
 };
 
 template <>
-void DriverROS1<event_array_msgs::EventArray>::publishExtTrigger(
-    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end)
+void DriverROS1<event_array_msgs::EventArray>::triggerCallback(
+  const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end)
 {
   const double sensorElapsedTime = start->t * 1e3;  // nanosec
   if (waitForGoodTimestamp(sensorElapsedTime)) {
@@ -466,7 +467,8 @@ void DriverROS1<event_array_msgs::EventArray>::publishExtTrigger(
     externalTriggerMsg_->height = 0;
     externalTriggerMsg_->encoding = "special";
     externalTriggerMsg_->time_base = static_cast<uint64_t>(sensorElapsedTime);
-    externalTriggerMsg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
+    externalTriggerMsg_->header.stamp.fromNSec(
+      rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
     externalTriggerMsg_->events.reserve(reserveSize_ * 8);
     externalTriggerMsg_->seq = extTriggerSeq_;  // duplicate, but wanted symmetry with ROS2
   }
@@ -500,7 +502,7 @@ void DriverROS1<event_array_msgs::EventArray>::publishExtTrigger(
 }
 
 template <>
-void DriverROS1<event_array_msgs::EventArray>::publish(
+void DriverROS1<event_array_msgs::EventArray>::eventCallback(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   const double sensorElapsedTime = start->t * 1e3;  // nanosec

@@ -25,8 +25,10 @@ class CallbackHandler
 public:
   CallbackHandler() {}
   virtual ~CallbackHandler() {}
-  virtual void publishExtTrigger(const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) = 0;
-  virtual void publish(const Metavision::EventCD * start, const Metavision::EventCD * end) = 0;
+  virtual void triggerCallback(
+    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) = 0;
+  virtual void eventCallback(
+    const Metavision::EventCD * start, const Metavision::EventCD * end) = 0;
   virtual bool keepRunning() = 0;
 };
 }  // namespace metavision_ros_driver

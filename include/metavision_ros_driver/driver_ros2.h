@@ -51,7 +51,7 @@ private:
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     const std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   void secondaryReady(std_msgs::msg::Header::ConstSharedPtr msg);
-
+  MetavisionWrapper::HardwarePinConfig getHardwarePinConfig() const;
   // ---------  variables
   typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
   std::shared_ptr<MetavisionWrapper> wrapper_;
@@ -65,13 +65,13 @@ private:
   std::string cameraInfoURL_;
   rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr secondaryReadySub_;
   // different types of publishers depending on message type
-  std::shared_ptr<EventPublisherROS2<prophesee_event_msgs::msg::EventArray>> prophPub_;
-  std::shared_ptr<EventPublisherROS2<dvs_msgs::msg::EventArray>> dvsPub_;
-  std::shared_ptr<EventPublisherROS2<event_array_msgs::msg::EventArray>> eventArrayPub_;
+  typedef EventPublisherROS2<prophesee_event_msgs::msg::EventArray> PropheseePublisher;
+  typedef EventPublisherROS2<dvs_msgs::msg::EventArray> DVSPublisher;
+  typedef EventPublisherROS2<event_array_msgs::msg::EventArray> EventArrayPublisher;
+  std::shared_ptr<PropheseePublisher> prophPub_;
+  std::shared_ptr<DVSPublisher> dvsPub_;
+  std::shared_ptr<EventArrayPublisher> eventArrayPub_;
 
-  uint64_t t0_{0};  // time base
-  int width_;       // image width
-  int height_;      // image height
   std::string frameId_;
 };
 }  // namespace metavision_ros_driver

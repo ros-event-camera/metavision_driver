@@ -22,14 +22,17 @@ from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
 from ament_index_python.packages import get_package_share_directory
+import os
 
 
 def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_name = LaunchConfig('camera_name')
     cam_str = cam_name.perform(context)
-    pkg_dir = 'metavision_ros_driver'
-    bias_dir = get_package_share_directory(pkg_dir) + '/biases/'
+    pkg_name = 'metavision_ros_driver'
+    share_dir = get_package_share_directory(pkg_name)
+    trigger_config = os.path.join(share_dir, 'config', 'trigger_pins.yaml')
+    bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
     container = ComposableNodeContainer(
             name='metavision_driver_container',
             namespace='',
@@ -41,14 +44,14 @@ def launch_setup(context, *args, **kwargs):
                     plugin='metavision_ros_driver::DriverROS2',
                     name=cam_name,
                     parameters=[
+                        trigger_config, # loads the whole file
                         {'use_multithreading': True,
                          'message_type': 'event_array',
                          'statistics_print_interval': 2.0,
-                         'bias_file': bias_dir + 'silky_ev_cam.bias',
+                         'bias_file': bias_config,
                          'camerainfo_url': '',
                          'frame_id': '',
-                         'message_time_threshold': 1.0e-3,
-                         'send_queue_size': 1500}],
+                         'event_message_time_threshold': 1.0e-3}],
                     remappings=[
                         ('~/events', cam_str + '/events')],
                     extra_arguments=[{'use_intra_process_comms': True}],

@@ -103,7 +103,7 @@ install(PROGRAMS
 
 # install some example bias files
 install(DIRECTORY
-  biases
+  config
   DESTINATION share/${PROJECT_NAME}/
 )
  
