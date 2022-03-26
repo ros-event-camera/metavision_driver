@@ -1,10 +1,9 @@
 # metavision_ros_driver
 
-A ROS driver for cameras using the metavison toolkit (Prophesee and
-SilkyEVCam). It has performance improvements over the 
+A ROS/ROS2 driver for cameras using the Metavision toolkit (Prophesee and
+SilkyEVCam). It has several feature and performance improvements over the 
 [official Prophesee
-driver](https://github.com/prophesee-ai/prophesee_ros_wrapper) and
-support ROS2.
+driver](https://github.com/prophesee-ai/prophesee_ros_wrapper).
 
 This driver is not written or supported by Prophesee.
 
@@ -70,9 +69,11 @@ This driver differs from the Prophesee ROS driver in the following ways:
   e.g. a rosbag record nodelet without worrying about message loss in transmission.
 - prints out message rate statistics so you know when the sensor
   saturates bandwidth.
-- supports dynamic reconfiguration
-- supports region of interest (ROI)
-- supports camera synchronization (sync)
+- supports these additional features:
+  - dynamic reconfiguration for bias parameters
+  - ROI specification
+  - camera synchronization (stereo)
+  - external trigger events
 - NOTE: does not provide ``camera_info`` messages yet, does not play
   from raw files.
 
@@ -80,8 +81,20 @@ Parameters:
 
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
-- ``message_time_threshold``: approximate time span [sec] of events to be
-  aggregated before ROS message is sent. Defaults to 100us.
+- ``event_message_time_threshold``: (in seconds) minimum time span of
+    events to be aggregated in one ROS event message before message is sent. Defaults to 100us.
+- ``sensor_max_mevs``: (in Million Events/sec) maximum number of
+    events per second that the sensor can produce. This helps the driver pre-allocate a
+    correct size message to avoid unnecessary memory copies. Defaults
+    to 50.
+- ``trigger_message_time_threshold``: (in seconds) minimum time span
+    of trigger events to be aggregated in one ROS event message before
+    message is sent. Defaults to 100us. Set it to 0 if you want each
+    trigger event to go out on a separate message immediately.
+- ``trigger_max_freq``: (in Hz) maximum frequency with which an
+    external trigger will fire. This helps the driver pre-allocate a
+    correct size message to avoid unnecessary memory copies. Defaults
+    to 1000.
 - ``statistics_print_interval``: time in seconds between statistics printouts.
 - ``message_type``: can be set to ``dvs``, ``prophesee`` or ``event_array``, depending on
   what message types the driver should publish. For ROS2 you must set

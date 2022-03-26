@@ -6,9 +6,15 @@
     <param name="use_multithreading" value="true"/>
     <!-- "message_time_threshold" sets time span for how long events
 	 will be buffered until a new ROS message is generated -->
-    <param name="message_time_threshold" value="0.001"/>
+    <param name="event_message_time_threshold" value="0.001"/>
+    <!--- use a time of zero to force immediate sending of trigger
+	message, else there will always be at least 2 trigger events
+	per message -->
+    <param name="trigger_message_time_threshold" value="0"/>
     <param name="trigger_out_mode" value="enabled"/>
-    <param name="trigger_out_period" value="100000"/>
+    <!-- units of trigger_out_period is usec -->
+    <param name="trigger_out_period" value="1000"/>
+    <param name="trigger_out_duty_cycle" value="0.5"/>
     <param name="trigger_in_mode" value="loopback"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="1.0"/>

@@ -4,9 +4,10 @@
     name="driver_nodelet" args="standalone metavision_ros_driver/DriverNodelet"
     clear_params="true" output="screen">
     <param name="use_multithreading" value="false"/>
-    <param name="message_time_threshold" value="0.0001"/>
+    <param name="event_message_time_threshold" value="0.001"/>
+    <param name="trigger_message_time_threshold" value="0"/>
     <!-- time interval between printout of rate statistics -->
-    <param name="statistics_print_interval" value="10.0"/>
+    <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- what kind of messages to write (dvs or prophesee) -->

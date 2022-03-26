@@ -1,7 +1,7 @@
 <launch>
   <arg name="bag"/>
   <arg name="bias_file" default="$(find
-				 metavision_ros_driver)/biases/silky_ev_cam.bias"/>
+				 metavision_ros_driver)/config/silky_ev_cam.bias"/>
   <!-- manager node -->
   <node pkg="nodelet" type="nodelet" name="recording_driver"
 	args="manager" output="screen"/>
@@ -19,7 +19,7 @@
     clear_params="true" output="screen">
     <param name="frame_id" value="event_cam_0"/>
     <param name="sync_mode" value="primary"/>
-    <param name="message_time_threshold" value="0.0001"/>
+    <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
@@ -38,7 +38,7 @@
     clear_params="true" output="screen">
     <param name="frame_id" value="event_cam_1"/>
     <param name="sync_mode" value="secondary"/>
-    <param name="message_time_threshold" value="0.0001"/>
+    <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
