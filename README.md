@@ -125,7 +125,7 @@ Parameters:
    - ``disabled`` (default): Does not enable this functionality within the hardware
    - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
 - ``trigger_out_period``: Controls the period in microseconds of the trigger out pulse.
-- ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger out pulse.
+- ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger out pulse. This is the period ratio. 
 
 Services:
 
@@ -284,6 +284,43 @@ This becomes a new topic to which an ``EventArray`` message gets published.
 The encoding type is ``special`` which denotes that it is a single stream and
 only contains polarity and time information.
 
+Prophesee provides documentation on the trigger functions at a high level [here](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#chapter-concepts-triggers).
+
+(Trigger out)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle] functionality is exposed through ``trigger_out_mode``, ``trigger_out_period``, and ``trigger_out_duty_cycle``. These variables follow the same meaning as laid out in the internal documentaiton.
+
+- ``trigger_out_mode`` can be enabled or disabled
+- ``trigger_out_period`` can be from 2us to 1h (units are us)
+- ``trigger_out_duty_cycle`` is the pulse width ratio ( ``trigger_out_period * trigger_out_duty_cycle`` must be at least 1us)
+
+(Trigger in)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle] functionality is abstracted away from pins to just ``loopback`` or ``external`` as the pin mappings are constant for a given camera configuration.
+
+- ``trigger_in_mode`` allows the user to specify for each camera ``loopback`` or ``external`` and lookup which pins are associated with that camera.
+
+**WARNING** Running synchronization and triggers at the same time is possible, but requires understanding of your camera's underlying hardware (as most share trigger out and sync out pins).
+
+### Hardware configuration
+
+The hardware configuration file is ``config/trigger_pins.yaml``. The mappings for ``hal_plugin_gen*`` come from [Prophesee documentation](https://docs.prophesee.ai/stable/metavision_sdk/modules/metavision_hal/samples/hal_viewer.html#accessing-triggers). The mapping for ``evc3a_plugin_gen31`` has been validated on the SilkyEvCam (March 2022). The mapping goes from the HAL Software Info to pin numbers.
+
+If you camera is not yet supported, the software info is printed out on driver startup. Look for a line that contains:
+
+```
+Plugin Software Name:
+```
+
+This will be the key to place under ``prophesee_pin_config`` which can then be populated based on your camera's documentation.
+
+**WARNING** If this file is not loaded (or your camera is not yet supported), the default pin loaded will be 0. This may work in some cases, but not all.
+
+### SilkyEvCam
+
+Documentation on the SilkyEvCam pinout can be found [here on page 6](https://www.centuryarks.com/images/product/sensor/silkyevcam/SilkyEvCam-USB_Spec_Rev102.pdf). This system uses 3.3V logic for both trigger in as well as trigger out.
+
+While the loopback configuration is internal to the chip, the trigger out line will still pulse externally. This is useful if using an event camera to trigger an external system as you will maintain the timing relative to the internal clock (after association between the trigger event and the external system).
+
+### Other cameras
+
+Validation on other cameras is in the works.
 
 ## License
 
