@@ -47,21 +47,23 @@ public:
     frameId_(frameId),
     readyIntervalTime_(rclcpp::Duration::from_seconds(1.0))
   {
-    double ttt;
-    node->get_parameter_or("trigger_message_time_threshold", ttt, 100e-6);
-    RCLCPP_INFO_STREAM(node->get_logger(), "trigger message time threshold: " << ttt << "s");
-    triggerState_.msgThreshold = static_cast<uint64_t>(1e9 * ttt);
-    double ttmf;
-    node->get_parameter_or("trigger_max_freq", ttmf, 1000.0);
-    triggerState_.reserveSize = (size_t)(ttmf * ttt);
+    // set up event message state
     double ett;
     node->get_parameter_or("event_message_time_threshold", ett, 100e-6);
     RCLCPP_INFO_STREAM(node->get_logger(), "event message time threshold: " << ett << "s");
     eventState_.msgThreshold = static_cast<uint64_t>(1e9 * ett);
     double mmevs;
     node->get_parameter_or("sensor_max_mevs", mmevs, 50.0);
-    eventState_.reserveSize = (size_t)(mmevs * 1.0e6 * ett);
-    RCLCPP_INFO_STREAM(node->get_logger(), "using reserve size: " << eventState_.reserveSize);
+    eventState_.reserveSize = static_cast<size_t>(mmevs * 1.0e6 * ett);
+    RCLCPP_INFO_STREAM(node->get_logger(), "using event reserve size: " << eventState_.reserveSize);
+    // set up trigger message state
+    double ttt;
+    node->get_parameter_or("trigger_message_time_threshold", ttt, 100e-6);
+    RCLCPP_INFO_STREAM(node->get_logger(), "trigger message time threshold: " << ttt << "s");
+    triggerState_.msgThreshold = static_cast<uint64_t>(1e9 * ttt);
+    double ttmf;
+    node->get_parameter_or("trigger_max_freq", ttmf, 1000.0);
+    triggerState_.reserveSize = static_cast<size_t>(ttmf * ttt);
 
 #ifdef DEBUG_PERFORMANCE
     startTime_ = std::chrono::high_resolution_clock::now();
@@ -120,15 +122,14 @@ public:
         e_trg.x = e_src.x;
         e_trg.y = e_src.y;
         e_trg.polarity = e_src.p;
-        e_trg.ts = rclcpp::Time(
-          state.rosTimeOffset + static_cast<uint64_t>(e_src.t * 1000), RCL_SYSTEM_TIME);
+        e_trg.ts = rclcpp::Time(state.rosTimeOffset + e_src.t * 1000, RCL_SYSTEM_TIME);
         eventCount[e_src.p]++;
       }
       // must keep the rostime of the last event for maintaining
       // the offset
       const int64_t lastEventTime = start[n - 1].t * 1000;
       lastROSTime_ = rosTimeOffset_ + lastEventTime;
-      (void)sendMessageIfComplete(&state, lastEventTime);
+      (void)sendMessageIfComplete(&state, lastEventTime, events.size());
     } else {
       // no subscribers: discard unfinished message and gather event statistics
       state.msg.reset();
@@ -165,14 +166,10 @@ public:
         e_trg.x = 0;
         e_trg.y = 0;
         e_trg.polarity = e_src.p;
-        e_trg.ts = rclcpp::Time(
-          state.rosTimeOffset + static_cast<uint64_t>(e_src.t * 1000), RCL_SYSTEM_TIME);
+        e_trg.ts = rclcpp::Time(state.rosTimeOffset + e_src.t * 1000, RCL_SYSTEM_TIME);
         eventCount[e_src.p]++;
       }
-      // finish up
-      wrapper_->updateEventCount(0, eventCount[0]);
-      wrapper_->updateEventCount(1, eventCount[1]);
-      (void)sendMessageIfComplete(&state, start[n - 1].t * 1000);
+      (void)sendMessageIfComplete(&state, start[n - 1].t * 1000, events.size());
     } else {
       // no subscribers: discard unfinished message and gather event statistics
       state.msg.reset();
@@ -325,12 +322,12 @@ private:
     }
   }
 
-  inline bool sendMessageIfComplete(MsgState * state, int64_t last_event_time)
+  inline bool sendMessageIfComplete(MsgState * state, int64_t last_event_time, size_t events_sent)
   {
     const uint64_t latestTime = state->rosTimeOffset + last_event_time;
     const rclcpp::Time msgStartTime(state->msg->header.stamp);
     if (latestTime >= msgStartTime.nanoseconds() + state->msgThreshold) {
-      wrapper_->updateEventsSent(state->msg->events.size() / 8);
+      wrapper_->updateEventsSent(events_sent);
       wrapper_->updateMsgsSent(1);
       // the std::move should reset the message
       state->pub->publish(std::move(state->msg));
@@ -341,11 +338,10 @@ private:
   // ---------  variables
   rclcpp::Node * node_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
-  rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
   int width_;   // image width
   int height_;  // image height
   std::string frameId_;
-  std::string syncMode_;  // primary, secondary, standalone
+  bool isBigEndian_{false};
   // ------- related to time keeping
   uint64_t rosT0_{0};                // time when first callback happened
   double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
@@ -356,32 +352,18 @@ private:
   // ------- state related to message publishing
   MsgState eventState_;    // state for sending event message
   MsgState triggerState_;  // state for sending trigger message
-  // ------- misc other stuff
-  bool isBigEndian_{false};
+  // ------ related to sync
   rclcpp::Duration readyIntervalTime_;  // frequency of publishing ready messages
   rclcpp::Time lastReadyTime_;          // last time ready message was published
+  std::string syncMode_;                // primary, secondary, standalone
+  rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
+  // ------- misc other stuff
 #ifdef DEBUG_PERFORMANCE
   std::chrono::microseconds dt_{0};  // total time spent in ros calls (perf debugging)
   std::chrono::high_resolution_clock::time_point startTime_;
   size_t msgCnt_{0};
 #endif
 };
-
-event_array_msgs::msg::EventArray * allocate_message(
-  uint64_t time_base, uint64_t stamp, uint16_t width, uint16_t height, const std::string & frameId,
-  bool isBigEndian, size_t reserve, const std::string & encoding)
-{
-  auto msg = new event_array_msgs::msg::EventArray();
-  msg->header.frame_id = frameId;
-  msg->header.stamp = rclcpp::Time(stamp, RCL_SYSTEM_TIME);
-  msg->width = width;
-  msg->height = height;
-  msg->is_bigendian = isBigEndian;
-  msg->encoding = encoding;
-  msg->time_base = time_base;
-  msg->events.reserve(reserve * 8);  // 8 bytes per event
-  return (msg);
-}
 
 inline size_t resize_message(event_array_msgs::msg::EventArray * msg, size_t n)
 {
@@ -422,25 +404,25 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::eventCallback(
 
     for (unsigned int i = 0; i < n; i++) {
       const auto & e = start[i];
-      const uint64_t ts = state.rosTimeOffset + static_cast<uint64_t>(e.t * 1000);
+      const uint64_t ts = state.rosTimeOffset + e.t * 1000;
       const uint32_t dt = static_cast<uint32_t>((ts - headerStamp) & 0xFFFFFFFFULL);
       event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
       eventCount[e.p]++;
     }
-
+    // update lastROSTime_ with latest event time stamp
     const int64_t lastEventTime = start[n - 1].t * 1000;
     lastROSTime_ = rosTimeOffset_ + lastEventTime;
 
 #ifdef DEBUG_PERFORMANCE
     auto t_start = std::chrono::high_resolution_clock::now();
-    bool msgSent = sendMessageIfComplete(&state, lastEventTime);
+    bool msgSent = sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
     if (msgSent) {
       auto t_stop = std::chrono::high_resolution_clock::now();
       dt_ = dt_ + std::chrono::duration_cast<std::chrono::microseconds>(t_stop - t_start);
       msgCnt_++;
     }
 #else
-    (void)sendMessageIfComplete(&state, lastEventTime);
+    (void)sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
 #endif
 #ifdef DEBUG_PERFORMANCE
     if (msgCnt_ >= 1000) {
@@ -491,13 +473,13 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::triggerCallback(
     // Copy data into ROS message.
     for (unsigned int i = 0; i < n; i++) {
       const auto & e = start[i];
-      const uint64_t ts = state.rosTimeOffset + static_cast<uint64_t>(e.t * 1000);
+      const uint64_t ts = state.rosTimeOffset + e.t * 1000;
       const uint32_t dt = static_cast<uint32_t>((ts - headerStamp) & 0xFFFFFFFFULL);
       event_array_msgs::trigger::encode(pyxt + i, e.p, dt);
       eventCount[e.p]++;
     }
     const int64_t lastEventTime = start[n - 1].t * 1000;
-    (void)sendMessageIfComplete(&state, lastEventTime);
+    (void)sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
   } else {
     // no subscribers: clear out unfinished message and gather event statistics
     state.msg.reset();
