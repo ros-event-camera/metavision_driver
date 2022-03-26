@@ -29,12 +29,16 @@
 #include <memory>
 #include <mutex>
 #include <set>
-#include <tuple>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
+
+// skip first few packets that may have bad time stamps
+// (time is in nanoseconds)
+#define SKIP_TIME 2000000000
 
 namespace metavision_ros_driver
 {
@@ -60,13 +64,22 @@ public:
     }
     wrapper_->setROI(roi);
 
-    triggerInMode_ = nh_.param<std::string>("trigger_in_mode", "disabled");
-    triggerOutMode_ = nh_.param<std::string>("trigger_out_mode", "disabled");
-    triggerOutPeriod_ = nh_.param<int>("trigger_out_period", 100000);
-    triggerOutDutyCycle_ = nh_.param<double>("trigger_duty_cycle", 0.5);
+    // disabled, enabled, loopback
+    const std::string triggerInMode = nh_.param<std::string>("trigger_in_mode", "disabled");
+    // disabled, enabled
+    const std::string triggerOutMode = nh_.param<std::string>("trigger_out_mode", "disabled");
+    // trigger out period in usec
+    const int triggerOutPeriod = nh_.param<int>("trigger_out_period", 100000);
+    // fraction of cycle that trigger is HIGH
+    const double triggerOutDutyCycle = nh_.param<double>("trigger_duty_cycle", 0.5);
 
-    wrapper_->setExternalTriggerInMode(triggerInMode_);
-    wrapper_->setExternalTriggerOutMode(triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    wrapper_->setExternalTriggerInMode(triggerInMode);
+    wrapper_->setExternalTriggerOutMode(triggerOutMode, triggerOutPeriod, triggerOutDutyCycle);
+
+    if (triggerInMode != "disabled") {
+      triggerState_.pub =
+        nh_.advertise<MsgType>("trigger", nh_.param<int>("send_queue_size", 1000));
+    }
 
     if (syncMode_ == "primary") {  // defer starting until secondary is up
       const std::string topic = "ready";
@@ -118,22 +131,29 @@ public:
 
   bool start()
   {
-    const double mtt = nh_.param<double>("message_time_threshold", 100e-6);
-    messageTimeThreshold_ = static_cast<uint64_t>(mtt * 1e9);
-    reserveSize_ =
-      static_cast<size_t>(nh_.param<double>("sensors_max_mevs", 50.0) / std::max(mtt, 1e-6));
-    pub_ = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
+    // set up event message state
+    const double ett = nh_.param<double>("event_message_time_threshold", 100e-6);
+    LOG_INFO("event message time threshold: " << ett);
+    eventState_.msgThreshold = static_cast<uint64_t>(ett * 1e9);
+    eventState_.reserveSize =
+      static_cast<size_t>(nh_.param<double>("sensors_max_mevs", 50.0) * 1.0e6 * ett);
+    LOG_INFO("using event message reserve size: " << eventState_.reserveSize);
+    eventState_.pub = nh_.advertise<MsgType>("events", nh_.param<int>("send_queue_size", 1000));
+
+    // set up trigger message state
+    const double ttt = nh_.param<double>("trigger_message_time_threshold", 100e-6);
+    LOG_INFO("trigger message time threshold: " << ttt);
+    triggerState_.msgThreshold = static_cast<uint64_t>(ttt * 1e9);
+    triggerState_.reserveSize =
+      static_cast<size_t>(nh_.param<double>("tigger_max_freq", 1000.0) * ttt);
+    triggerState_.pub = nh_.advertise<MsgType>("trigger", nh_.param<int>("send_queue_size", 1000));
+
     if (syncMode_ == "secondary") {
       secondaryReadyPub_ = nh_.advertise<std_msgs::Header>("ready", 1);
     }
 
-    if (triggerInMode_ != "disabled"){
-      externalTriggerPub_ = nh_.advertise<MsgType>("special_events", nh_.param<int>("send_queue_size", 1000));
-    }
-
     // Get information on external pin configuration per hardware setup
-    getHardwarePinConfig();
-    wrapper_->setHardwarePinConfig( hardwarePinConfig_ );
+    wrapper_->setHardwarePinConfig(getHardwarePinConfig());
 
     if (!wrapper_->initialize(
           nh_.param<bool>("use_multithreading", false),
@@ -144,6 +164,13 @@ public:
     }
     width_ = wrapper_->getWidth();
     height_ = wrapper_->getHeight();
+    const union {
+      uint32_t i;
+      char c[4];
+    } combined_int = {0x01020304};  // from stackoverflow
+    isBigEndian_ = (combined_int.c[0] == 1);
+    lastReadyTime_ = ros::Time::now() - readyIntervalTime_;  // move to past
+
     if (frameId_.empty()) {
       // default frame id to last 4 digits of serial number
       const auto sn = wrapper_->getSerialNumber();
@@ -167,129 +194,42 @@ public:
     return (true);
   }
 
-  void getHardwarePinConfig()
+  MetavisionWrapper::HardwarePinConfig getHardwarePinConfig()
   {
+    MetavisionWrapper::HardwarePinConfig config;
     XmlRpc::XmlRpcValue hardware_pin_config;
     nh_.getParam("prophesee_pin_config", hardware_pin_config);
     ROS_ASSERT(hardware_pin_config.getType() == XmlRpc::XmlRpcValue::TypeStruct);
 
     auto iter = hardware_pin_config.begin();
 
-    for (;iter!=hardware_pin_config.end();iter++) {
-      hardwarePinConfig_.emplace(iter->first, std::map<std::string, int>{});
-      
+    for (; iter != hardware_pin_config.end(); iter++) {
+      config.emplace(iter->first, std::map<std::string, int>{});
+
       auto pin_map_iter = iter->second.begin();
 
-      for (;pin_map_iter!=iter->second.end(); pin_map_iter++) {
-        hardwarePinConfig_[iter->first][pin_map_iter->first] = static_cast<int>(pin_map_iter->second);
+      for (; pin_map_iter != iter->second.end(); pin_map_iter++) {
+        config[iter->first][pin_map_iter->first] = static_cast<int>(pin_map_iter->second);
       }
     }
-  }
-
-  void triggerCallback(
-    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) override
-  {
-    const double sensorElapsedTime = start->t * 1e3;  // nanosec
-    if (waitForGoodTimestamp(sensorElapsedTime)) {
-      return;
-    }
-    if (externalTriggerPub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
-      return;
-    }
-    if (!externalTriggerMsg_) {  // must allocate new message
-      // update the rosTimeOffset only when a new ROS message is started.
-      // This reduces compute load but more crucially it ensures that
-      // the time basis stays constant within each ROS message.
-      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
-      externalTriggerMsg_.reset(new MsgType());
-      externalTriggerMsg_->header.frame_id = frameId_;
-      externalTriggerMsg_->header.seq = extTriggerSeq_++;
-      externalTriggerMsg_->width = -1;
-      externalTriggerMsg_->height = -1;
-      externalTriggerMsg_->header.stamp.fromNSec(
-        rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
-      externalTriggerMsg_->events.reserve(reserveSize_);
-    }
-    const size_t n = end - start;
-    auto & events = externalTriggerMsg_->events;
-    const size_t old_size = events.size();
-    // With proper reserved capacity, the resize should not trigger a copy.
-    events.resize(events.size() + n);
-    // copy data into ROS message.
-    int eventCount[2] = {0, 0};
-    for (unsigned int i = 0; i < n; i++) {
-      const auto & e_src = start[i];
-      auto & e_trg = events[i + old_size];
-      e_trg.x = -1;
-      e_trg.y = -1;
-      e_trg.polarity = e_src.p;
-      e_trg.ts.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(e_src.t * 1e3));
-      eventCount[e_src.p]++;
-    }
-    wrapper_->updateEventCount(0, eventCount[0]);
-    wrapper_->updateEventCount(1, eventCount[1]);
-    lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
-    if (lastROSTime_ > externalTriggerMsg_->header.stamp.toNSec() + messageTimeThreshold_) {
-      externalTriggerPub_.publish(externalTriggerMsg_);
-      wrapper_->updateEventsSent(events.size());
-      wrapper_->updateMsgsSent(1);
-      externalTriggerMsg_.reset();  // no longer using this one
-    }
-  }
-
-  void eventCallback(const Metavision::EventCD * start, const Metavision::EventCD * end) override
-  {
-    const double sensorElapsedTime = start->t * 1e3;  // nanosec
-    if (waitForGoodTimestamp(sensorElapsedTime)) {
-      return;
-    }
-    if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
-      return;
-    }
-    if (!msg_) {  // must allocate new message
-      // update the rosTimeOffset only when a new ROS message is started.
-      // This reduces compute load but more crucially it ensures that
-      // the time basis stays constant within each ROS message.
-      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
-      msg_.reset(new MsgType());
-      msg_->header.frame_id = frameId_;
-      msg_->header.seq = seq_++;
-      msg_->width = width_;
-      msg_->height = height_;
-      msg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
-      msg_->events.reserve(reserveSize_);
-    }
-    const size_t n = end - start;
-    auto & events = msg_->events;
-    const size_t old_size = events.size();
-    // With proper reserved capacity, the resize should not trigger a copy.
-    events.resize(events.size() + n);
-    // copy data into ROS message. For the SilkyEvCam
-    // the full load packet size delivered by the SDK is 320
-    int eventCount[2] = {0, 0};
-    for (unsigned int i = 0; i < n; i++) {
-      const auto & e_src = start[i];
-      auto & e_trg = events[i + old_size];
-      e_trg.x = e_src.x;
-      e_trg.y = e_src.y;
-      e_trg.polarity = e_src.p;
-      e_trg.ts.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(e_src.t * 1e3));
-      eventCount[e_src.p]++;
-    }
-    wrapper_->updateEventCount(0, eventCount[0]);
-    wrapper_->updateEventCount(1, eventCount[1]);
-    lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
-    if (lastROSTime_ > msg_->header.stamp.toNSec() + messageTimeThreshold_) {
-      pub_.publish(msg_);
-      wrapper_->updateEventsSent(events.size());
-      wrapper_->updateMsgsSent(1);
-      msg_.reset();  // no longer using this one
-    }
+    return (config);
   }
 
   bool keepRunning() override { return (ros::ok()); }
 
 private:
+  // MsgState holds the message and all other
+  // pieces that are needed to build and send the message
+  struct MsgState
+  {
+    uint64_t seq{0};            // sequence number
+    uint64_t rosTimeOffset{0};  // rosTimeOffset for current message
+    size_t reserveSize{0};
+    uint64_t msgThreshold;         // min duration (nsec) until msg is sent
+    std::unique_ptr<MsgType> msg;  // pointer to message itself
+    ros::Publisher pub;            // ros publisher
+  };
+
   bool stop()
   {
     if (wrapper_) {
@@ -309,7 +249,7 @@ private:
     }
   }
 
-  inline bool waitForGoodTimestamp(double sensorElapsedTime)
+  inline bool waitForGoodTimestamp(int64_t sensorElapsedTime)
   {
     if (sensorElapsedTime == 0 && syncMode_ == "secondary") {
       const ros::Time t = ros::Time::now();
@@ -401,161 +341,285 @@ private:
     return (rosTimeOffset);
   }
 
+  void allocateMessageIfNeeded(MsgState * state, int64_t sensorElapsedTime, int width, int height)
+  {
+    auto & msg = state->msg;
+    if (!state->msg) {  // must allocate new message
+                        // remember the current rostime offset such that it will be kept
+                        // constant until this message is sent out.
+      state->rosTimeOffset = rosTimeOffset_;
+      msg.reset(new MsgType());
+      msg->header.frame_id = frameId_;
+      msg->header.seq = state->seq++;
+      msg->width = width;
+      msg->height = height;
+      msg->header.stamp.fromNSec(state->rosTimeOffset + sensorElapsedTime);
+      msg->events.reserve(state->reserveSize);
+    }
+  }
+
+  void allocateMessageIfNeeded(
+    MsgState * state, int64_t sensorElapsedTime, int width, int height,
+    const std::string & encoding)
+  {
+    auto & msg = state->msg;
+    if (!state->msg) {  // must allocate new message
+      // remember the current rostime offset such that it will be kept
+      // constant until this message is sent out.
+      state->rosTimeOffset = rosTimeOffset_;
+      msg.reset(new event_array_msgs::msg::EventArray());
+      msg->header.frame_id = frameId_;
+      msg->header.seq = state->seq++;
+      msg->width = width;
+      msg->height = height;
+      msg->header.stamp.fromNSec(state->rosTimeOffset + sensorElapsedTime);
+      msg->events.reserve(state->reserveSize * 8);  // 8 bytes per event
+      msg->is_bigendian = isBigEndian_;
+      msg->encoding = encoding;
+      msg->time_base = sensorElapsedTime;  // to allow original time stamp reconstruction
+      msg->seq = state->seq;               // duplicate, but keep for symmetry with ROS2
+    }
+  }
+
+  inline bool sendMessageIfComplete(MsgState * state, int64_t last_event_time, size_t events_sent)
+  {
+    const uint64_t latestTime = state->rosTimeOffset + last_event_time;
+    const ros::Time msgStartTime(state->msg->header.stamp);
+    if (latestTime >= msgStartTime.NSec() + state->msgThreshold) {
+      wrapper_->updateEventsSent(events_sent);
+      wrapper_->updateMsgsSent(1);
+      // the std::move should reset the message
+      state->pub->publish(std::move(state->msg));
+      return (true);
+    }
+    return (false);
+  }
+
+  void triggerCallback(
+    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) override
+  {
+    const int64_t sensorElapsedTime = start->t * 1000;  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      return;
+    }
+    int eventCount[2] = {0, 0};
+    const size_t n = end - start;
+    MsgState & state = triggerState_;
+    if (state.pub->get_subscription_count() > 0) {
+      allocateMessageIfNeeded(&state, sensorElapsedTime, 1 /* width */, 1 /*height */);
+      auto & events = state.msg->events;
+      const size_t old_size = events.size();
+      // With proper reserved capacity, the resize should not trigger a copy.
+      events.resize(events.size() + n);
+      // copy data into ROS message.
+      for (unsigned int i = 0; i < n; i++) {
+        const auto & e_src = start[i];
+        auto & e_trg = events[i + old_size];
+        e_trg.x = 0;
+        e_trg.y = 0;
+        e_trg.polarity = e_src.p;
+        e_trg.ts.fromNSec(state.rosTimeOffset + e_src.t * 1000);
+        eventCount[e_src.p]++;
+      }
+      (void)sendMessageIfComplete(&state, start[n - 1].t * 1000, events.size());
+    } else {
+      // no subscribers: discard unfinished message and gather event statistics
+      state.msg.reset();
+      for (unsigned int i = 0; i < n; i++) {
+        eventCount[start[i].p]++;
+      }
+    }
+
+    wrapper_->updateEventCount(0, eventCount[0]);
+    wrapper_->updateEventCount(1, eventCount[1]);
+  }
+
+  void eventCallback(const Metavision::EventCD * start, const Metavision::EventCD * end) override
+  {
+    const int64_t sensorElapsedTime = start->t * 1000;  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      // I'm the secondary and the primary is not running yet, so my time stamps
+      // are bad (0)
+      return;
+    }
+    MsgState & state = eventState_;
+    const size_t n = end - start;
+    int eventCount[2] = {0, 0};
+    if (pub_.getNumSubscribers() != 0 && sensorElapsedTime > SKIP_TIME) {
+      if (!state.msg) {
+        // update the difference between ROS time and sensor time.
+        // Only do so on message start to reduce compute time
+        rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+      }
+      allocateMessageIfNeeded(&state, sensorElapsedTime, width_, height_);
+      const size_t old_size = events.size();
+      // With proper reserved capacity, the resize should not trigger a copy.
+      events.resize(events.size() + n);
+      // copy data into ROS message. For the SilkyEvCam
+      // the full load packet size delivered by the SDK is 320
+      for (unsigned int i = 0; i < n; i++) {
+        const auto & e_src = start[i];
+        auto & e_trg = events[i + old_size];
+        e_trg.x = e_src.x;
+        e_trg.y = e_src.y;
+        e_trg.polarity = e_src.p;
+        e_trg.ts.fromNSec(state.rosTimeOffset + e_src.t * 1000);
+        eventCount[e_src.p]++;
+      }
+      // must keep the rostime of the last event for maintaining
+      // the offset
+      const int64_t lastEventTime = start[n - 1].t * 1000;
+      lastROSTime_ = rosTimeOffset_ + lastEventTime;
+      (void)sendMessageIfComplete(&state, lastEventTime, events.size());
+    } else {
+      // no subscribers: discard unfinished message and gather event statistics
+      state.msg.reset();
+      for (unsigned int i = 0; i < n; i++) {
+        eventCount[start[i].p]++;
+      }
+    }
+    wrapper_->updateEventCount(0, eventCount[0]);
+    wrapper_->updateEventCount(1, eventCount[1]);
+  }
+
   // ------------ variables
   ros::NodeHandle nh_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
-  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
-  ros::ServiceServer saveBiasService_;
-  ros::Publisher pub_;
-  ros::Publisher externalTriggerPub_;
-  ros::Publisher secondaryReadyPub_;
-  ros::Subscriber secondaryReadySub_;
-  std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
+  int width_;            // image width
+  int height_;           // image height
+  std::string frameId_;  // ROS frame id
+  bool isBigEndian_{false};
+  // ----- dynamic configuration for biases
   Config config_;
-  std::map<std::string, std::map<std::string, int >> hardwarePinConfig_;
-
-  sensor_msgs::CameraInfo cameraInfoMsg_;
-  boost::shared_ptr<MsgType> msg_;
-  boost::shared_ptr<MsgType> externalTriggerMsg_;
-
+  std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
+  ros::ServiceServer saveBiasService_;
+  // -------- related to camerainfo
+  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   std::string cameraInfoURL_;
-  uint64_t messageTimeThreshold_;    // duration (nsec) for triggering a ROS message
-  size_t reserveSize_{0};            // how many events to preallocate per message
-  int width_;                        // image width
-  int height_;                       // image height
-  std::string frameId_;              // ROS frame id
-  std::string triggerInMode_;        // disabled, enabled, loopback
-  uint64_t extTriggerSeq_{0};                  // ROS sequence number
-  std::string triggerOutMode_;       // disabled, enabled
-  int triggerOutPeriod_;             // period (in microseconds) of trigger out
-  double triggerOutDutyCycle_;       // duty cycle (fractional) of trigger out
-  std::string syncMode_;             // standalone, primary, secondary
-  uint64_t seq_{0};                  // ROS sequence number
+  sensor_msgs::CameraInfo cameraInfoMsg_;
+  // ------- related to time keeping
   uint64_t rosT0_{0};                // time when first callback happened
   double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
   double prevSensorTime_{0};         // sensor time during previous update
   int64_t bufferingDelay_{0};        // estimate of buffering delay
   uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
   uint64_t lastROSTime_{0};          // the last event's ROS time stamp
+  // ------- state related to message publishing
+  MsgState eventState_;    // state for sending event message
+  MsgState triggerState_;  // state for sending trigger message
+  // ------ related to sync
+  rclcpp::Duration readyIntervalTime_;  // frequency of publishing ready messages
+  rclcpp::Time lastReadyTime_;          // last time ready message was published
+  std::string syncMode_;                // primary, secondary, standalone
+  ros::Publisher secondaryReadyPub_;
+  ros::Subscriber secondaryReadySub_;
   ros::Duration readyIntervalTime_{1.0};  // frequency of publishing ready messages
   ros::Time lastReadyTime_;               // last time ready message was published
 };
 
-template <>
-void DriverROS1<event_array_msgs::EventArray>::triggerCallback(
-  const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end)
+inline size_t resize_message(event_array_msgs::msg::EventArray * msg, size_t n)
 {
-  const double sensorElapsedTime = start->t * 1e3;  // nanosec
-  if (waitForGoodTimestamp(sensorElapsedTime)) {
-    return;
-  }
-
-  // skip the first 2 seconds of packets to work around bad initial time stamps
-  // on SilkyEV
-  if (externalTriggerPub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
-    return;
-  }
-  if (!externalTriggerMsg_) {  // must allocate new message
-    // update the rosTimeOffset only when a new ROS message is started.
-    // This reduces compute load but more crucially it ensures that
-    // the time basis stays constant within each ROS message.
-    rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
-    externalTriggerMsg_.reset(new event_array_msgs::EventArray());
-    externalTriggerMsg_->header.frame_id = frameId_;
-    externalTriggerMsg_->header.seq = static_cast<uint32_t>(extTriggerSeq_++);
-    externalTriggerMsg_->width = 0;
-    externalTriggerMsg_->height = 0;
-    externalTriggerMsg_->encoding = "special";
-    externalTriggerMsg_->time_base = static_cast<uint64_t>(sensorElapsedTime);
-    externalTriggerMsg_->header.stamp.fromNSec(
-      rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
-    externalTriggerMsg_->events.reserve(reserveSize_ * 8);
-    externalTriggerMsg_->seq = extTriggerSeq_;  // duplicate, but wanted symmetry with ROS2
-  }
-  const size_t n = end - start;
-  const size_t old_size = externalTriggerMsg_->events.size();
-  // With proper reserved capacity the resize should not trigger a
-  // copy
-  externalTriggerMsg_->events.resize(old_size + n * 8);
-  // copy data into ROS message. For the SilkyEvCam
-  // the full load packet size delivered by the SDK is n = 320
-  int eventCount[2] = {0, 0};
-  uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(externalTriggerMsg_->events[old_size]));
-  const uint64_t headerStamp = externalTriggerMsg_->header.stamp.toNSec();
-  for (unsigned int i = 0; i < n; i++) {
-    const auto & e = start[i];
-    const uint64_t ts = rosTimeOffset_ + static_cast<uint64_t>(e.t * 1e3);
-    const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
-    event_array_msgs::special::encode(pyxt + i, e.p, dt);
-    eventCount[e.p]++;
-  }
-  wrapper_->updateEventCount(0, eventCount[0]);
-  wrapper_->updateEventCount(1, eventCount[1]);
-  // Is it an issue to update here?...
-  lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
-  if (lastROSTime_ > headerStamp + messageTimeThreshold_) {
-    wrapper_->updateEventsSent(externalTriggerMsg_->events.size() / 8);
-    wrapper_->updateMsgsSent(1);
-    externalTriggerPub_.publish(externalTriggerMsg_);
-    externalTriggerMsg_.reset();  // start a new message
-  }
+  const size_t oldSize = msg->events.size();
+  const size_t newSize = oldSize + n * 8;
+  msg->events.resize(newSize);
+  return (oldSize);
 }
 
 template <>
 void DriverROS1<event_array_msgs::EventArray>::eventCallback(
   const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
-  const double sensorElapsedTime = start->t * 1e3;  // nanosec
+  const int64_t sensorElapsedTime = start->t * 1000;  // nanosec
   if (waitForGoodTimestamp(sensorElapsedTime)) {
     return;
   }
 
+  int eventCount[2] = {0, 0};
+  const size_t n = end - start;
+  MsgState & state = eventState_;
+
   // skip the first 2 seconds of packets to work around bad initial time stamps
   // on SilkyEV
-  if (pub_.getNumSubscribers() == 0 || sensorElapsedTime < 2e9) {
-    return;
-  }
-  if (!msg_) {  // must allocate new message
-    // update the rosTimeOffset only when a new ROS message is started.
-    // This reduces compute load but more crucially it ensures that
-    // the time basis stays constant within each ROS message.
-    rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
-    msg_.reset(new event_array_msgs::EventArray());
-    msg_->header.frame_id = frameId_;
-    msg_->header.seq = static_cast<uint32_t>(seq_++);
-    msg_->width = width_;
-    msg_->height = height_;
-    msg_->encoding = "mono";
-    msg_->time_base = static_cast<uint64_t>(sensorElapsedTime);
-    msg_->header.stamp.fromNSec(rosTimeOffset_ + static_cast<uint64_t>(sensorElapsedTime));
-    msg_->events.reserve(reserveSize_ * 8);
-    msg_->seq = seq_;  // duplicate, but wanted symmetry with ROS2
-  }
-  const size_t n = end - start;
-  const size_t old_size = msg_->events.size();
-  // With proper reserved capacity the resize should not trigger a
-  // copy
-  msg_->events.resize(old_size + n * 8);
-  // copy data into ROS message. For the SilkyEvCam
-  // the full load packet size delivered by the SDK is n = 320
-  int eventCount[2] = {0, 0};
-  uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
-  const uint64_t headerStamp = msg_->header.stamp.toNSec();
-  for (unsigned int i = 0; i < n; i++) {
-    const auto & e = start[i];
-    const uint64_t ts = rosTimeOffset_ + static_cast<uint64_t>(e.t * 1e3);
-    const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
-    event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
-    eventCount[e.p]++;
+  if (state.pub->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
+    if (!state.msg) {
+      // update the difference between ROS time and sensor time.
+      // Only do so on message start
+      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+    }
+    allocateMessageIfNeeded(&state, sensorElapsedTime, width_, height_, "mono");
+    // If capacity is sufficient the resize should not trigger a copy
+    const size_t old_size = resize_message(state.msg.get(), n);
+
+    // copy data into ROS message. For the SilkyEvCam
+    // the full load packet size delivered by the SDK is n = 320
+    uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(msg_->events[old_size]));
+    const uint64_t headerStamp = msg_->header.stamp.toNSec();
+    for (unsigned int i = 0; i < n; i++) {
+      const auto & e = start[i];
+      const uint64_t ts = rosTimeOffset_ + e.t * 1000;
+      const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
+      event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
+      eventCount[e.p]++;
+    }
+
+    // update lastROSTime_ with latest event time stamp
+    const int64_t lastEventTime = start[n - 1].t * 1000;
+    lastROSTime_ = rosTimeOffset_ + lastEventTime;
+    (void)sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
+  } else {
+    // no subscribers: clear out unfinished message and gather event statistics
+    state.msg.reset();
+    for (unsigned int i = 0; i < n; i++) {
+      eventCount[start[i].p]++;
+    }
   }
   wrapper_->updateEventCount(0, eventCount[0]);
   wrapper_->updateEventCount(1, eventCount[1]);
-  lastROSTime_ = rosTimeOffset_ + static_cast<uint64_t>(start[n - 1].t * 1e3);
-  if (lastROSTime_ > headerStamp + messageTimeThreshold_) {
-    wrapper_->updateEventsSent(msg_->events.size() / 8);
-    wrapper_->updateMsgsSent(1);
-    pub_.publish(msg_);
-    msg_.reset();  // start a new message
+}
+
+template <>
+void DriverROS1<event_array_msgs::EventArray>::triggerCallback(
+  const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end)
+{
+  const int64_t sensorElapsedTime = start->t * 1000;  // nanosec
+  if (waitForGoodTimestamp(sensorElapsedTime)) {
+    // I'm the secondary and the primary is not running yet, so my time stamps
+    // are bad (0)
+    return;
+  }
+
+  int eventCount[2] = {0, 0};
+  const size_t n = end - start;
+  MsgState & state = triggerState_;
+
+  // skip the first 2 seconds of packets to work around bad initial time stamps
+  // on SilkyEV
+  if (externalTriggerPub_.getNumSubscribers() > 0 && sensorElapsedTime > SKIP_TIME) {
+    allocateMessageIfNeeded(&state, sensorElapsedTime, 1 /* width */, 1 /*height */, "trigger");
+    const size_t old_size = state->msg.events.size();
+    // With proper reserved capacity the resize should not trigger a
+    // copy
+    externalTriggerMsg_->events.resize(old_size + n * 8);
+    // copy data into ROS message. For the SilkyEvCam
+    // the full load packet size delivered by the SDK is n = 320
+
+    uint64_t * pyxt = reinterpret_cast<uint64_t *>(&(externalTriggerMsg_->events[old_size]));
+    const uint64_t headerStamp = state->msg.header.stamp.toNSec();
+    for (unsigned int i = 0; i < n; i++) {
+      const auto & e = start[i];
+      const uint64_t ts = state.rosTimeOffset + e.t * 1000;
+      const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
+      event_array_msgs::special::encode(pyxt + i, e.p, dt);
+      eventCount[e.p]++;
+    }
+    const int64_t lastEventTime = start[n - 1].t * 1000;
+    (void)sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
+  } else {
+    // no subscribers: clear out unfinished message and gather event statistics
+    state.msg.reset();
+    for (unsigned int i = 0; i < n; i++) {
+      eventCount[start[i].p]++;
+    }
   }
 }
 
