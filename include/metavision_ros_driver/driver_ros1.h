@@ -618,7 +618,7 @@ void DriverROS1<event_array_msgs::EventArray>::triggerCallback(
       const auto & e = start[i];
       const uint64_t ts = state.rosTimeOffset + e.t * 1000;
       const uint64_t dt = (ts - headerStamp) & 0xFFFFFFFFULL;  // limit to 32 bits
-      event_array_msgs::special::encode(pyxt + i, e.p, dt);
+      event_array_msgs::trigger::encode(pyxt + i, e.p, dt);
       eventCount[e.p]++;
     }
     const int64_t lastEventTime = start[n - 1].t * 1000;
