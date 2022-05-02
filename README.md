@@ -14,10 +14,16 @@ Software:
 - ROS Noetic
 - ROS2 Galactic
 - Ubuntu 20.04 LTS
+- Metavision 2.2.2
 
-Hardware:
+Tested on the following hardware:
 
 - SilkyEVCam (Gen 3.1 sensor)
+
+Note: there is currently a bug when using synchronization on
+Metavision 2.3.2. Hold off on upgrading if you want to use
+synchronization.
+
 
 ## How to build
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.

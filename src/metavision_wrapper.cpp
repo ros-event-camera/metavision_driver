@@ -16,8 +16,8 @@
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 #include <metavision/hal/facilities/i_device_control.h>
-#include <metavision/hal/facilities/i_trigger_in.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
+#include <metavision/hal/facilities/i_trigger_in.h>
 
 #include <set>
 
@@ -118,6 +118,12 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
     if (roi.size() % 4 != 0) {
       LOG_NAMED_ERROR("ROI vec must be multiple of 4, but is: " << roi.size());
     } else {
+#ifdef CHECK_IF_OUTSIDE_ROI
+      x_min_ = std::numeric_limits<uint16_t>::max();
+      x_max_ = std::numeric_limits<uint16_t>::min();
+      y_min_ = std::numeric_limits<uint16_t>::max();
+      y_max_ = std::numeric_limits<uint16_t>::min();
+#endif
       std::vector<Metavision::Roi::Rectangle> rects;
       for (size_t i = 0; i < roi.size(); i += 4) {
         Metavision::Roi::Rectangle rect;
@@ -126,11 +132,23 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
         rect.width = roi[i + 2];
         rect.height = roi[i + 3];
         rects.push_back(rect);
+#ifdef CHECK_IF_OUTSIDE_ROI
+        x_min_ = std::min(static_cast<uint16_t>(rect.x), x_min_);
+        x_max_ = std::max(static_cast<uint16_t>(rect.x + rect.width), x_max_);
+        y_min_ = std::min(static_cast<uint16_t>(rect.y), y_min_);
+        y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
+#endif
       }
       cam_.roi().set(rects);
     }
   } else {
     cam_.roi().unset();
+#ifdef CHECK_IF_OUTSIDE_ROI
+    x_min_ = 0;
+    x_max_ = std::numeric_limits<uint16_t>::max();
+    y_min_ = 0;
+    y_max_ = std::numeric_limits<uint16_t>::max();
+#endif
   }
 }
 
@@ -139,7 +157,9 @@ void MetavisionWrapper::applySyncMode(const std::string & mode)
   Metavision::I_DeviceControl * control =
     cam_.get_device().get_facility<Metavision::I_DeviceControl>();
   if (mode == "standalone") {
-    control->set_mode_standalone();
+    if (control->get_mode() != Metavision::I_DeviceControl::SyncMode::STANDALONE) {
+      control->set_mode_standalone();
+    }
   } else if (mode == "primary") {
     control->set_mode_master();
   } else if (mode == "secondary") {
@@ -220,7 +240,8 @@ bool MetavisionWrapper::initializeCamera()
     LOG_NAMED_INFO("sensor geometry: " << width_ << " x " << height_);
     applySyncMode(syncMode_);
     applyROI(roi_);
-    configureExternalTriggers(triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    configureExternalTriggers(
+      triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
     statusChangeCallbackActive_ = true;
@@ -290,12 +311,13 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
 {
   const int64_t t_end = (end - 1)->t;
   const unsigned int num_events = end - start;
-  const float dt = static_cast<float>(t_end - start->t);
+  const float dt = static_cast<float>(t_end - (lastEventTime_ < 0 ? t_end : lastEventTime_));
   const float dt_inv = dt != 0 ? (1.0 / dt) : 0;
   const float rate = num_events * dt_inv;
   maxRate_ = std::max(rate, maxRate_);
   totalEvents_ += num_events;
   totalTime_ += dt;
+  lastEventTime_ = t_end;
 
   if (t_end > lastPrintTime_ + statisticsPrintInterval_) {
     const float avgRate = totalEvents_ * (totalTime_ > 0 ? 1.0 / totalTime_ : 0);
@@ -303,13 +325,20 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
     const uint32_t totCount = eventCount_[1] + eventCount_[0];
     const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
 #ifndef USING_ROS_1
+#ifdef CHECK_IF_OUTSIDE_ROI
     LOG_NAMED_INFO_FMT(
-      "rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
-      "%4zu",
-      avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
+      "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
+      "%4zu !roi: %8zu",
+      avgRate, maxRate_, avgSize, pctOn, maxQueueSize_, outsideROI_);
 #else
     LOG_NAMED_INFO_FMT(
-      "%s: rate[Mevs] avg: %7.3f, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
+      "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
+      "%4zu",
+      avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
+#endif
+#else
+    LOG_NAMED_INFO_FMT(
+      "%s: avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
       "%4zu",
       loggerName_.c_str(), avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
 #endif
@@ -322,6 +351,9 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
     eventCount_[0] = 0;
     eventCount_[1] = 0;
     maxQueueSize_ = 0;
+#ifdef CHECK_IF_OUTSIDE_ROI
+    outsideROI_ = 0;
+#endif
   }
 }
 

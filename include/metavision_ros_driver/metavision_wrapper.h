@@ -32,6 +32,10 @@
 
 namespace ph = std::placeholders;
 
+// temporary feature to check for events outside ROI. To be removed
+// when related SDK/driver/camera issues have been resolved.
+//#define CHECK_IF_OUTSIDE_ROI
+
 namespace metavision_ros_driver
 {
 class MetavisionWrapper
@@ -75,6 +79,14 @@ public:
   };
 
   void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; };
+#ifdef CHECK_IF_OUTSIDE_ROI
+  void checkROI(uint16_t x, uint16_t y)
+  {
+    if (x < x_min_ || x >= x_max_ || y < y_min_ || y >= y_max_) {
+      outsideROI_++;
+    }
+  }
+#endif
 
 private:
   bool initializeCamera();
@@ -109,6 +121,7 @@ private:
   uint64_t totalEvents_{0};
   float totalTime_{0};
   int64_t lastPrintTime_{0};
+  int64_t lastEventTime_{-1};
   size_t totalMsgsSent_{0};
   size_t totalEventsSent_{0};
   size_t maxQueueSize_{0};
@@ -131,6 +144,13 @@ private:
   std::deque<std::pair<size_t, const void *>> queue_;
   std::shared_ptr<std::thread> thread_;
   bool keepRunning_{true};
+#ifdef CHECK_IF_OUTSIDE_ROI
+  size_t outsideROI_{0};
+  uint16_t x_min_;
+  uint16_t x_max_;
+  uint16_t y_min_;
+  uint16_t y_max_;
+#endif
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_

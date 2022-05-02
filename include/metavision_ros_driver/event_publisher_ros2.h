@@ -406,6 +406,9 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::eventCallback(
       const auto & e = start[i];
       const uint64_t ts = state.rosTimeOffset + e.t * 1000;
       const uint32_t dt = static_cast<uint32_t>((ts - headerStamp) & 0xFFFFFFFFULL);
+#ifdef CHECK_IF_OUTSIDE_ROI
+      wrapper_->checkROI(e.x, e.y);
+#endif
       event_array_msgs::mono::encode(pyxt + i, e.p, e.x, e.y, dt);
       eventCount[e.p]++;
     }
