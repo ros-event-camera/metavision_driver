@@ -193,6 +193,12 @@ And stop recording:
 rosrun metavision_ros_driver stop_recording.py
 ```
 
+To visualize the events, run a ``slicer`` node from the
+[event_ros_tools repo](https://github.com/ZiyunClaudeWang/event_ros_tools):
+```
+roslaunch event_ros_tools slicer_node.launch
+```
+
 # How to use (ROS2):
 
 For efficient recording of the events you need to run the
@@ -206,6 +212,12 @@ ros2 launch metavision_ros_driver driver_node.launch.py        # (run as node)
 ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composable node)
 ```
 The printout should be similar to the one for ROS1.
+
+To visualize the events, run a ``slicer`` node from the
+[event_ros_tools repo](https://github.com/ZiyunClaudeWang/event_ros_tools):
+```
+ros2 launch event_ros_tools slicer_node.launch.py
+```
 
 To use the combined driver/recorder and start the recording:
 ```
