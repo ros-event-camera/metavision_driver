@@ -59,7 +59,7 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
   const int prev = hw_biases->get(name);
   if (val != prev) {
     if (!hw_biases->set(name, val)) {
-      LOG_NAMED_WARN("cannot set parameter" << name << " to " << val);
+      LOG_NAMED_WARN("cannot set parameter " << name << " to " << val);
     }
   }
   const int now = hw_biases->get(name);  // read back what actually took hold
