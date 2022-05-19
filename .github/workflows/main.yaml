@@ -1,0 +1,28 @@
+#
+# continuous integration workflow
+#
+name: build repo
+
+on:
+ push:
+    branches: [ master]
+ pull_request:
+    branches: [ master]
+ workflow_dispatch:
+    branches: [ master]
+
+jobs:
+  build_focal_ros2:
+    runs-on: ubuntu-20.04
+    container:
+      image: berndpfrommer/focal_noetic_galactic_metavision
+    name: build repo under ROS2 from source on focal
+    steps:
+      - name: check out github repo
+        uses: actions/checkout@v3
+        with:
+          path: src/metavision_ros_driver
+          fetch-depth: 0
+      - name: compile from source
+        run: ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
+  
