@@ -1,6 +1,6 @@
 #!/bin/bash
 # set up ROS
-distros=('foxy', 'galactic', 'humble')
+distros=('foxy' 'galactic' 'humble')
 
 #
 # probe for the ROS2 distro
