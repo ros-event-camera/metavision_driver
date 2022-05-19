@@ -1,3 +1,3 @@
-- git: {local-name: dvs_msgs, uri: 'git@github.com:berndpfrommer/dvs_msgs.git', version: 'master'}
-- git: {local-name: prophesee_event_msgs, uri: 'git@github.com:berndpfrommer/prophesee_event_msgs.git', version: 'master'}
-- git: {local-name: event_array_msgs, uri: 'git@github.com:berndpfrommer/event_array_msgs.git', version: 'master'}
+- git: {local-name: dvs_msgs, uri: 'https://github.com/berndpfrommer/dvs_msgs.git', version: 'master'}
+- git: {local-name: prophesee_event_msgs, uri: 'https://github.com/berndpfrommer/prophesee_event_msgs.git', version: 'master'}
+- git: {local-name: event_array_msgs, uri: 'https://github.com/berndpfrommer/event_array_msgs.git', version: 'master'}
