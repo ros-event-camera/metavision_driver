@@ -1,0 +1,44 @@
+FROM berndpfrommer/focal_noetic_galactic
+LABEL maintainer="bernd.pfrommer@gmail.com"
+LABEL version="1.0"
+LABEL description="focal custom Docker Image for building ROS and ROS2 packages"
+ARG DEBIAN_FRONTEND=noninteractive
+ARG ROS1_VERSION=noetic
+ARG ROS2_VERSION=galactic
+
+# for add-apt-repository and to make debconf happy
+RUN apt-get -y install software-properties-common apt-utils
+
+#
+# some additional ROS1 packages
+#
+RUN apt-get -y install python3-osrf-pycommon python3-catkin-tools ros-${ROS1_VERSION}-image-transport ros-${ROS1_VERSION}-cv-bridge ros-${ROS1_VERSION}-sensor-msgs ros-${ROS1_VERSION}-std-msgs ros-${ROS1_VERSION}-rosbag ros-${ROS1_VERSION}-eigen-conversions ros-${ROS1_VERSION}-tf2-ros ros-${ROS1_VERSION}-image-geometry ros-${ROS1_VERSION}-tf2-geometry-msgs ros-${ROS1_VERSION}-message-generation ros-${ROS1_VERSION}-message-runtime ros-${ROS1_VERSION}-dynamic-reconfigure ros-${ROS1_VERSION}-camera-info-manager
+
+
+#
+# some additional ROS2 packages
+#
+RUN apt-get -y install python3-osrf-pycommon python3-catkin-tools ros-${ROS2_VERSION}-image-transport ros-${ROS2_VERSION}-cv-bridge ros-${ROS2_VERSION}-sensor-msgs ros-${ROS2_VERSION}-std-msgs ros-${ROS2_VERSION}-rosbag2* ros-${ROS2_VERSION}-tf2-ros ros-${ROS2_VERSION}-image-geometry ros-${ROS2_VERSION}-tf2-geometry-msgs ros-${ROS2_VERSION}-camera-info-manager ros-${ROS2_VERSION}-ament-cmake-clang-format ros-${ROS2_VERSION}-ament-cmake-*
+
+# colcon
+RUN apt-get -y install python3-colcon-common-extensions
+
+#
+# some additional ubuntu packages:
+#
+# - git
+# - opencv
+# - libceres (for e.g. multicam-calibration)
+#
+RUN apt-get -y install git libopencv-dev libceres-dev
+
+#
+# install metavision SDK
+#
+# add metavision SDK repo
+RUN echo 'deb [arch=amd64 trusted=yes] https://apt.prophesee.ai/dists/public/7l58osgr/ubuntu focal essentials' > /etc/apt/sources.list.d/essentials.list
+RUN apt-get update
+
+# install some dependencies (may already be there)
+RUN apt-get -y install iputils-ping wget libcanberra-gtk-module mesa-utils cmake libboost-program-options-dev libeigen3-dev
+RUN apt-get -y install metavision-essentials
