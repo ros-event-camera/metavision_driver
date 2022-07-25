@@ -14,17 +14,22 @@ on:
 jobs:
   build_jetson_bionic_noetic:
     runs-on: ubuntu-18.04
-    container:
-      image: dustynv/ros:noetic-ros-base-l4t-r34.1.1
     name: build repo under ROS1 noetic from source on jetson/bionic
+#    container:
+#      image: dustynv/ros:noetic-ros-base-l4t-r34.1.1
     steps:
-      - name: check out github repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
+        name: check out github repo
         with:
           path: src/metavision_ros_driver
           fetch-depth: 0
-      - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros1.bash
+      - uses: berndpfrommer/run-on-arch-action@v2
+        name: compile from source
+        with:
+          arch: armv7
+          distro: ubuntu18.04
+          run:  |
+            ./src/metavision_ros_driver/.github/scripts/build_ros1.bash
 #  build_focal_ros2:
 #    runs-on: ubuntu-20.04
 #    container:
