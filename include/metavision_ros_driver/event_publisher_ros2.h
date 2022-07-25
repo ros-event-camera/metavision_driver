@@ -361,8 +361,8 @@ private:
 #ifdef DEBUG_PERFORMANCE
   std::chrono::microseconds dt_{0};  // total time spent in ros calls (perf debugging)
   std::chrono::high_resolution_clock::time_point startTime_;
-  size_t msgCnt_{0};
 #endif
+  size_t msgCnt_{0};
 };
 
 inline size_t resize_message(event_array_msgs::msg::EventArray * msg, size_t n)

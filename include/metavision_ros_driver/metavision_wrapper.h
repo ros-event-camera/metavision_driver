@@ -34,7 +34,7 @@ namespace ph = std::placeholders;
 
 // temporary feature to check for events outside ROI. To be removed
 // when related SDK/driver/camera issues have been resolved.
-//#define CHECK_IF_OUTSIDE_ROI
+// #define CHECK_IF_OUTSIDE_ROI
 
 namespace metavision_ros_driver
 {
@@ -78,7 +78,7 @@ public:
     triggerOutDutyCycle_ = duty_cycle;
   };
 
-  void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; };
+  void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; }
 #ifdef CHECK_IF_OUTSIDE_ROI
   void checkROI(uint16_t x, uint16_t y)
   {

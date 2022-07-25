@@ -42,8 +42,8 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   LOG_INFO("sync mode: " << syncMode);
   wrapper_->setSyncMode(syncMode);
-  std::vector<long> roi_long;
-  this->get_parameter_or("roi", roi_long, std::vector<long>());
+  std::vector<int64_t> roi_long;
+  this->get_parameter_or("roi", roi_long, std::vector<int64_t>());
   std::vector<int> r(roi_long.begin(), roi_long.end());
   if (!r.empty()) {
     LOG_INFO("using ROI with " << (r.size() / 4) << " rectangle(s)");
@@ -137,7 +137,7 @@ rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
     const auto it = biasParameters_.find(p.get_name());
     if (it != biasParameters_.end()) {
       if (wrapper_) {
-        // TODO (Bernd): check value if possible and reject if out of bounds
+        // TODO(Bernd): check value if possible and reject if out of bounds
         res.successful = true;
         res.reason = "successfully set";
       }
@@ -203,10 +203,10 @@ MetavisionWrapper::HardwarePinConfig DriverROS2::getHardwarePinConfig() const
     if (a.size() != 3) {
       LOG_ERROR("invalid pin config found: " << name);
     } else {
-      long pin;
+      int64_t pin;
       this->get_parameter(name, pin);
       auto it_bool = config.insert({a[1], std::map<std::string, int>()});
-      it_bool.first->second.insert({a[2], pin});
+      it_bool.first->second.insert({a[2], static_cast<int>(pin)});
     }
   }
   return (config);
@@ -226,7 +226,7 @@ bool DriverROS2::start()
   wrapper_->setHardwarePinConfig(pinConfig);
   std::string tOutMode;
   this->get_parameter_or("trigger_out_mode", tOutMode, std::string("disabled"));
-  long tOutPeriod;
+  int64_t tOutPeriod;
   this->get_parameter_or("trigger_out_period", tOutPeriod, 100000L);
   double tOutCycle;
   this->get_parameter_or("trigger_duty_cycle", tOutCycle, 0.5);

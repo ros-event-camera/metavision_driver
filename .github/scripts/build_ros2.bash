@@ -7,16 +7,16 @@ distros=('foxy' 'galactic' 'humble')
 #
 for distro in "${distros[@]}"
 do
-    echo "probing for ${distro}"
     if [[ -f "/opt/ros/${distro}/setup.bash" ]]; then
 	source /opt/ros/${distro}/setup.bash
-	echo "found distro: ${distro}"
 	break
     fi
 done
 
+echo "found ros version: ${ROS_VERSION} distro: ${ROS_DISTRO}"
+
 # run wstool to bring in the additional repositories required
 wstool init src ./src/metavision_ros_driver/metavision_ros_driver.rosinstall
 
-# build
-colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
+# build and test
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo && colcon test && colcon test-result --verbose

@@ -256,7 +256,6 @@ bool MetavisionWrapper::initializeCamera()
         cam_.cd().add_callback(std::bind(&MetavisionWrapper::eventCallback, this, ph::_1, ph::_2));
     }
     contrastCallbackActive_ = true;
-
   } catch (const Metavision::CameraException & e) {
     LOG_NAMED_ERROR("unexpected sdk error: " << e.what());
     return (false);
