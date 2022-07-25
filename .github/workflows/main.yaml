@@ -23,7 +23,7 @@ jobs:
         with:
           path: src/metavision_ros_driver
           fetch-depth: 0
-      - uses: berndpfrommer/run-on-arch-action@v2
+      - uses: berndpfrommer/run-on-arch-action@master
         name: compile from source
         with:
           arch: armv7
