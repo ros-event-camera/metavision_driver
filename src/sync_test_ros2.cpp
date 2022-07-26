@@ -15,8 +15,9 @@
 
 #include "metavision_ros_driver/sync_test_ros2.h"
 
-#include "metavision_ros_driver/logging.h"
 #include <event_array_msgs/decode.h>
+
+#include "metavision_ros_driver/logging.h"
 
 namespace metavision_ros_driver
 {

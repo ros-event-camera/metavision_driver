@@ -61,8 +61,7 @@ def launch_setup(context, *args, **kwargs):
                     name="recorder",
                     parameters=[{'topics': ['/event_camera/events'],
                                  'bag_name': LaunchConfig('bag'),
-                                 'bag_prefix': LaunchConfig('bag_prefix')},
-                    ],
+                                 'bag_prefix': LaunchConfig('bag_prefix')}],
                     remappings=[
                         ('~/events', cam_str + '/events')],
                     extra_arguments=[{'use_intra_process_comms': True}],
