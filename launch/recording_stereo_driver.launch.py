@@ -24,6 +24,7 @@ from launch.actions import OpaqueFunction
 from ament_index_python.packages import get_package_share_directory
 import os
 
+
 def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_0_name = LaunchConfig('camera_0_name')
@@ -117,4 +118,3 @@ def generate_launch_description():
                   description='camera name of camera 1'),
         OpaqueFunction(function=launch_setup)
         ])
-

@@ -20,7 +20,6 @@ from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
-from ament_index_python.packages import get_package_share_directory
 
 
 def launch_setup(context, *args, **kwargs):

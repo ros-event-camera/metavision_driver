@@ -38,7 +38,7 @@ def launch_setup(context, *args, **kwargs):
                 # prefix=['xterm -e gdb -ex run --args'],
                 name=cam_name,
                 parameters=[
-                    trigger_config, # loads the whole file
+                    trigger_config,  # loads the whole file
                     {'use_multithreading': False,
                      'message_type': 'event_array',
                      'statistics_print_interval': 2.0,
@@ -49,7 +49,7 @@ def launch_setup(context, *args, **kwargs):
                      # valid: 'enabled', 'loopback', 'disabled'
                      'trigger_in_mode': 'disabled',
                      # valid: 'enabled', 'disabled'
-                     'trigger_out_mode': 'disabled', 
+                     'trigger_out_mode': 'disabled',
                      'trigger_out_period': 100000,  # in usec
                      'trigger_duty_cycle': 0.5,     # fraction high/low
                      'trigger_message_time_threshold': 0.0,  # immediately
