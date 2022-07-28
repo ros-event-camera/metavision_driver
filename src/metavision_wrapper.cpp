@@ -41,7 +41,7 @@ int MetavisionWrapper::getBias(const std::string & name)
   const auto pmap = hw_biases->get_all_biases();
   auto it = pmap.find(name);
   if (it == pmap.end()) {
-    LOG_NAMED_ERROR("unknown bias parameter: " << name);
+    LOG_ERROR_NAMED("unknown bias parameter: " << name);
     throw(std::runtime_error("bias parameter not found!"));
   }
   return (it->second);
@@ -51,7 +51,7 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
 {
   std::set<std::string> dont_touch_set = {{"bias_diff"}};
   if (dont_touch_set.count(name) != 0) {
-    LOG_NAMED_WARN("ignoring change to parameter: " << name);
+    LOG_WARN_NAMED("ignoring change to parameter: " << name);
     return (val);
   }
   Metavision::Biases & biases = cam_.biases();
@@ -59,11 +59,11 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
   const int prev = hw_biases->get(name);
   if (val != prev) {
     if (!hw_biases->set(name, val)) {
-      LOG_NAMED_WARN("cannot set parameter " << name << " to " << val);
+      LOG_WARN_NAMED("cannot set parameter " << name << " to " << val);
     }
   }
   const int now = hw_biases->get(name);  // read back what actually took hold
-  LOG_NAMED_INFO("changed  " << name << " from " << prev << " to " << val << " adj to: " << now);
+  LOG_INFO_NAMED("changed  " << name << " from " << prev << " to " << val << " adj to: " << now);
   return (now);
 }
 
@@ -75,7 +75,7 @@ bool MetavisionWrapper::initialize(
 
   statisticsPrintInterval_ = static_cast<int>(statItv * 1e6);
   if (!initializeCamera()) {
-    LOG_NAMED_ERROR("could not initialize camera!");
+    LOG_ERROR_NAMED("could not initialize camera!");
     return (false);
   }
   return (true);
@@ -116,7 +116,7 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
 {
   if (!roi.empty()) {
     if (roi.size() % 4 != 0) {
-      LOG_NAMED_ERROR("ROI vec must be multiple of 4, but is: " << roi.size());
+      LOG_ERROR_NAMED("ROI vec must be multiple of 4, but is: " << roi.size());
     } else {
 #ifdef CHECK_IF_OUTSIDE_ROI
       x_min_ = std::numeric_limits<uint16_t>::max();
@@ -165,7 +165,7 @@ void MetavisionWrapper::applySyncMode(const std::string & mode)
   } else if (mode == "secondary") {
     control->set_mode_slave();
   } else {
-    LOG_NAMED_ERROR("INVALID SYNC MODE: " << mode);
+    LOG_ERROR_NAMED("INVALID SYNC MODE: " << mode);
     throw std::runtime_error("invalid sync mode!");
   }
 }
@@ -181,9 +181,9 @@ void MetavisionWrapper::configureExternalTriggers(
       i_trigger_out->set_period(period);  // in usec
       i_trigger_out->set_duty_cycle(duty_cycle);
       i_trigger_out->enable();
-      LOG_NAMED_INFO("Enabled trigger output");
+      LOG_INFO_NAMED("Enabled trigger output");
     } else {
-      LOG_NAMED_ERROR("Failed enabling trigger output");
+      LOG_ERROR_NAMED("Failed enabling trigger output");
     }
   }
 
@@ -194,9 +194,9 @@ void MetavisionWrapper::configureExternalTriggers(
     if (i_trigger_in) {
       int pin = hardwarePinConfig_[softwareInfo_][mode_in];
       i_trigger_in->enable(pin);
-      LOG_NAMED_INFO("Enabled trigger input " << mode_in << " on " << pin);
+      LOG_INFO_NAMED("Enabled trigger input " << mode_in << " on " << pin);
     } else {
-      LOG_NAMED_ERROR("Failed enabling trigger input");
+      LOG_ERROR_NAMED("Failed enabling trigger input");
     }
 
     extTriggerCallbackId_ = cam_.ext_trigger().add_callback(
@@ -218,26 +218,26 @@ bool MetavisionWrapper::initializeCamera()
     Metavision::I_PluginSoftwareInfo * psi =
       cam_.get_device().get_facility<Metavision::I_PluginSoftwareInfo>();
     softwareInfo_ = psi->get_plugin_name();
-    LOG_NAMED_INFO("Plugin Software Name: " << softwareInfo_);
+    LOG_INFO_NAMED("Plugin Software Name: " << softwareInfo_);
 
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
-        LOG_NAMED_INFO("using bias file: " << biasFile_);
+        LOG_INFO_NAMED("using bias file: " << biasFile_);
       } catch (const Metavision::CameraException & e) {
-        LOG_NAMED_WARN("reading bias file failed with error: " << e.what());
-        LOG_NAMED_WARN("continuing with default biases!");
+        LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
+        LOG_WARN_NAMED("continuing with default biases!");
       }
     } else {
-      LOG_NAMED_INFO("no bias file provided, using camera defaults");
+      LOG_INFO_NAMED("no bias file provided, using camera defaults");
     }
     // overwrite serial in case it was not set
     serialNumber_ = cam_.get_camera_configuration().serial_number;
-    LOG_NAMED_INFO("camera serial number: " << serialNumber_);
+    LOG_INFO_NAMED("camera serial number: " << serialNumber_);
     const auto & g = cam_.geometry();
     width_ = g.width();
     height_ = g.height();
-    LOG_NAMED_INFO("sensor geometry: " << width_ << " x " << height_);
+    LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
     applySyncMode(syncMode_);
     applyROI(roi_);
     configureExternalTriggers(
@@ -257,7 +257,7 @@ bool MetavisionWrapper::initializeCamera()
     }
     contrastCallbackActive_ = true;
   } catch (const Metavision::CameraException & e) {
-    LOG_NAMED_ERROR("unexpected sdk error: " << e.what());
+    LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
     return (false);
   }
   return (true);
@@ -273,7 +273,7 @@ bool MetavisionWrapper::startCamera(CallbackHandler * h)
     // this will actually start the camera
     cam_.start();
   } catch (const Metavision::CameraException & e) {
-    LOG_NAMED_ERROR("unexpected sdk error: " << e.what());
+    LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
     return (false);
   }
   return (true);
@@ -281,25 +281,25 @@ bool MetavisionWrapper::startCamera(CallbackHandler * h)
 
 void MetavisionWrapper::runtimeErrorCallback(const Metavision::CameraException & e)
 {
-  LOG_NAMED_ERROR("camera runtime error occured: " << e.what());
+  LOG_ERROR_NAMED("camera runtime error occured: " << e.what());
 }
 
 void MetavisionWrapper::statusChangeCallback(const Metavision::CameraStatus & s)
 {
-  LOG_NAMED_INFO("camera " << (s == Metavision::CameraStatus::STARTED ? "started." : "stopped."));
+  LOG_INFO_NAMED("camera " << (s == Metavision::CameraStatus::STARTED ? "started." : "stopped."));
 }
 
 bool MetavisionWrapper::saveBiases()
 {
   if (biasFile_.empty()) {
-    LOG_NAMED_WARN("no bias file specified at startup, no biases saved!");
+    LOG_WARN_NAMED("no bias file specified at startup, no biases saved!");
     return (false);
   } else {
     try {
       cam_.biases().save_to_file(biasFile_);
-      LOG_NAMED_INFO("biases written to file: " << biasFile_);
+      LOG_INFO_NAMED("biases written to file: " << biasFile_);
     } catch (const Metavision::CameraException & e) {
-      LOG_NAMED_WARN("failed to write bias file: " << e.what());
+      LOG_WARN_NAMED("failed to write bias file: " << e.what());
       return (false);
     }
   }
@@ -325,18 +325,18 @@ void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * 
     const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
 #ifndef USING_ROS_1
 #ifdef CHECK_IF_OUTSIDE_ROI
-    LOG_NAMED_INFO_FMT(
+    LOG_INFO_NAMED_FMT(
       "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
       "%4zu !roi: %8zu",
       avgRate, maxRate_, avgSize, pctOn, maxQueueSize_, outsideROI_);
 #else
-    LOG_NAMED_INFO_FMT(
+    LOG_INFO_NAMED_FMT(
       "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
       "%4zu",
       avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
 #endif
 #else
-    LOG_NAMED_INFO_FMT(
+    LOG_INFO_NAMED_FMT(
       "%s: avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
       "%4zu",
       loggerName_.c_str(), avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
@@ -415,6 +415,6 @@ void MetavisionWrapper::processingThread()
       free(const_cast<void *>(qe.second));
     }
   }
-  LOG_NAMED_INFO("processing thread exited!");
+  LOG_INFO_NAMED("processing thread exited!");
 }
 }  // namespace metavision_ros_driver
