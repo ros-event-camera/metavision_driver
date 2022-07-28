@@ -276,8 +276,8 @@ private:
   std::shared_ptr<MetavisionWrapper> wrapper_;
   ROSTimeKeeper rosTimeKeeper_;
   uint64_t rosTimeOffset_{0};  // roughly ros_start_time + avg diff elapsed (ros - sensor)
-  int width_;   // image width
-  int height_;  // image height
+  int width_;                  // image width
+  int height_;                 // image height
   std::string frameId_;
   bool isBigEndian_{false};
   // ------- state related to message publishing
