@@ -16,7 +16,7 @@
 #ifndef METAVISION_ROS_DRIVER__ROS_TIME_KEEPER_H_
 #define METAVISION_ROS_DRIVER__ROS_TIME_KEEPER_H_
 
-#include <algorithm>  // clamp
+#include <algorithm>  // min/max
 #include <chrono>
 #include <memory>
 #include <string>
@@ -27,11 +27,16 @@ namespace metavision_ros_driver
 {
 class ROSTimeKeeper
 {
+  template <class T>
+  inline static T clamp(const T & a, const T & low, const T & high)
+  {
+    return std::max(low, std::min(a, high));
+  }
   static inline int64_t clamp_buffering_delay(uint64_t rosT, uint64_t trialTime)
   {
     const int64_t MAX_BUFFER_DELAY = 2000000L;  // 2 ms
-    return (std::clamp(
-      static_cast<int64_t>(rosT) - static_cast<int64_t>(trialTime), 0L, MAX_BUFFER_DELAY));
+    return (
+      clamp(static_cast<int64_t>(rosT) - static_cast<int64_t>(trialTime), 0L, MAX_BUFFER_DELAY));
   }
 
 public:
@@ -69,7 +74,7 @@ public:
     // taken over about 10 sec:
     // alpha = elapsed_time / 10sec
     constexpr double f = 1.0 / (10.0e9);
-    const double alpha = std::clamp(sensor_inc * f, 0.0001, 0.1);
+    const double alpha = clamp(sensor_inc * f, 0.0001, 0.1);
     averageTimeDifference_ = averageTimeDifference_ * (1.0 - alpha) + alpha * dt;
     //
     // We want to use sensor time, but adjust it for the average clock

@@ -36,6 +36,7 @@
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
+#include "metavision_ros_driver/ros_time_keeper.h"
 
 // skip first few packets that may have bad time stamps
 // (time is in nanoseconds)
@@ -50,7 +51,8 @@ class DriverROS1 : public CallbackHandler
 {
 public:
   using Config = MetaVisionDynConfig;
-  explicit DriverROS1(const ros::NodeHandle & nh, const std::string & name) : nh_(nh)
+  explicit DriverROS1(const ros::NodeHandle & nh, const std::string & name)
+  : nh_(nh), rosTimeKeeper_(name)
   {
     wrapper_ = std::make_shared<MetavisionWrapper>(name);
     wrapper_->setSerialNumber(nh_.param<std::string>("serial", ""));
@@ -287,70 +289,6 @@ private:
     return (res.success);
   }
 
-  inline uint64_t updateROSTimeOffset(double dt_sensor)
-  {
-    const uint64_t rosT = ros::Time::now().toNSec();
-    if (rosT0_ == 0) {
-      rosT0_ = rosT;
-      // initialize to dt_ros - dt_sensor because dt_ros == 0
-      averageTimeDifference_ = -dt_sensor;
-      lastROSTime_ = rosT;
-      bufferingDelay_ = 0;
-      prevSensorTime_ = dt_sensor;
-    }
-    // compute time in seconds elapsed since ROS startup
-    const double dt_ros = static_cast<double>(rosT - rosT0_);
-    // difference between elapsed ROS time and elapsed sensor Time
-    const double dt = dt_ros - dt_sensor;
-    // compute moving average of elapsed time difference
-    // average over 10 seconds
-    constexpr double f = 1.0 / (10e9);
-    const double sensor_inc = dt_sensor - prevSensorTime_;
-    const double alpha = std::min(sensor_inc * f, 0.1);
-    averageTimeDifference_ = averageTimeDifference_ * (1.0 - alpha) + alpha * dt;
-    prevSensorTime_ = dt_sensor;
-    //
-    // We want to use sensor time, but adjust it for the average clock
-    // skew between sensor time and ros time, plus some unknown buffering delay dt_buf
-    // (to be estimated)
-    //
-    // t_ros_adj
-    //  = t_sensor + avg(t_ros - t_sensor) + dt_buf
-    //  = t_sensor_0 + dt_sensor + avg(t_ros_0 + dt_ros - (t_sensor_0 + dt_sensor)) + dt_buf
-    //          [now use t_sensor_0 and t_ros_0 == constant]
-    //  = t_ros_0 + avg(dt_ros - dt_sensor) + dt_sensor + dt_buf
-    //  =: ros_time_offset + dt_sensor;
-    //
-    // Meaning once ros_time_offset has been computed, the adjusted ros timestamp
-    // is obtained by just adding the sensor elapsed time (dt_sensor) that is reported
-    // by the SDK.
-
-    const uint64_t dt_sensor_int = static_cast<uint64_t>(dt_sensor);
-    const int64_t avg_timediff_int = static_cast<int64_t>(averageTimeDifference_);
-    const uint64_t MIN_EVENT_DELTA_T = 0LL;  // minimum time gap between packets
-
-    // First test if the new ros time stamp (trialTime) would be in future. If yes, then
-    // the buffering delay has been underestimated and must be adjusted.
-
-    const uint64_t trialTime = rosT0_ + avg_timediff_int + dt_sensor_int;
-
-    if (rosT < trialTime + bufferingDelay_) {  // time stamp would be in the future
-      bufferingDelay_ = -(trialTime - rosT);
-    }
-
-    // The buffering delay could make the time stamps go backwards.
-    // Ensure that this does not happen. This safeguard may cause
-    // time stamps to be (temporarily) in the future, there is no way around
-    // that.
-    if (trialTime + bufferingDelay_ < lastROSTime_ + MIN_EVENT_DELTA_T) {
-      bufferingDelay_ = (int64_t)(lastROSTime_ + MIN_EVENT_DELTA_T) - (int64_t)trialTime;
-    }
-
-    const uint64_t rosTimeOffset = rosT0_ + avg_timediff_int + bufferingDelay_;
-
-    return (rosTimeOffset);
-  }
-
   void allocateMessageIfNeeded(MsgState * state, int64_t sensorElapsedTime, int width, int height)
   {
     auto & msg = state->msg;
@@ -459,7 +397,8 @@ private:
       if (!state.msg) {
         // update the difference between ROS time and sensor time.
         // Only do so on message start to reduce compute time
-        rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+        rosTimeOffset_ =
+          rosTimeKeeper_.updateROSTimeOffset(sensorElapsedTime, ros::Time::now().toNSec());
       }
       allocateMessageIfNeeded(&state, sensorElapsedTime, width_, height_);
       auto & events = state.msg->events;
@@ -480,7 +419,7 @@ private:
       // must keep the rostime of the last event for maintaining
       // the offset
       const int64_t lastEventTime = start[n - 1].t * 1000;
-      lastROSTime_ = rosTimeOffset_ + lastEventTime;
+      rosTimeKeeper_.setLastROSTime(rosTimeOffset_ + lastEventTime);
       (void)sendMessageIfComplete(&state, lastEventTime, events.size());
     } else {
       // no subscribers: discard unfinished message and gather event statistics
@@ -508,13 +447,8 @@ private:
   std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
   std::string cameraInfoURL_;
   sensor_msgs::CameraInfo cameraInfoMsg_;
-  // ------- related to time keeping
-  uint64_t rosT0_{0};                // time when first callback happened
-  double averageTimeDifference_{0};  // average of elapsed_ros_time - elapsed_sensor_time
-  double prevSensorTime_{0};         // sensor time during previous update
-  int64_t bufferingDelay_{0};        // estimate of buffering delay
-  uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
-  uint64_t lastROSTime_{0};          // the last event's ROS time stamp
+  ROSTimeKeeper rosTimeKeeper_;
+  uint64_t rosTimeOffset_{0};  // roughly rosT0_ + averageTimeDifference_
   // ------- state related to message publishing
   MsgState eventState_;    // state for sending event message
   MsgState triggerState_;  // state for sending trigger message
@@ -553,7 +487,8 @@ void DriverROS1<event_array_msgs::EventArray>::eventCallback(
     if (!state.msg) {
       // update the difference between ROS time and sensor time.
       // Only do so on message start
-      rosTimeOffset_ = updateROSTimeOffset(sensorElapsedTime);
+      rosTimeOffset_ =
+        rosTimeKeeper_.updateROSTimeOffset(sensorElapsedTime, ros::Time::now().toNSec());
     }
     allocateMessageIfNeeded(&state, sensorElapsedTime, width_, height_, "mono");
     // If capacity is sufficient the resize should not trigger a copy
@@ -574,7 +509,7 @@ void DriverROS1<event_array_msgs::EventArray>::eventCallback(
 
     // update lastROSTime_ with latest event time stamp
     const int64_t lastEventTime = start[n - 1].t * 1000;
-    lastROSTime_ = rosTimeOffset_ + lastEventTime;
+    rosTimeKeeper_.setLastROSTime(rosTimeOffset_ + lastEventTime);
     (void)sendMessageIfComplete(&state, lastEventTime, events.size() / 8);
   } else {
     // no subscribers: clear out unfinished message and gather event statistics

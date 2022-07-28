@@ -17,45 +17,43 @@
 #define METAVISION_ROS_DRIVER__LOGGING_H_
 #ifdef USING_ROS_1
 #include <ros/ros.h>
-#define LOG_NAMED_INFO(...)       \
+#define LOG_INFO_NAMED(...)       \
   {                               \
     ROS_INFO_STREAM(__VA_ARGS__); \
   }
-#define LOG_NAMED_WARN(...)       \
+#define LOG_WARN_NAMED(...)       \
   {                               \
     ROS_WARN_STREAM(__VA_ARGS__); \
   }
-#define LOG_NAMED_ERROR(...)       \
+#define LOG_ERROR_NAMED(...)       \
   {                                \
     ROS_ERROR_STREAM(__VA_ARGS__); \
   }
 
-#define LOG_NAMED_INFO_FMT(...) \
+#define LOG_INFO_NAMED_FMT(...) \
   {                             \
     ROS_INFO(__VA_ARGS__);      \
   }
-#define LOG_NAMED_WARN_FMT(...) \
+#define LOG_WARN_NAMED_FMT(...) \
   {                             \
     ROS_WARN(__VA_ARGS__);      \
   }
-#define LOG_NAMED_ERROR_FMT(...) \
+#define LOG_ERROR_NAMED_FMT(...) \
   {                              \
     ROS_ERROR(__VA_ARGS__);      \
   }
 
-#define SKIP_12(X, Y, ...) __VA_ARGS__
-
-#define LOG_INFO_NODE_FMT_THROTTLE(...)      \
-  {                                          \
-    ROS_INFO_THROTTLE(SKIP_12(__VA_ARGS__)); \
+#define LOG_INFO_NAMED_FMT_THROTTLE(...) \
+  {                                      \
+    ROS_INFO_THROTTLE(__VA_ARGS__);      \
   }
-#define LOG_WARN_NODE_FMT_THROTTLE(...)      \
-  {                                          \
-    ROS_WARN_THROTTLE(SKIP_12(__VA_ARGS__)); \
+#define LOG_WARN_NAMED_FMT_THROTTLE(...) \
+  {                                      \
+    ROS_WARN_THROTTLE(__VA_ARGS__);      \
   }
-#define LOG_ERROR_NODE_FMT_THROTTLE(...)      \
-  {                                           \
-    ROS_ERROR_THROTTLE(SKIP_12(__VA_ARGS__)); \
+#define LOG_ERROR_NAMED_FMT_THROTTLE(...) \
+  {                                       \
+    ROS_ERROR_THROTTLE(__VA_ARGS__);      \
   }
 
 #else
