@@ -18,6 +18,7 @@
 
 #include <event_array_msgs/encode.h>
 
+#include <algorithm>  // clamp
 #include <chrono>
 #include <event_array_msgs/msg/event_array.hpp>
 #include <memory>
@@ -28,10 +29,6 @@
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 // #define DEBUG_PERFORMANCE
-
-// skip first few packets that may have bad time stamps
-// (time is in nanoseconds)
-#define SKIP_TIME 2000000000
 
 namespace metavision_ros_driver
 {
@@ -68,7 +65,7 @@ public:
 #ifdef DEBUG_PERFORMANCE
     startTime_ = std::chrono::high_resolution_clock::now();
 #endif
-    auto qosProf = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
+    auto qosProf = rclcpp::QoS(rclcpp::KeepLast(1000)).best_effort().durability_volatile();
 
     if (publishTrigger) {
       triggerState_.pub = node->create_publisher<MsgType>("~/trigger", qosProf);
@@ -103,7 +100,7 @@ public:
     MsgState & state = eventState_;
     const size_t n = end - start;
     int eventCount[2] = {0, 0};
-    if (state.pub->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
+    if (state.pub->get_subscription_count() > 0) {
       if (!state.msg) {
         // update the difference between ROS time and sensor time.
         // Only do so on message start
@@ -196,28 +193,60 @@ private:
     typename rclcpp::Publisher<MsgType>::SharedPtr pub;  // ros publisher
   };
 
+  inline void resetROSTime(const uint64_t rosT, const double dt_sensor)
+  {
+    rosT0_ = rosT;
+    // initialize to dt_ros - dt_sensor because dt_ros == 0
+    averageTimeDifference_ = -dt_sensor;
+    lastROSTime_ = rosT;
+    prevROSTime_ = rosT;
+    bufferingDelay_ = 0;
+    prevSensorTime_ = dt_sensor;
+  }
+
+  static inline int64_t clamp_buffering_delay(uint64_t rosT, uint64_t trialTime)
+  {
+    const int64_t MAX_BUFFER_DELAY = 2000000L;  // 2 ms
+    return (std::clamp(
+      static_cast<int64_t>(rosT) - static_cast<int64_t>(trialTime), 0L, MAX_BUFFER_DELAY));
+  }
+
   inline uint64_t updateROSTimeOffset(double dt_sensor)
   {
     const uint64_t rosT = node_->now().nanoseconds();
-    if (rosT0_ == 0) {
-      rosT0_ = rosT;
-      // initialize to dt_ros - dt_sensor because dt_ros == 0
-      averageTimeDifference_ = -dt_sensor;
-      lastROSTime_ = rosT;
-      bufferingDelay_ = 0;
-      prevSensorTime_ = dt_sensor;
+    if (rosT0_ == 0) {  // first time here
+      resetROSTime(rosT, dt_sensor);
+    }
+    if (dt_sensor < prevSensorTime_) {
+      RCLCPP_ERROR(node_->get_logger(), "sensor time going backwards, should never happen!");
+    }
+    double sensor_inc = std::max(dt_sensor - prevSensorTime_, 0.0);
+    const int64_t sensor_inc_int = static_cast<int64_t>(sensor_inc);
+    prevSensorTime_ = dt_sensor;
+    const int64_t ros_inc = static_cast<int64_t>(rosT) - static_cast<int64_t>(prevROSTime_);
+    prevROSTime_ = rosT;
+    // emergency reset if sensor time changed much more than ROS time (wall clock)
+    // - sensor time changed more than 20% with respect to ros time
+    const int64_t abs_change_diff = std::abs(sensor_inc_int - ros_inc);
+    if (abs_change_diff * 20 > std::abs(ros_inc) && abs_change_diff > 20000000L) {
+      RCLCPP_WARN_STREAM(
+        node_->get_logger(), "sensor time jumped by " << sensor_inc * 1e-9
+                                                      << "s vs wall clock: " << ros_inc * 1e-9
+                                                      << ", resetting ROS stamp time!");
+      sensor_inc = 0;
+      resetROSTime(rosT, dt_sensor);
     }
     // compute time in seconds elapsed since ROS startup
     const double dt_ros = static_cast<double>(rosT - rosT0_);
     // difference between elapsed ROS time and elapsed sensor Time
     const double dt = dt_ros - dt_sensor;
-    // compute moving average of elapsed time difference
-    // average over 10 seconds
-    constexpr double f = 1.0 / (10e9);
-    const double sensor_inc = dt_sensor - prevSensorTime_;
-    const double alpha = std::min(sensor_inc * f, 0.1);
+    // compute moving average of elapsed time difference.
+    // the averaging constant alpha is picked such that the average is
+    // taken over about 10 sec:
+    // alpha = elapsed_time / 10sec
+    constexpr double f = 1.0 / (10.0e9);
+    const double alpha = std::clamp(sensor_inc * f, 0.0001, 0.1);
     averageTimeDifference_ = averageTimeDifference_ * (1.0 - alpha) + alpha * dt;
-    prevSensorTime_ = dt_sensor;
     //
     // We want to use sensor time, but adjust it for the average clock
     // skew between sensor time and ros time, plus some unknown buffering delay dt_buf
@@ -244,7 +273,8 @@ private:
     const uint64_t trialTime = rosT0_ + avg_timediff_int + dt_sensor_int;
 
     if (rosT < trialTime + bufferingDelay_) {  // time stamp would be in the future
-      bufferingDelay_ = -(trialTime - rosT);
+      // compute buffering delay as clamped rosT - trialTime
+      bufferingDelay_ = clamp_buffering_delay(rosT, trialTime);
     }
 
     // The buffering delay could make the time stamps go backwards.
@@ -252,7 +282,17 @@ private:
     // time stamps to be (temporarily) in the future, there is no way around
     // that.
     if (trialTime + bufferingDelay_ < lastROSTime_ + MIN_EVENT_DELTA_T) {
-      bufferingDelay_ = (int64_t)(lastROSTime_ + MIN_EVENT_DELTA_T) - (int64_t)trialTime;
+      // compute buffering delay as clamped lastROSTime_ + MIN_EVENT_DELTA_T - trialTime
+      bufferingDelay_ = clamp_buffering_delay(lastROSTime_ + MIN_EVENT_DELTA_T, trialTime);
+    }
+
+    // warn if the ros header stamp is off by more than 10ms vs current stamp
+    const int64_t ros_tdiff =
+      static_cast<int64_t>(rosT) - static_cast<int64_t>(trialTime) - bufferingDelay_;
+    if (std::abs(ros_tdiff) > 10000000LL) {
+      RCLCPP_WARN_THROTTLE(
+        node_->get_logger(), *node_->get_clock(), 5000LL, "ROS timestamp off by: %.2fms",
+        ros_tdiff * 1e-6);
     }
 
     const uint64_t rosTimeOffset = rosT0_ + avg_timediff_int + bufferingDelay_;
@@ -349,6 +389,7 @@ private:
   int64_t bufferingDelay_{0};        // estimate of buffering delay
   uint64_t rosTimeOffset_{0};        // roughly rosT0_ + averageTimeDifference_
   uint64_t lastROSTime_{0};          // the last event's ROS time stamp
+  uint64_t prevROSTime_{0};          // last time the ROS offset was updated
   // ------- state related to message publishing
   MsgState eventState_;    // state for sending event message
   MsgState triggerState_;  // state for sending trigger message
@@ -385,7 +426,7 @@ void EventPublisherROS2<event_array_msgs::msg::EventArray>::eventCallback(
   const size_t n = end - start;
   MsgState & state = eventState_;
 
-  if (state.pub->get_subscription_count() > 0 && sensorElapsedTime > SKIP_TIME) {
+  if (state.pub->get_subscription_count() > 0) {
     if (!state.msg) {
       // update the difference between ROS time and sensor time.
       // Only do so on message start
