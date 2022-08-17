@@ -43,7 +43,17 @@ class MetavisionWrapper
 public:
   using EventCD = Metavision::EventCD;
   using EventExtTrigger = Metavision::EventExtTrigger;
-  typedef std::pair<size_t, const void *> QueueElement;
+  enum EventType { CD, ExtTrigger };
+  struct QueueElement
+  {
+    QueueElement() {}
+    QueueElement(EventType t, const void * s, uint32_t n) : eventType(t), start(s), numEvents(n) {}
+    // ----- variables
+    EventType eventType{CD};
+    const void * start{0};
+    uint32_t numEvents{0};
+  };
+
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
 
   explicit MetavisionWrapper(const std::string & loggerName);
@@ -61,6 +71,8 @@ public:
   int getHeight() const { return (height_); }
   const std::string & getSerialNumber() const { return (serialNumber_); }
   const std::string & getSoftwareInfo() const { return (softwareInfo_); }
+  const std::string & getExternalTriggerInMode() const { return (triggerInMode_); }
+  const std::string & getSyncMode() const { return (syncMode_); }
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
   void setSyncMode(const std::string & sm) { syncMode_ = sm; }
   bool startCamera(CallbackHandler * h);
@@ -71,16 +83,16 @@ public:
   void setROI(const std::vector<int> & roi) { roi_ = roi; }
   void setExternalTriggerInMode(const std::string & mode) { triggerInMode_ = mode; }
   void setExternalTriggerOutMode(
-    const std::string & mode, const int period, const double duty_cycle)
-  {
-    triggerOutMode_ = mode;
-    triggerOutPeriod_ = period;
-    triggerOutDutyCycle_ = duty_cycle;
-  };
-
+    const std::string & mode, const int period, const double duty_cycle);
   void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; }
+  void setCallbackHandler2(CallbackHandler * h) { callbackHandler2_ = h; }
+  bool triggerActive() const
+  {
+    return (triggerInMode_ != "disabled" || triggerOutMode_ != "disabled");
+  }
+  bool triggerInActive() const { return (triggerInMode_ != "disabled"); }
 #ifdef CHECK_IF_OUTSIDE_ROI
-  void checkROI(uint16_t x, uint16_t y)
+  inline void checkROI(uint16_t x, uint16_t y)
   {
     if (x < x_min_ || x >= x_max_ || y < y_min_ || y >= y_max_) {
       outsideROI_++;
@@ -96,6 +108,7 @@ private:
   void extTriggerCallback(const EventExtTrigger * start, const EventExtTrigger * end);
   void eventCallback(const EventCD * start, const EventCD * end);
   void eventCallbackMultithreaded(const EventCD * start, const EventCD * end);
+  void extTriggerCallbackMultithreaded(const EventExtTrigger * start, const EventExtTrigger * end);
   void processingThread();
   void applyROI(const std::vector<int> & roi);
   void applySyncMode(const std::string & mode);
@@ -104,6 +117,7 @@ private:
     const double duty_cycle);
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
+  CallbackHandler * callbackHandler2_{0};  // additional callback handler
   Metavision::Camera cam_;
   Metavision::CallbackId statusChangeCallbackId_;
   bool statusChangeCallbackActive_{false};
@@ -141,7 +155,7 @@ private:
   bool useMultithreading_{false};
   std::mutex mutex_;
   std::condition_variable cv_;
-  std::deque<std::pair<size_t, const void *>> queue_;
+  std::deque<QueueElement> queue_;
   std::shared_ptr<std::thread> thread_;
   bool keepRunning_{true};
 #ifdef CHECK_IF_OUTSIDE_ROI

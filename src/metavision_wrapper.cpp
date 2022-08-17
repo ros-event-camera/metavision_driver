@@ -1,5 +1,5 @@
 // -*-c++-*---------------------------------------------------------------------------------------
-// Copyright 2021 Bernd Pfrommer <bernd.pfrommer@gmail.com>
+// Copyright 2022 Bernd Pfrommer <bernd.pfrommer@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,9 @@
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
+#include <chrono>
 #include <set>
+#include <thread>
 
 #include "metavision_ros_driver/logging.h"
 
@@ -198,22 +200,34 @@ void MetavisionWrapper::configureExternalTriggers(
     } else {
       LOG_ERROR_NAMED("Failed enabling trigger input");
     }
-
-    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(
-      std::bind(&MetavisionWrapper::extTriggerCallback, this, ph::_1, ph::_2));
+    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(std::bind(
+      useMultithreading_ ? &MetavisionWrapper::extTriggerCallbackMultithreaded
+                         : &MetavisionWrapper::extTriggerCallback,
+      this, ph::_1, ph::_2));
     extTriggerCallbackActive_ = true;
   }
 }
 
 bool MetavisionWrapper::initializeCamera()
 {
-  try {
-    if (!serialNumber_.empty()) {
-      cam_ = Metavision::Camera::from_serial(serialNumber_);
-    } else {
-      cam_ = Metavision::Camera::from_first_available();
+  const int num_tries = 5;
+  for (int i = 0; i < num_tries; i++) {
+    try {
+      if (!serialNumber_.empty()) {
+        cam_ = Metavision::Camera::from_serial(serialNumber_);
+      } else {
+        cam_ = Metavision::Camera::from_first_available();
+      }
+      break;
+    } catch (const Metavision::CameraException & e) {
+      LOG_WARN_NAMED(
+        "cannot open " << (serialNumber_.empty() ? "default" : serialNumber_) << " on attempt "
+                       << i + 1 << ", retrying " << num_tries - i << " more times");
+      std::this_thread::sleep_for(std::chrono::seconds(1));
     }
+  }
 
+  try {
     // Record the plugin software information about the camera.
     Metavision::I_PluginSoftwareInfo * psi =
       cam_.get_device().get_facility<Metavision::I_PluginSoftwareInfo>();
@@ -248,13 +262,10 @@ bool MetavisionWrapper::initializeCamera()
     runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
       std::bind(&MetavisionWrapper::runtimeErrorCallback, this, ph::_1));
     runtimeErrorCallbackActive_ = true;
-    if (useMultithreading_) {
-      contrastCallbackId_ = cam_.cd().add_callback(
-        std::bind(&MetavisionWrapper::eventCallbackMultithreaded, this, ph::_1, ph::_2));
-    } else {
-      contrastCallbackId_ =
-        cam_.cd().add_callback(std::bind(&MetavisionWrapper::eventCallback, this, ph::_1, ph::_2));
-    }
+    contrastCallbackId_ = cam_.cd().add_callback(std::bind(
+      useMultithreading_ ? &MetavisionWrapper::eventCallbackMultithreaded
+                         : &MetavisionWrapper::eventCallback,
+      this, ph::_1, ph::_2));
     contrastCallbackActive_ = true;
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
@@ -361,7 +372,23 @@ void MetavisionWrapper::extTriggerCallback(
 {
   const size_t n = end - start;
   if (n != 0) {
-    callbackHandler_->triggerCallback(start, end);
+    callbackHandler_->triggerEventCallback(start, end);
+  }
+}
+
+void MetavisionWrapper::extTriggerCallbackMultithreaded(
+  const EventExtTrigger * start, const EventExtTrigger * end)
+{
+  // queue stuff away quickly to prevent events from being
+  // dropped at the SDK level
+  const size_t n = end - start;
+  if (n != 0) {
+    const size_t n_bytes = n * sizeof(EventCD);
+    void * memblock = malloc(n_bytes);
+    memcpy(memblock, start, n_bytes);
+    std::unique_lock<std::mutex> lock(mutex_);
+    queue_.push_front(QueueElement(ExtTrigger, memblock, n));
+    cv_.notify_all();
   }
 }
 
@@ -370,7 +397,10 @@ void MetavisionWrapper::eventCallback(const EventCD * start, const EventCD * end
   const size_t n = end - start;
   if (n != 0) {
     updateStatistics(start, end);
-    callbackHandler_->eventCallback(start, end);
+    callbackHandler_->cdEventCallback(start, end);
+    if (callbackHandler2_) {
+      callbackHandler2_->cdEventCallback(start, end);
+    }
   }
 }
 
@@ -384,7 +414,7 @@ void MetavisionWrapper::eventCallbackMultithreaded(const EventCD * start, const 
     void * memblock = malloc(n_bytes);
     memcpy(memblock, start, n_bytes);
     std::unique_lock<std::mutex> lock(mutex_);
-    queue_.push_front(std::pair<size_t, void *>(n, memblock));
+    queue_.push_front(QueueElement(CD, memblock, n));
     cv_.notify_all();
   }
 }
@@ -393,7 +423,7 @@ void MetavisionWrapper::processingThread()
 {
   const std::chrono::microseconds timeout((int64_t)(1000000LL));
   while (callbackHandler_->keepRunning() && keepRunning_) {
-    QueueElement qe(0, 0);
+    QueueElement qe;
     size_t qs = 0;
     {  // critical section, no processing done here
       std::unique_lock<std::mutex> lock(mutex_);
@@ -406,15 +436,37 @@ void MetavisionWrapper::processingThread()
         queue_.pop_back();
       }
     }
-    if (qe.first != 0) {
-      const EventCD * start = static_cast<const EventCD *>(qe.second);
-      const EventCD * end = start + qe.first;
+    if (qe.numEvents != 0) {
       maxQueueSize_ = std::max(maxQueueSize_, qs);
-      updateStatistics(start, end);
-      callbackHandler_->eventCallback(start, end);
-      free(const_cast<void *>(qe.second));
+      switch (qe.eventType) {
+        case CD: {
+          const EventCD * start = static_cast<const EventCD *>(qe.start);
+          const EventCD * end = start + qe.numEvents;
+          updateStatistics(start, end);
+          callbackHandler_->cdEventCallback(start, end);
+          if (callbackHandler2_) {
+            callbackHandler2_->cdEventCallback(start, end);
+          }
+          break;
+        }
+        case ExtTrigger: {
+          const EventExtTrigger * start = static_cast<const EventExtTrigger *>(qe.start);
+          const EventExtTrigger * end = start + qe.numEvents;
+          callbackHandler_->triggerEventCallback(start, end);
+          break;
+        }
+      }
+      free(const_cast<void *>(qe.start));
     }
   }
   LOG_INFO_NAMED("processing thread exited!");
 }
+void MetavisionWrapper::setExternalTriggerOutMode(
+  const std::string & mode, const int period, const double duty_cycle)
+{
+  triggerOutMode_ = mode;
+  triggerOutPeriod_ = period;
+  triggerOutDutyCycle_ = duty_cycle;
+}
+
 }  // namespace metavision_ros_driver

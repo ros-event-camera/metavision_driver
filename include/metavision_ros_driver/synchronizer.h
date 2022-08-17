@@ -13,21 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ros/ros.h>
+#ifndef METAVISION_ROS_DRIVER__SYNCHRONIZER_H_
+#define METAVISION_ROS_DRIVER__SYNCHRONIZER_H_
 
-#include "metavision_ros_driver/driver_ros1.h"
-
-int main(int argc, char ** argv)
+namespace metavision_ros_driver
 {
-  ros::init(argc, argv, "driver_node");
-  ros::NodeHandle pnh("~");
-
-  try {
-    metavision_ros_driver::DriverROS1 node(pnh);
-    ros::spin();
-  } catch (const std::exception & e) {
-    ROS_ERROR("%s: %s", pnh.getNamespace().c_str(), e.what());
-    return (-1);
-  }
-  return (0);
-}
+class Synchronizer
+{
+public:
+  Synchronizer() {}
+  virtual ~Synchronizer() {}
+  virtual bool sendReadyMessage() = 0;
+};
+}  // namespace metavision_ros_driver
+#endif  // METAVISION_ROS_DRIVER__SYNCHRONIZER_H_

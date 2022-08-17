@@ -1,34 +1,50 @@
 <launch>
-  <arg name="bias_file" default=""/>
+  <arg name="bias_file_cam_0" default=""/>
+  <arg name="bias_file_cam_1" default=""/>
+  <arg name="serial_cam_0"/>
+  <arg name="serial_cam_1"/>
+
   <node pkg="metavision_ros_driver" type="driver_node" name="event_cam_0" clear_params="true"
 	output="screen">
     <param name="frame_id" value="event_cam_0"/>
     <param name="sync_mode" value="primary"/>
+    <param name="serial" value="$(arg serial_cam_0)"/>
     <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
-    <param name="bias_file" value="$(arg bias_file)"/>
+    <param name="bias_file" value="$(arg bias_file_cam_0)"/>
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="false"/>
+    <param name="use_multithreading" value="true"/>
     <!-- what kind of messages to write (dvs or prophesee, event_array) -->
     <param name="message_type" value="event_array"/>
     <!-- listen for ready message from cam 1 -->
     <remap from="~ready" to ="/event_cam_1/ready"/>
   </node>
+
+  <!-- triggers seem to only work for the secondary or in standalone -->
   <node pkg="metavision_ros_driver" type="driver_node" name="event_cam_1" clear_params="true"
 	output="screen">
     <param name="frame_id" value="event_cam_1"/>
     <param name="sync_mode" value="secondary"/>
+    <param name="serial" value="$(arg serial_cam_1)"/>
     <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
-    <param name="bias_file" value="$(arg bias_file)"/>
+    <param name="bias_file" value="$(arg bias_file_cam_1)"/>
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="false"/>
+    <param name="use_multithreading" value="true"/>
     <!-- what kind of messages to write (dvs or prophesee, event_array) -->
     <param name="message_type" value="event_array"/>
-
+    <!-- trigger setup -->
+    <param name="trigger_message_time_threshold" value="0"/>
+    <param name="trigger_out_mode" value="enabled"/>
+    <!-- units of trigger_out_period is usec -->
+    <param name="trigger_out_period" value="1000"/>
+    <param name="trigger_out_duty_cycle" value="0.5"/>
+    <param name="trigger_in_mode" value="loopback"/>
+    <!-- load trigger pin layout for sensors -->
+    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_stereo.yaml"/>
   </node>
 </launch>
