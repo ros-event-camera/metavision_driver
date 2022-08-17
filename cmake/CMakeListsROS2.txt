@@ -38,6 +38,7 @@ set(ROS2_DEPENDENCIES
   "rclcpp"
   "rclcpp_components"
   "camera_info_manager"
+  "image_transport"
   "dvs_msgs"
   "prophesee_event_msgs"
   "event_array_msgs"

@@ -13,21 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ros/ros.h>
+#ifndef METAVISION_ROS_DRIVER__EVENT_ARRAY_TYPEDEF_H_
+#define METAVISION_ROS_DRIVER__EVENT_ARRAY_TYPEDEF_H_
 
-#include "metavision_ros_driver/driver_ros1.h"
+#include "metavision_ros_driver/ros1_ros2_compatibility.h"
+#ifdef USING_ROS_1
+#include <event_array_msgs/EventArray.h>
+#else
+#include <event_array_msgs/msg/event_array.hpp>
+#endif
 
-int main(int argc, char ** argv)
+namespace metavision_ros_driver
 {
-  ros::init(argc, argv, "driver_node");
-  ros::NodeHandle pnh("~");
-
-  try {
-    metavision_ros_driver::DriverROS1 node(pnh);
-    ros::spin();
-  } catch (const std::exception & e) {
-    ROS_ERROR("%s: %s", pnh.getNamespace().c_str(), e.what());
-    return (-1);
-  }
-  return (0);
-}
+typedef GENERIC_ROS_MESSAGE_TYPE(event_array_msgs, EventArray) EventArray;
+}  // namespace metavision_ros_driver
+#endif  // METAVISION_ROS_DRIVER__EVENT_ARRAY_TYPEDEF_H_

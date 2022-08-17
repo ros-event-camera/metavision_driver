@@ -16,6 +16,7 @@
 
   <!-- common dependencies -->
   <depend>camera_info_manager</depend>
+  <depend>image_transport</depend>
   <depend>dvs_msgs</depend>
   <depend>prophesee_event_msgs</depend>
   <depend>event_array_msgs</depend>

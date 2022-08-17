@@ -13,21 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ros/ros.h>
+#ifndef METAVISION_ROS_DRIVER__EVENT_PUBLISHER_BASE_H_
+#define METAVISION_ROS_DRIVER__EVENT_PUBLISHER_BASE_H_
 
-#include "metavision_ros_driver/driver_ros1.h"
+#include "metavision_ros_driver/callback_handler.h"
 
-int main(int argc, char ** argv)
+namespace metavision_ros_driver
 {
-  ros::init(argc, argv, "driver_node");
-  ros::NodeHandle pnh("~");
+class EventPublisherBase : public CallbackHandler
+{
+public:
+  EventPublisherBase() {}
+  virtual ~EventPublisherBase() {}
 
-  try {
-    metavision_ros_driver::DriverROS1 node(pnh);
-    ros::spin();
-  } catch (const std::exception & e) {
-    ROS_ERROR("%s: %s", pnh.getNamespace().c_str(), e.what());
-    return (-1);
-  }
-  return (0);
-}
+protected:
+};
+
+}  // namespace metavision_ros_driver
+#endif  // METAVISION_ROS_DRIVER__EVENT_PUBLISHER_BASE_H_

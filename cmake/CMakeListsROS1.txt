@@ -18,14 +18,16 @@ add_compile_options(-Wall -Wextra -pedantic)
 add_compile_definitions(USING_ROS_1)
 
 find_package(catkin REQUIRED COMPONENTS
-  dvs_msgs
-  prophesee_event_msgs
-  event_array_msgs
   roscpp
   nodelet
   dynamic_reconfigure
-  std_srvs
   camera_info_manager
+  image_transport
+  dvs_msgs
+  prophesee_event_msgs
+  event_array_msgs
+  sensor_msgs
+  std_srvs
   )
 
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)
@@ -44,15 +46,21 @@ catkin_package(CATKIN_DEPENDS dynamic_reconfigure)
 #
 # --------- driver -------------
 
+# code common to nodelet and node
+add_library(driver_common src/driver_ros1.cpp src/metavision_wrapper.cpp)
+target_link_libraries(driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
+# to ensure messages get built before executable
+add_dependencies(driver_common ${metavision_ros_driver_EXPORTED_TARGETS})
+
 # nodelet
-add_library(driver_nodelet src/metavision_wrapper.cpp src/driver_nodelet_ros1.cpp)
-target_link_libraries(driver_nodelet MetavisionSDK::driver ${catkin_LIBRARIES})
+add_library(driver_nodelet src/driver_nodelet_ros1.cpp)
+target_link_libraries(driver_nodelet driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
 add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
 
 # node
-add_executable(driver_node src/metavision_wrapper.cpp src/driver_node_ros1.cpp)
-target_link_libraries(driver_node MetavisionSDK::driver ${catkin_LIBRARIES})
+add_executable(driver_node src/driver_node_ros1.cpp)
+target_link_libraries(driver_node driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
 add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
 

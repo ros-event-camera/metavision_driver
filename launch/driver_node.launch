@@ -1,15 +1,17 @@
 <launch>
   <arg name="bias_file" default=""/>
+  <arg name="serial" default=""/>
   <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="true"/>
+    <param name="use_multithreading" value="false"/>
     <!-- "message_time_threshold" sets time span for how long events
 	 will be buffered until a new ROS message is generated -->
     <param name="event_message_time_threshold" value="0.001"/>
     <!--- use a time of zero to force immediate sending of trigger
 	message, else there will always be at least 2 trigger events
 	per message -->
+    <param name="serial" value="$(arg serial)"/>
     <param name="trigger_message_time_threshold" value="0"/>
     <param name="trigger_out_mode" value="enabled"/>
     <!-- units of trigger_out_period is usec -->

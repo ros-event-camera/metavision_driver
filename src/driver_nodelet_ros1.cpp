@@ -25,34 +25,15 @@ namespace metavision_ros_driver
 class DriverNodeletROS1 : public nodelet::Nodelet
 {
 public:
-  template <class T>
-  std::shared_ptr<DriverROS1<T>> initDriver(ros::NodeHandle & pnh, const std::string & name)
-  {
-    auto ptr = std::make_shared<DriverROS1<T>>(pnh, name);
-    return (ptr);
-  }
-
   void onInit() override
   {
     nh_ = getPrivateNodeHandle();
-    const std::string msg_mode = nh_.param<std::string>("message_type", "dvs");
-    ROS_INFO_STREAM("running in message mode: " << msg_mode);
-    if (msg_mode == "prophesee") {
-      prophDriver_ = initDriver<prophesee_event_msgs::EventArray>(nh_, this->getName());
-    } else if (msg_mode == "dvs") {
-      dvsDriver_ = initDriver<dvs_msgs::EventArray>(nh_, this->getName());
-    } else if (msg_mode == "event_array") {
-      eventArrayDriver_ = initDriver<event_array_msgs::EventArray>(nh_, this->getName());
-    } else {
-      ROS_ERROR_STREAM("exiting due to invalid message mode: " << msg_mode);
-    }
+    driver_ = std::make_shared<DriverROS1>(nh_);
   }
 
 private:
   // ------ variables --------
-  std::shared_ptr<DriverROS1<prophesee_event_msgs::EventArray>> prophDriver_;
-  std::shared_ptr<DriverROS1<dvs_msgs::EventArray>> dvsDriver_;
-  std::shared_ptr<DriverROS1<event_array_msgs::EventArray>> eventArrayDriver_;
+  std::shared_ptr<DriverROS1> driver_;
   ros::NodeHandle nh_;
 };
 }  // namespace metavision_ros_driver

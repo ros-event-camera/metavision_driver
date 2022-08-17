@@ -45,6 +45,7 @@ def launch_setup(context, *args, **kwargs):
                      'bias_file': bias_config,
                      'camerainfo_url': '',
                      'frame_id': '',
+                     'serial': LaunchConfig('serial'),
                      # 'roi': [315, 235, 20, 10],
                      # valid: 'enabled', 'loopback', 'disabled'
                      'trigger_in_mode': 'disabled',
@@ -64,5 +65,7 @@ def generate_launch_description():
     return launch.LaunchDescription([
         LaunchArg('camera_name', default_value=['event_camera'],
                   description='camera name'),
+        LaunchArg('serial', default_value=[''],
+                  description='serial number of camera'),
         OpaqueFunction(function=launch_setup)
         ])

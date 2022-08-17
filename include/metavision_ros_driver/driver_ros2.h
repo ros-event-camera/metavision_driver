@@ -17,62 +17,93 @@
 #define METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
 
 #include <camera_info_manager/camera_info_manager.hpp>
-#include <dvs_msgs/msg/event_array.hpp>
-#include <event_array_msgs/msg/event_array.hpp>
+#include <image_transport/image_transport.hpp>
 #include <map>
 #include <memory>
-#include <prophesee_event_msgs/msg/event_array.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
-#include "metavision_ros_driver/event_publisher_ros2.h"
-#include "metavision_ros_driver/metavision_wrapper.h"
+#include "metavision_ros_driver/event_publisher_base.h"
+#include "metavision_ros_driver/image_updater.h"
+#include "metavision_ros_driver/synchronizer.h"
 
 namespace metavision_ros_driver
 {
-class DriverROS2 : public rclcpp::Node
+class MetavisionWrapper;  // forward decl
+
+class DriverROS2 : public rclcpp::Node, public Synchronizer
 {
 public:
   explicit DriverROS2(const rclcpp::NodeOptions & options);
   ~DriverROS2();
+  // ----------- from synchronizer ---------
+  bool sendReadyMessage() override;
 
 private:
-  bool stop();
-  rcl_interfaces::msg::SetParametersResult parameterChanged(
-    const std::vector<rclcpp::Parameter> & params);
-  void onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::ParameterEvent> event);
-  bool start();
-  void addBiasParameter(
-    const std::string & name, int min_val, int max_val, const std::string & desc);
-  void initializeBiasParameters();
-  void declareBiasParameters();
+  using CameraInfo = sensor_msgs::msg::CameraInfo;
+
+  // service call to dump biases
   void saveBiases(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     const std::shared_ptr<std_srvs::srv::Trigger::Response> response);
-  void secondaryReady(std_msgs::msg::Header::ConstSharedPtr msg);
-  MetavisionWrapper::HardwarePinConfig getHardwarePinConfig() const;
-  // ---------  variables
+
+  // related to dynanmic config (runtime parameter update)
+  rcl_interfaces::msg::SetParametersResult parameterChanged(
+    const std::vector<rclcpp::Parameter> & params);
+  void onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::ParameterEvent> event);
+  void addBiasParameter(const std::string & n, int min_v, int max_v, const std::string & desc);
+  void initializeBiasParameters();
+  void declareBiasParameters();
+
+  // for primary sync
+  void secondaryReadyCallback(std_msgs::msg::Header::ConstSharedPtr msg);
+
+  // functions related to frame and camerainfo publishing
+  void subscriptionCheckTimerExpired();
+  void frameTimerExpired();
+  void startNewImage();
+
+  // misc helper functions
+  bool start();
+  bool stop();
+  void makeEventPublisher();
+  void configureWrapper(const std::string & name);
+
+  // ------------------------  variables ------------------------------
   typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
+
   std::shared_ptr<MetavisionWrapper> wrapper_;
-  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
+  std::shared_ptr<EventPublisherBase> eventPub_;
+  std::string frameId_;
+
+  // ------ related to sync
+  rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
+  rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr secondaryReadySub_;
+  rclcpp::Duration readyIntervalTime_;  // frequency of publishing ready messages
+  rclcpp::Time lastReadyTime_;          // last time ready message was published
+
+  // ------ related to dynamic config and services
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr callbackHandle_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
   std::shared_ptr<rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent, std::allocator<void>>>
     parameterSubscription_;
   ParameterMap biasParameters_;
-  sensor_msgs::msg::CameraInfo cameraInfoMsg_;
-  std::string cameraInfoURL_;
-  rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr secondaryReadySub_;
-  // different types of publishers depending on message type
-  typedef EventPublisherROS2<prophesee_event_msgs::msg::EventArray> PropheseePublisher;
-  typedef EventPublisherROS2<dvs_msgs::msg::EventArray> DVSPublisher;
-  typedef EventPublisherROS2<event_array_msgs::msg::EventArray> EventArrayPublisher;
-  std::shared_ptr<PropheseePublisher> prophPub_;
-  std::shared_ptr<DVSPublisher> dvsPub_;
-  std::shared_ptr<EventArrayPublisher> eventArrayPub_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
 
-  std::string frameId_;
+  // ------ related to rendered image publishing
+  ImageUpdater imageUpdater_;
+  double fps_;
+  rclcpp::TimerBase::SharedPtr frameTimer_;
+  image_transport::Publisher imagePub_;
+  sensor_msgs::msg::Image imageMsgTemplate_;
+  rclcpp::TimerBase::SharedPtr subscriptionCheckTimer_;
+
+  // -------- related to camerainfo
+  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
+  rclcpp::Publisher<CameraInfo>::SharedPtr cameraInfoPub_;
+  sensor_msgs::msg::CameraInfo cameraInfoMsg_;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
