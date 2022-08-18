@@ -1,31 +1,35 @@
 # metavision_ros_driver
 
-A ROS/ROS2 driver for cameras using the Metavision toolkit (Prophesee and
-SilkyEVCam). It has several feature and performance improvements over the 
+A combined ROS/ROS2 driver for event based cameras using Prophesee's Metavision SDK.
+
+![banner image](images/silkyev_cam.png)
+
+This driver is not written or supported by Prophesee. It has several feature and performance improvements over the 
 [official Prophesee
 driver](https://github.com/prophesee-ai/prophesee_ros_wrapper).
 
-This driver is not written or supported by Prophesee.
-
 ## Supported platforms
 
-Software:
+Tested on the following platforms:
 
 - ROS Noetic
 - ROS2 Galactic
-- Ubuntu 20.04 LTS
-- Metavision 2.2.2
-
-Tested on the following hardware:
-
-- SilkyEVCam (Gen 3.1 sensor)
+- Ubuntu 18.04 and 20.04 LTS
+- Metavision SDK (OpenEB) 2.2.2 - 3.0.2
 
 Note: there is currently a bug when using synchronization on
 Metavision 2.3.2. Hold off on upgrading if you want to use
 synchronization.
 
+Tested on the following hardware:
+
+- SilkyEVCam (Gen 3.1 sensor)
 
 ## How to build
+
+Install the Metavision SDK or
+[OpenEB](https://github.com/prophesee-ai/openeb).
+
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
 For example for ROS1 noetic:
 ```
@@ -80,8 +84,8 @@ This driver differs from the Prophesee ROS driver in the following ways:
   - ROI specification
   - camera synchronization (stereo)
   - external trigger events
-- NOTE: does not provide ``camera_info`` messages yet, does not play
-  from raw files.
+- low jitter ROS stamps
+- does not play from raw files.
 
 Parameters:
 
