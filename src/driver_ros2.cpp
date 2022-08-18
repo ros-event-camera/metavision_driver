@@ -354,7 +354,7 @@ bool DriverROS2::stop()
 }
 
 template <typename MsgType>
-static std::shared_ptr<EventPublisher<MsgType>> make_publisher_and_start_camera(
+static std::shared_ptr<EventPublisher<MsgType>> make_publisher(
   rclcpp::Node * node, Synchronizer * sync, const std::shared_ptr<MetavisionWrapper> & wrapper,
   const std::string & frameId, bool pubTrig, size_t eventReserveSize, double eventTimeThreshold,
   size_t triggerReserveSize, double triggerTimeThreshold)
@@ -366,7 +366,6 @@ static std::shared_ptr<EventPublisher<MsgType>> make_publisher_and_start_camera(
   if (pubTrig) {
     pub->setupTriggerState(triggerReserveSize, triggerTimeThreshold, "trigger", qs);
   }
-  wrapper->startCamera(pub.get());
   return (pub);
 }
 
@@ -391,15 +390,15 @@ void DriverROS2::makeEventPublisher()
 
   // different types of publishers depending on message type
   if (msgType == "prophesee") {
-    eventPub_ = make_publisher_and_start_camera<prophesee_event_msgs::msg::EventArray>(
+    eventPub_ = make_publisher<prophesee_event_msgs::msg::EventArray>(
       this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
       triggerReserveSize, triggerTimeThreshold);
   } else if (msgType == "dvs") {
-    eventPub_ = make_publisher_and_start_camera<dvs_msgs::msg::EventArray>(
+    eventPub_ = make_publisher<dvs_msgs::msg::EventArray>(
       this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
       triggerReserveSize, triggerTimeThreshold);
   } else if (msgType == "event_array") {
-    eventPub_ = make_publisher_and_start_camera<event_array_msgs::msg::EventArray>(
+    eventPub_ = make_publisher<event_array_msgs::msg::EventArray>(
       this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
       triggerReserveSize, triggerTimeThreshold);
   } else {
