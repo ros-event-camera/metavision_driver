@@ -74,6 +74,7 @@ public:
   const std::string & getExternalTriggerInMode() const { return (triggerInMode_); }
   const std::string & getSyncMode() const { return (syncMode_); }
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
+  void setFromFile(const std::string & f) { fromFile_ = f; }
   void setSyncMode(const std::string & sm) { syncMode_ = sm; }
   bool startCamera(CallbackHandler * h);
   void setLoggerName(const std::string & s) { loggerName_ = s; }
@@ -142,6 +143,7 @@ private:
   uint32_t eventCount_[2];
   std::string biasFile_;
   std::string serialNumber_;
+  std::string fromFile_;
   std::string softwareInfo_;
   std::string syncMode_;
   std::string triggerInMode_;   // disabled, enabled, loopback

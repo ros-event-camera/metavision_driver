@@ -341,6 +341,7 @@ void DriverROS1::configureWrapper(const std::string & name)
 {
   wrapper_ = std::make_shared<MetavisionWrapper>(name);
   wrapper_->setSerialNumber(nh_.param<std::string>("serial", ""));
+  wrapper_->setFromFile(nh_.param<std::string>("from_file", ""));
   wrapper_->setSyncMode(nh_.param<std::string>("sync_mode", "standalone"));
   auto roi = nh_.param<std::vector<int>>("roi", std::vector<int>());
   if (!roi.empty()) {

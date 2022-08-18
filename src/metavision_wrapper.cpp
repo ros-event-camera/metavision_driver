@@ -158,6 +158,13 @@ void MetavisionWrapper::applySyncMode(const std::string & mode)
 {
   Metavision::I_DeviceControl * control =
     cam_.get_device().get_facility<Metavision::I_DeviceControl>();
+  if (!control) {  // happens when playing from file
+    if (mode != "standalone") {
+      LOG_WARN_NAMED("cannot set sync mode to: " << mode);
+    }
+    return;
+  }
+
   if (mode == "standalone") {
     if (control->get_mode() != Metavision::I_DeviceControl::SyncMode::STANDALONE) {
       control->set_mode_standalone();
@@ -213,16 +220,23 @@ bool MetavisionWrapper::initializeCamera()
   const int num_tries = 5;
   for (int i = 0; i < num_tries; i++) {
     try {
-      if (!serialNumber_.empty()) {
-        cam_ = Metavision::Camera::from_serial(serialNumber_);
+      if (!fromFile_.empty()) {
+        LOG_INFO_NAMED("reading events from file: " << fromFile_);
+        cam_ = Metavision::Camera::from_file(fromFile_);
       } else {
-        cam_ = Metavision::Camera::from_first_available();
+        if (!serialNumber_.empty()) {
+          cam_ = Metavision::Camera::from_serial(serialNumber_);
+        } else {
+          cam_ = Metavision::Camera::from_first_available();
+        }
       }
-      break;
+      break;  // were able to open the camera, exit the for loop
     } catch (const Metavision::CameraException & e) {
+      const std::string src =
+        fromFile_.empty() ? (serialNumber_.empty() ? "default" : serialNumber_) : fromFile_;
       LOG_WARN_NAMED(
-        "cannot open " << (serialNumber_.empty() ? "default" : serialNumber_) << " on attempt "
-                       << i + 1 << ", retrying " << num_tries - i << " more times");
+        "cannot open " << src << " on attempt " << i + 1 << ", retrying " << num_tries - i
+                       << " more times");
       std::this_thread::sleep_for(std::chrono::seconds(1));
     }
   }
@@ -252,10 +266,12 @@ bool MetavisionWrapper::initializeCamera()
     width_ = g.width();
     height_ = g.height();
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
-    applySyncMode(syncMode_);
-    applyROI(roi_);
-    configureExternalTriggers(
-      triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    if (fromFile_.empty()) {
+      applySyncMode(syncMode_);
+      applyROI(roi_);
+      configureExternalTriggers(
+        triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
     statusChangeCallbackActive_ = true;

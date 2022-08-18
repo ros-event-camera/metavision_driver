@@ -85,12 +85,16 @@ This driver differs from the Prophesee ROS driver in the following ways:
   - camera synchronization (stereo)
   - external trigger events
 - low jitter ROS stamps
-- does not play from raw files.
 
 Parameters:
 
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
+- ``from_file``: path to Metavision raw file. Instead of opening
+    camera, driver plays back data from this file.
+- ``serial``: specifies serial number of camera to open (useful for
+    stereo). To learn serial number format first start driver without
+    specifying serial number and look at the log files.
 - ``event_message_time_threshold``: (in seconds) minimum time span of
     events to be aggregated in one ROS event message before message is sent. Defaults to 100us.
 - ``sensor_max_mevs``: (in Million Events/sec) maximum number of

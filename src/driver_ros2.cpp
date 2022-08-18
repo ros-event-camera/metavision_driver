@@ -435,6 +435,9 @@ void DriverROS2::configureWrapper(const std::string & name)
   std::string sn;
   this->get_parameter_or("serial", sn, std::string(""));
   wrapper_->setSerialNumber(sn);
+  std::string fromFile;
+  this->get_parameter_or("from_file", fromFile, std::string(""));
+  wrapper_->setFromFile(fromFile);
   std::string syncMode;
   this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   wrapper_->setSyncMode(syncMode);
