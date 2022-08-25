@@ -15,7 +15,8 @@
 
 #add_compile_options(-Wall -Wextra -pedantic -Werror)
 add_compile_options(-Wall -Wextra -pedantic)
-add_compile_definitions(USING_ROS_1)
+#add_compile_definitions(USING_ROS_1)
+add_definitions(-DUSING_ROS_1)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
