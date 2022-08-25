@@ -28,7 +28,9 @@ Tested on the following hardware:
 ## How to build
 
 Install the Metavision SDK or
-[OpenEB](https://github.com/prophesee-ai/openeb).
+[OpenEB](https://github.com/prophesee-ai/openeb), and maybe install wstool
+(package python-wstool or python3-wstool).
+
 
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
 For example for ROS1 noetic:
