@@ -86,6 +86,10 @@ public:
   void setExternalTriggerOutMode(
     const std::string & mode, const int period, const double duty_cycle);
   void setHardwarePinConfig(const HardwarePinConfig & config) { hardwarePinConfig_ = config; }
+  void setEventRateController(const std::string & mode, const int rate) {
+    ercMode_ = mode;
+    ercRate_ = rate;
+  }
   void setCallbackHandler2(CallbackHandler * h) { callbackHandler2_ = h; }
   bool triggerActive() const
   {
@@ -116,6 +120,7 @@ private:
   void configureExternalTriggers(
     const std::string & mode_in, const std::string & mode_out, const int period,
     const double duty_cycle);
+  void configureEventRateController(const std::string & mode, const int rate);
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
   CallbackHandler * callbackHandler2_{0};  // additional callback handler
@@ -151,6 +156,8 @@ private:
   int triggerOutPeriod_;        // period (in microseconds) of trigger out
   double triggerOutDutyCycle_;  // duty cycle (fractional) of trigger out
   HardwarePinConfig hardwarePinConfig_;
+  std::string ercMode_;
+  int ercRate_;
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
   // related to multi threading
