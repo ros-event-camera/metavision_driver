@@ -16,6 +16,7 @@
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 #include <metavision/hal/facilities/i_device_control.h>
+#include <metavision/hal/facilities/i_erc.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
@@ -144,8 +145,6 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
       cam_.roi().set(rects);
     }
   } else {
-    // unsetting the ROI upsets the Gen4 sensor
-    // cam_.roi().unset();
 #ifdef CHECK_IF_OUTSIDE_ROI
     x_min_ = 0;
     x_max_ = std::numeric_limits<uint16_t>::max();
@@ -216,6 +215,17 @@ void MetavisionWrapper::configureExternalTriggers(
   }
 }
 
+void MetavisionWrapper::configureEventRateController(
+  const std::string & mode, const int events_per_sec)
+{
+  if (mode == "enabled" || mode == "disabled") {
+    Metavision::I_Erc * i_erc = cam_.get_device().get_facility<Metavision::I_Erc>();
+
+    i_erc->enable(mode == "enabled");
+    i_erc->set_cd_event_rate(events_per_sec);
+  }
+}
+
 bool MetavisionWrapper::initializeCamera()
 {
   const int num_tries = 5;
@@ -272,6 +282,7 @@ bool MetavisionWrapper::initializeCamera()
       applyROI(roi_);
       configureExternalTriggers(
         triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+      configureEventRateController(ercMode_, ercRate_);
     }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
