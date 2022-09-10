@@ -4,7 +4,7 @@
   <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="false"/>
+    <param name="use_multithreading" value="true"/>
     <!-- "message_time_threshold" sets time span for how long events
 	 will be buffered until a new ROS message is generated -->
     <param name="event_message_time_threshold" value="0.001"/>

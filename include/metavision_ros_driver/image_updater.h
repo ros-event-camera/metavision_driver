@@ -56,6 +56,12 @@ public:
       }
     }
   }
+
+  void rawDataCallback(const uint8_t* data, size_t size) override
+  {
+	  // TODO fill this in
+  }
+
   // ----------------- end of inherited from CallbackHandler ----
 
   // note: returns reference to pointer to allow for std::move()

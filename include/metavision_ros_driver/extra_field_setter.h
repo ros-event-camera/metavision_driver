@@ -50,5 +50,6 @@ struct ExtraFieldSetter<EventArray, MVEventType>
     msg->seq = state->seq++;
   }
 };
+
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__EXTRA_FIELD_SETTER_H_
