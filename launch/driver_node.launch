@@ -18,8 +18,9 @@
     <param name="trigger_out_period" value="1000"/>
     <param name="trigger_out_duty_cycle" value="0.5"/>
     <param name="trigger_in_mode" value="loopback"/>
-
-    <param name="erc_mode" value="disabled"/>
+    <!-- erc mode: na, enabled, disabled -->
+    <param name="erc_mode" value="na"/>
+    <param name="erc_rate" value="100000000"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="1.0"/>
     <!-- from where to load the bias file (if any)  -->

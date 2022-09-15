@@ -35,7 +35,7 @@ def launch_setup(context, *args, **kwargs):
     node = Node(package='metavision_ros_driver',
                 executable='driver_node',
                 output='screen',
-                # prefix=['xterm -e gdb -ex run --args'],
+                prefix=['xterm -e gdb -ex run --args'],
                 name=cam_name,
                 parameters=[
                     trigger_config,  # loads the whole file
@@ -46,6 +46,8 @@ def launch_setup(context, *args, **kwargs):
                      'camerainfo_url': '',
                      'frame_id': '',
                      'serial': LaunchConfig('serial'),
+                     'erc_mode': 'enabled',
+                     'erc_rate': 100000000,
                      # 'roi': [315, 235, 20, 10],
                      # valid: 'enabled', 'loopback', 'disabled'
                      'trigger_in_mode': 'disabled',

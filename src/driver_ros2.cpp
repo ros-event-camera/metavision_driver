@@ -472,6 +472,14 @@ void DriverROS2::configureWrapper(const std::string & name)
     LOG_INFO("trigger out duty cycle: " << tOutCycle);
   }
   wrapper_->setExternalTriggerOutMode(tOutMode, tOutPeriod, tOutCycle);
+
+  // disabled, enabled, na
+  std::string ercMode;  // Event Rate Controller Mode
+  this->get_parameter_or("erc_mode", ercMode, std::string("na"));
+  int ercRate;  // Event Rate Controller Rate
+  this->get_parameter_or("erc_rate", ercRate, 100000000);
+  wrapper_->setEventRateController(ercMode, ercRate);
+
   if (wrapper_->triggerActive()) {
     wrapper_->setHardwarePinConfig(get_hardware_pin_config(this));
   }

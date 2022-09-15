@@ -132,6 +132,9 @@ Parameters:
   The length of the ``roi`` parameter vector must therefore be a multiple
   of 4. Beware that when using multiple ROIs, per Metavision SDK  documentation:
   ["Any line or column enabled by a single ROI is also enabled for all the other"](https://docs.prophesee.ai/stable/metavision_sdk/modules/driver/api/features.html#_CPPv4N10Metavision3RoiE).
+- ``erc_mode``: event rate control mode (Gen4 sensor): ``na``,
+  ``disabled``, ``enabled``. Default: ``na``.
+- ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
 - ``sync_mode``: Used to synchronize the time stamps across multiple
   cameras (tested for only 2). The cameras must be connected via a
   sync cable, and two separate ROS driver nodes are started, see

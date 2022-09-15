@@ -220,9 +220,12 @@ void MetavisionWrapper::configureEventRateController(
 {
   if (mode == "enabled" || mode == "disabled") {
     Metavision::I_Erc * i_erc = cam_.get_device().get_facility<Metavision::I_Erc>();
-
-    i_erc->enable(mode == "enabled");
-    i_erc->set_cd_event_rate(events_per_sec);
+    if (i_erc) {
+      i_erc->enable(mode == "enabled");
+      i_erc->set_cd_event_rate(events_per_sec);
+    } else {
+      LOG_WARN_NAMED("cannot set event rate control for this camera!");
+    }
   }
 }
 
