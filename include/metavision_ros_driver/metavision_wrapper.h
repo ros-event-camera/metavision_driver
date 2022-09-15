@@ -41,9 +41,10 @@ namespace metavision_ros_driver
 class MetavisionWrapper
 {
 public:
+  using RawData = Metavision::RawData;
   using EventCD = Metavision::EventCD;
   using EventExtTrigger = Metavision::EventExtTrigger;
-  enum EventType { CD, ExtTrigger };
+  enum EventType { CD, ExtTrigger, RAW };
   struct QueueElement
   {
     QueueElement() {}
@@ -112,8 +113,13 @@ private:
   void statusChangeCallback(const Metavision::CameraStatus & s);
   void updateStatistics(const EventCD * start, const EventCD * end);
   void extTriggerCallback(const EventExtTrigger * start, const EventExtTrigger * end);
+
   void eventCallback(const EventCD * start, const EventCD * end);
   void eventCallbackMultithreaded(const EventCD * start, const EventCD * end);
+
+  void rawDataCallback(const uint8_t * data, size_t size);
+  void rawDataCallbackMultithreaded(const uint8_t * data, size_t size);
+
   void extTriggerCallbackMultithreaded(const EventExtTrigger * start, const EventExtTrigger * end);
   void processingThread();
   void applyROI(const std::vector<int> & roi);
@@ -133,6 +139,8 @@ private:
   Metavision::CallbackId contrastCallbackId_;
   bool contrastCallbackActive_{false};
   Metavision::CallbackId extTriggerCallbackId_;
+  bool rawDataCallbackActive_{false};
+  Metavision::CallbackId rawDataCallbackId_;
   bool extTriggerCallbackActive_{false};
   int width_{0};   // image width
   int height_{0};  // image height

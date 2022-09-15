@@ -29,6 +29,8 @@ public:
     const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end) = 0;
   virtual void cdEventCallback(
     const Metavision::EventCD * start, const Metavision::EventCD * end) = 0;
+  virtual void rawDataCallback(
+    const uint8_t* data, size_t size) = 0;
   virtual bool keepRunning() = 0;
 };
 }  // namespace metavision_ros_driver

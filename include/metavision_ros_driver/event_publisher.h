@@ -30,6 +30,14 @@
 #include "metavision_ros_driver/ros_time_keeper.h"
 #include "metavision_ros_driver/synchronizer.h"
 
+template<typename V>
+void resize_hack(V& v, size_t newSize){
+	struct vt {typename V::value_type v; vt() {}};
+	static_assert(sizeof(vt[10]) ==sizeof(typename V::value_type[10]), "alignment error");
+	typedef std::vector<vt, typename std::allocator_traits<typename V::allocator_type>::template rebind_alloc<vt>> V2;
+	reinterpret_cast<V2&>(v).resize(newSize);
+}
+
 namespace metavision_ros_driver
 {
 template <typename MsgType>
@@ -52,6 +60,12 @@ public:
 
   ~EventPublisher() {}
 
+  void setupRawState(
+    size_t reserveSize, double timeThreshold, const std::string & topic, int qSize)
+  {
+    setupState(&packetState_, reserveSize, timeThreshold, topic, qSize);
+  }
+
   void setupEventState(
     size_t reserveSize, double timeThreshold, const std::string & topic, int qSize)
   {
@@ -65,6 +79,10 @@ public:
   }
 
   // ---------------- inherited from CallbackHandler -----------
+  void rawDataCallback(const uint8_t* data, size_t size) override
+  {
+    rawDataPacketCallback(data, size);
+  }
   void cdEventCallback(const Metavision::EventCD * start, const Metavision::EventCD * end) override
   {
     eventCallback<Metavision::EventCD>(start, end);
@@ -79,6 +97,39 @@ public:
 
 private:
   using MsgState = MessageState<MsgType>;
+
+  inline void rawDataPacketCallback(const void* data, size_t size)
+  {
+    ros::Time ct = ros::Time::now();
+    const int64_t sensorElapsedTime = ct.toNSec();  // nanosec
+    if (waitForGoodTimestamp(sensorElapsedTime)) {
+      // I'm the secondary and the primary is not running yet, my time stamps are bad (0)
+      return;
+    }
+    MsgState & state = packetState_;
+    const size_t n = size;
+    int eventCount[2] = {0, 0};
+    if (GENERIC_ROS_SUBSCRIPTION_COUNT(state.pub) > 0) {
+      // state.msg->encoding = "evt3";
+      // state.msg->header.stamp = ct;
+
+      allocateMessageIfNeeded<Metavision::RawData>(&state, sensorElapsedTime);
+
+      // convert metavision events to ROS events
+      auto & events = state.msg->events;
+      const size_t old_size = events.size();
+      // With proper reserved capacity, the resize should not trigger a copy.
+      resize_hack(events, events.size() + size);
+      finalReserveSize_ = std::max(finalReserveSize_, int(events.size()));
+      // copy data into ROS message
+      void* memblk = (void*)( events.data() + old_size );
+      memcpy(memblk, data, size);
+
+      (void)sendMessageIfComplete<Metavision::RawData>(&state, sensorElapsedTime);
+    } else {
+      state.msg.reset();
+    }
+  }
 
   // This is the main entry point for all callbacks (CD and trigger events)
   template <class MVEventType>
@@ -120,7 +171,8 @@ private:
     auto & events = state->msg->events;
     const size_t old_size = events.size();
     // With proper reserved capacity, the resize should not trigger a copy.
-    events.resize(events.size() + n * stride);
+    resize_hack(events, events.size() + n * stride);
+    finalReserveSize_ = std::max(finalReserveSize_, int(events.size()));
     // copy data into ROS message. For the SilkyEvCam
     // the full load packet size delivered by the SDK is 320
     uint32_t j = 0;
@@ -146,7 +198,8 @@ private:
       Encoder<MsgType, MVEventType>::getGeometry(width_, height_, &msg->width, &msg->height);
       state->msgStartTime = state->rosTimeOffset + sensorElapsedTime;
       msg->header.stamp = GENERIC_ROS_SYSTEM_TIME_FROM_NSEC(state->msgStartTime);
-      msg->events.reserve(state->reserveSize * Encoder<MsgType, MVEventType>::getStride());
+      finalReserveSize_ = std::max(finalReserveSize_, int(state->reserveSize * Encoder<MsgType, MVEventType>::getStride()));
+      msg->events.reserve(finalReserveSize_);
       // populate the extra fields for EventArray messages
       ExtraFieldSetter<MsgType, MVEventType>::setExtraFields(
         state, sensorElapsedTime, isBigEndian_);
@@ -154,7 +207,7 @@ private:
   }
 
   template <class MVEventType>
-  inline bool sendMessageIfComplete(MsgState * state, int64_t last_event_time)
+  bool sendMessageIfComplete(MsgState * state, int64_t last_event_time)
   {
     const uint64_t latestTime = state->rosTimeOffset + last_event_time;
     if (latestTime >= state->msgStartTime + state->msgThreshold) {
@@ -167,6 +220,7 @@ private:
     }
     return (false);
   }
+
   // setup the message state
   void setupState(
     MsgState * msgState, size_t reserveSize, double timeThreshold, const std::string & topic,
@@ -180,6 +234,7 @@ private:
   // ----- get the right message state depending on event or trigger
   inline MsgState & getMsgState(Metavision::EventCD) { return (eventState_); }
   inline MsgState & getMsgState(Metavision::EventExtTrigger) { return (triggerState_); }
+  inline MsgState & getMsgState(Metavision::RawData) { return (packetState_); }
 
   // the first argument is just a type marker for the overriding
   inline void updateROSTimeIfNeeded(
@@ -200,6 +255,7 @@ private:
   }
   // no-op for trigger events
   inline void rememberLastEventTimeIfNeeded(Metavision::EventExtTrigger, const int64_t) {}
+  inline void rememberLastEventTimeIfNeeded(Metavision::RawData, const int64_t) {}
 
   // in a synchronization scenario, the secondary will get sensor timestamps
   // with value 0 until it receives a sync signal from the primary.
@@ -225,6 +281,8 @@ private:
   // these are the only variables that are templated !
   MsgState eventState_;    // state for sending event message
   MsgState triggerState_;  // state for sending trigger message
+  MsgState packetState_;  // state for sending trigger message
+  int finalReserveSize_{0};
 };
 
 }  // namespace metavision_ros_driver

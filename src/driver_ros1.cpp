@@ -268,6 +268,7 @@ static std::shared_ptr<EventPublisher<MsgType>> make_publisher(
   const int qs = 1000;
   auto pub = std::make_shared<EventPublisher<MsgType>>(&node, sync, wrapper, frameId);
   pub->setupEventState(eventReserveSize, eventTimeThreshold, "events", qs);
+  pub->setupRawState(eventReserveSize, eventTimeThreshold, "packets", qs);
   if (pubTrig) {
     pub->setupTriggerState(triggerReserveSize, triggerTimeThreshold, "trigger", qs);
   }

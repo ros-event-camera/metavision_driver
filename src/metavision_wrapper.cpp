@@ -94,6 +94,9 @@ bool MetavisionWrapper::stop()
   if (contrastCallbackActive_) {
     cam_.cd().remove_callback(contrastCallbackId_);
   }
+  if (rawDataCallbackActive_) {
+    cam_.raw_data().remove_callback(contrastCallbackId_);
+  }
   if (runtimeErrorCallbackActive_) {
     cam_.remove_runtime_error_callback(runtimeErrorCallbackId_);
   }
@@ -293,11 +296,19 @@ bool MetavisionWrapper::initializeCamera()
     runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
       std::bind(&MetavisionWrapper::runtimeErrorCallback, this, ph::_1));
     runtimeErrorCallbackActive_ = true;
+
     contrastCallbackId_ = cam_.cd().add_callback(std::bind(
       useMultithreading_ ? &MetavisionWrapper::eventCallbackMultithreaded
                          : &MetavisionWrapper::eventCallback,
       this, ph::_1, ph::_2));
     contrastCallbackActive_ = true;
+
+    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(
+      useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
+                         : &MetavisionWrapper::rawDataCallback,
+      this, ph::_1, ph::_2));
+    rawDataCallbackActive_ = true;
+
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
     return (false);
@@ -423,6 +434,30 @@ void MetavisionWrapper::extTriggerCallbackMultithreaded(
   }
 }
 
+void MetavisionWrapper::rawDataCallback(const uint8_t * data, size_t size)
+{
+  if (size != 0) {
+    // updateStatistics(start, end);
+    callbackHandler_->rawDataCallback(data, size);
+    if (callbackHandler2_) {
+      // callbackHandler2_->cdEventCallback(data, size);
+    }
+  }
+}
+
+void MetavisionWrapper::rawDataCallbackMultithreaded(const uint8_t * data, size_t size)
+{
+  // queue stuff away quickly to prevent events from being
+  // dropped at the SDK level
+  if (size != 0) {
+    void * memblock = malloc(size);
+    memcpy(memblock, data, size);
+    std::unique_lock<std::mutex> lock(mutex_);
+    queue_.push_front(QueueElement(RAW, memblock, size));
+    cv_.notify_all();
+  }
+}
+
 void MetavisionWrapper::eventCallback(const EventCD * start, const EventCD * end)
 {
   const size_t n = end - start;
@@ -484,6 +519,12 @@ void MetavisionWrapper::processingThread()
           const EventExtTrigger * start = static_cast<const EventExtTrigger *>(qe.start);
           const EventExtTrigger * end = start + qe.numEvents;
           callbackHandler_->triggerEventCallback(start, end);
+          break;
+        }
+        case RAW: {
+          const uint8_t * data = static_cast<const uint8_t *>(qe.start);
+          size_t size = qe.numEvents;
+          callbackHandler_->rawDataCallback(data, size);
           break;
         }
       }

@@ -115,6 +115,27 @@ constexpr uint32_t Encoder<EventArray, Metavision::EventCD>::getStride()
   return (event_array_msgs::mono::bytes_per_event);
 }
 
+
+// EventArray / RawData full specialization
+template <>
+void Encoder<EventArray, Metavision::RawData>::encode(
+  decltype(EventArray::events)::value_type * er, const Metavision::RawData & em,
+  const uint64_t rosTimeOffset, const uint64_t headerStamp)
+{
+}
+// stride full specialization
+template <>
+constexpr uint32_t Encoder<EventArray, Metavision::RawData>::getStride()
+{
+  return (event_array_msgs::mono::bytes_per_event);
+}
+// stride full specialization
+template <>
+constexpr const char * Encoder<EventArray, Metavision::RawData>::getEncoding()
+{
+  return "evt3";
+}
+
 }  // namespace metavision_ros_driver
 
 #endif  // METAVISION_ROS_DRIVER__ENCODER_H_
