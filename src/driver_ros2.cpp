@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "metavision_ros_driver/check_endian.h"
-#include "metavision_ros_driver/event_publisher.h"
 #include "metavision_ros_driver/logging.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 
@@ -36,18 +35,24 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   readyIntervalTime_(rclcpp::Duration::from_seconds(1.0))
 
 {
-  this->get_parameter_or("frame_id", frameId_, std::string(""));
-  this->get_parameter_or("fps", fps_, 25.0);
-
   configureWrapper(get_name());
 
-  const rmw_qos_profile_t qosProf = rmw_qos_profile_default;
-
-  imagePub_ = image_transport::create_publisher(this, "~/image_raw", qosProf);
-
-  cameraInfoPub_ = this->create_publisher<CameraInfo>("~/camera_info", rclcpp::QoS(1));
-
   const auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
+  this->get_parameter_or("encoding", encoding_, std::string("evt3"));
+  if (encoding_ != "evt3") {
+    LOG_ERROR("invalid encoding: " << encoding_);
+    throw std::runtime_error("invalid encoding!");
+  }
+  double mtt;
+  this->get_parameter_or("event_message_time_threshold", mtt, 1e-3);
+  messageThresholdTime_ = uint64_t(std::abs(mtt) * 1e9);
+  int64_t mts;
+  this->get_parameter_or("event_message_size_threshold", mts, int64_t(1000000000));
+  messageThresholdSize_ = static_cast<size_t>(std::abs(mts));
+
+  eventPub_ = this->create_publisher<EventArrayMsg>(
+    "~/events", rclcpp::QoS(rclcpp::KeepLast(1000)).best_effort().durability_volatile());
+
   if (wrapper_->getSyncMode() == "primary") {
     // defer starting the primary until secondary is up
     const std::string topic = "~/ready";
@@ -63,11 +68,6 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
       throw std::runtime_error("startup of DriverROS2 node failed!");
     }
   }
-  // Since ROS2 image transport  does not call back when subscribers come and go
-  // must check by polling
-  subscriptionCheckTimer_ = rclcpp::create_timer(
-    this, get_clock(), rclcpp::Duration(1, 0),
-    std::bind(&DriverROS2::subscriptionCheckTimerExpired, this));
 }
 
 DriverROS2::~DriverROS2()
@@ -232,63 +232,6 @@ void DriverROS2::secondaryReadyCallback(std_msgs::msg::Header::ConstSharedPtr ms
   }
 }
 
-void DriverROS2::subscriptionCheckTimerExpired()
-{
-  // this silly dance is only necessary because ROS2 at this time does not support
-  // callbacks when subscribers come and go
-  if ((imagePub_.getNumSubscribers() || cameraInfoPub_->get_subscription_count()) && !frameTimer_) {
-    // start publishing frames if there is interest in either camerainfo or image
-    frameTimer_ = rclcpp::create_timer(
-      this, get_clock(), rclcpp::Duration::from_seconds(1.0 / fps_),
-      std::bind(&DriverROS2::frameTimerExpired, this));
-  } else if (
-    (!imagePub_.getNumSubscribers() && !cameraInfoPub_->get_subscription_count()) && frameTimer_) {
-    // if nobody is listening, stop publishing frames if this is currently happening
-    frameTimer_->cancel();
-    frameTimer_.reset();
-  }
-
-  if (imagePub_.getNumSubscribers() == 0) {
-    // all subscribers are gone
-    if (imageUpdater_.hasImage()) {
-      // tell image updater to deallocate image
-      imageUpdater_.resetImagePtr();
-    }
-    wrapper_->setCallbackHandler2(0);
-  } else if (!imageUpdater_.hasImage()) {
-    // we have subscribers but no image is being updated yet, so start doing so
-    startNewImage();
-    wrapper_->setCallbackHandler2(&imageUpdater_);
-  }
-}
-
-void DriverROS2::frameTimerExpired()
-{
-  const rclcpp::Time t = this->get_clock()->now();
-  // publish camerainfo if somebody is listening
-  if (cameraInfoPub_->get_subscription_count() != 0) {
-    cameraInfoMsg_.header.stamp = t;
-    cameraInfoPub_->publish(cameraInfoMsg_);
-  }
-  // publish frame if available and somebody listening
-  if (imagePub_.getNumSubscribers() != 0 && imageUpdater_.hasImage()) {
-    // take memory managent from image updater
-    sensor_msgs::msg::Image::UniquePtr updated_img = imageUpdater_.getImage();
-    updated_img->header.stamp = t;
-    // give memory management to imagePub_
-    imagePub_.publish(std::move(updated_img));
-    // start a new image
-    startNewImage();
-  }
-}
-
-void DriverROS2::startNewImage()
-{
-  sensor_msgs::msg::Image::UniquePtr img(new sensor_msgs::msg::Image(imageMsgTemplate_));
-  img->data.resize(img->height * img->step, 0);  // allocate memory and set all bytes to zero
-  imageUpdater_.setImage(&img);                  // event publisher will also render image now
-}
-
 bool DriverROS2::start()
 {
   // must wait with initialize() until all trigger params have been set
@@ -296,9 +239,10 @@ bool DriverROS2::start()
   this->get_parameter_or("use_multithreading", useMT, true);
   double printInterval;
   this->get_parameter_or("statistics_print_interval", printInterval, 1.0);
+  wrapper_->setStatisticsInterval(printInterval);
   std::string biasFile;
   this->get_parameter_or("bias_file", biasFile, std::string(""));
-  if (!wrapper_->initialize(useMT, printInterval, biasFile)) {
+  if (!wrapper_->initialize(useMT, biasFile)) {
     LOG_ERROR("driver initialization failed!");
     return (false);
   }
@@ -310,27 +254,14 @@ bool DriverROS2::start()
     frameId_ = sn.substr(sn.size() - 4);
   }
   LOG_INFO("using frame id: " << frameId_);
-
-  std::string cameraInfoURL;
-  this->get_parameter_or("camerainfo_url", cameraInfoURL, std::string(""));
-
-  infoManager_ =
-    std::make_shared<camera_info_manager::CameraInfoManager>(this, get_name(), cameraInfoURL);
-  cameraInfoMsg_ = infoManager_->getCameraInfo();
-  cameraInfoMsg_.header.frame_id = frameId_;
-  cameraInfoMsg_.height = wrapper_->getHeight();
-  cameraInfoMsg_.width = wrapper_->getWidth();
-
-  imageMsgTemplate_.header.frame_id = frameId_;
-  imageMsgTemplate_.height = wrapper_->getHeight();
-  imageMsgTemplate_.width = wrapper_->getWidth();
-  imageMsgTemplate_.encoding = "bgr8";
-  imageMsgTemplate_.is_bigendian = check_endian::isBigEndian();
-  imageMsgTemplate_.step = 3 * imageMsgTemplate_.width;
+  
+  // ------ get other parameters from camera
+  width_ = wrapper_->getWidth();
+  height_ = wrapper_->getHeight();
+  isBigEndian_ = check_endian::isBigEndian();
 
   // ------ start camera, may get callbacks from then on
-  makeEventPublisher();
-  wrapper_->startCamera(eventPub_.get());
+  wrapper_->startCamera(this);
 
   declareBiasParameters();
   callbackHandle_ = this->add_on_set_parameters_callback(
@@ -351,61 +282,6 @@ bool DriverROS2::stop()
     return (wrapper_->stop());
   }
   return false;
-}
-
-template <typename MsgType>
-static std::shared_ptr<EventPublisher<MsgType>> make_publisher(
-  rclcpp::Node * node, Synchronizer * sync, const std::shared_ptr<MetavisionWrapper> & wrapper,
-  const std::string & frameId, bool pubTrig, size_t eventReserveSize, double eventTimeThreshold,
-  size_t triggerReserveSize, double triggerTimeThreshold)
-{
-  const int qs = 1000;
-  typedef EventPublisher<MsgType> EventPub;
-  auto pub = std::make_shared<EventPub>(node, sync, wrapper, frameId);
-  pub->setupEventState(eventReserveSize, eventTimeThreshold, "events", qs);
-  if (pubTrig) {
-    pub->setupTriggerState(triggerReserveSize, triggerTimeThreshold, "trigger", qs);
-  }
-  return (pub);
-}
-
-void DriverROS2::makeEventPublisher()
-{
-  const bool pubTrig = wrapper_->triggerInActive();
-  std::string msgType;
-  this->get_parameter_or("message_type", msgType, std::string("event_array"));
-  double eventTimeThreshold;
-  this->get_parameter_or("event_message_time_threshold", eventTimeThreshold, 100e-6);
-  LOG_INFO("event message time threshold: " << eventTimeThreshold << "s");
-  double mmevs;
-  this->get_parameter_or("sensor_max_mevs", mmevs, 50.0);
-  const size_t eventReserveSize = static_cast<size_t>(mmevs * 1.0e6 * eventTimeThreshold);
-  LOG_INFO("using event reserve size: " << eventReserveSize);
-  double triggerTimeThreshold;
-  this->get_parameter_or("trigger_message_time_threshold", triggerTimeThreshold, 100e-6);
-  LOG_INFO("trigger message time threshold: " << triggerTimeThreshold << "s");
-  double ttmf;
-  this->get_parameter_or("trigger_max_freq", ttmf, 1000.0);
-  const size_t triggerReserveSize = static_cast<size_t>(ttmf * triggerTimeThreshold);
-
-  // different types of publishers depending on message type
-  if (msgType == "prophesee") {
-    eventPub_ = make_publisher<prophesee_event_msgs::msg::EventArray>(
-      this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
-      triggerReserveSize, triggerTimeThreshold);
-  } else if (msgType == "dvs") {
-    eventPub_ = make_publisher<dvs_msgs::msg::EventArray>(
-      this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
-      triggerReserveSize, triggerTimeThreshold);
-  } else if (msgType == "event_array") {
-    eventPub_ = make_publisher<event_array_msgs::msg::EventArray>(
-      this, this, wrapper_, frameId_, pubTrig, eventReserveSize, eventTimeThreshold,
-      triggerReserveSize, triggerTimeThreshold);
-  } else {
-    LOG_ERROR("invalid msg type: " << msgType);
-    throw(std::runtime_error("invalid message type!"));
-  }
-  LOG_INFO("started driver with msg type: " << msgType);
 }
 
 static MetavisionWrapper::HardwarePinConfig get_hardware_pin_config(rclcpp::Node * node)
@@ -482,6 +358,40 @@ void DriverROS2::configureWrapper(const std::string & name)
 
   if (wrapper_->triggerActive()) {
     wrapper_->setHardwarePinConfig(get_hardware_pin_config(this));
+  }
+}
+
+void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end)
+{
+  if (eventPub_->get_subscription_count() > 0) {
+    if (!msg_) {
+      msg_.reset(new EventArrayMsg());
+      msg_->header.frame_id = frameId_;
+      msg_->time_base = 0;  // not used here
+      msg_->encoding = encoding_;
+      msg_->seq = seq_++;
+      msg_->width = width_;
+      msg_->height = height_;
+      msg_->header.stamp = rclcpp::Time(t, RCL_SYSTEM_TIME);
+      msg_->events.reserve(reserveSize_);
+    }
+    const size_t n = end - start;
+    auto & events = msg_->events;
+    const size_t oldSize = events.size();
+    resize_hack(events, oldSize + n);
+    memcpy(reinterpret_cast<void *>(events.data() + oldSize), start, n);
+
+    if (t - lastMessageTime_ > messageThresholdTime_ || events.size() > messageThresholdSize_) {
+      reserveSize_ = std::max(reserveSize_, events.size());
+      eventPub_->publish(std::move(msg_));
+      lastMessageTime_ = t;
+      wrapper_->updateBytesSent(events.size());
+      wrapper_->updateMsgsSent(1);
+    }
+  } else {
+    if (msg_) {
+      msg_.reset();
+    }
   }
 }
 

@@ -16,35 +16,52 @@
 #ifndef METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
 #define METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
 
-#include <camera_info_manager/camera_info_manager.hpp>
-#include <image_transport/image_transport.hpp>
+#include <event_array_msgs/msg/event_array.hpp>
 #include <map>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/camera_info.hpp>
-#include <sensor_msgs/msg/image.hpp>
+#include <std_msgs/msg/header.hpp>
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
-#include "metavision_ros_driver/event_publisher_base.h"
-#include "metavision_ros_driver/image_updater.h"
-#include "metavision_ros_driver/synchronizer.h"
+#include "metavision_ros_driver/callback_handler.h"
+
+//
+// resize without initializing, taken from
+// https://stackoverflow.com/questions/15219984/
+// using-vectorchar-as-a-buffer-without-initializing-it-on-resize
+
+template <typename V>
+void resize_hack(V & v, size_t newSize)
+{
+  struct vt
+  {
+    typename V::value_type v;
+    vt() {}
+  };
+  static_assert(sizeof(vt[10]) == sizeof(typename V::value_type[10]), "alignment error");
+  typedef std::vector<
+    vt, typename std::allocator_traits<typename V::allocator_type>::template rebind_alloc<vt>>
+    V2;
+  reinterpret_cast<V2 &>(v).resize(newSize);
+}
 
 namespace metavision_ros_driver
 {
 class MetavisionWrapper;  // forward decl
 
-class DriverROS2 : public rclcpp::Node, public Synchronizer
+class DriverROS2 : public rclcpp::Node, public CallbackHandler
 {
+  using EventArrayMsg = event_array_msgs::msg::EventArray;
+
 public:
   explicit DriverROS2(const rclcpp::NodeOptions & options);
   ~DriverROS2();
-  // ----------- from synchronizer ---------
-  bool sendReadyMessage() override;
 
+  // ---------------- inherited from CallbackHandler -----------
+  void rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end) override;
+  // ---------------- end of inherited  -----------
 private:
-  using CameraInfo = sensor_msgs::msg::CameraInfo;
-
   // service call to dump biases
   void saveBiases(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
@@ -61,23 +78,28 @@ private:
   // for primary sync
   void secondaryReadyCallback(std_msgs::msg::Header::ConstSharedPtr msg);
 
-  // functions related to frame and camerainfo publishing
-  void subscriptionCheckTimerExpired();
-  void frameTimerExpired();
-  void startNewImage();
-
   // misc helper functions
   bool start();
   bool stop();
-  void makeEventPublisher();
   void configureWrapper(const std::string & name);
 
-  // ------------------------  variables ------------------------------
-  typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
+  // for synchronization with primary
+  bool sendReadyMessage();
 
+  // ------------------------  variables ------------------------------
   std::shared_ptr<MetavisionWrapper> wrapper_;
-  std::shared_ptr<EventPublisherBase> eventPub_;
+  int width_;   // image width
+  int height_;  // image height
+  bool isBigEndian_;
   std::string frameId_;
+  std::string encoding_;
+  uint64_t seq_{0};        // sequence number
+  size_t reserveSize_{0};  // recommended reserve size
+  uint64_t lastMessageTime_{0};
+  uint64_t messageThresholdTime_{0};  // threshold time for sending message
+  size_t messageThresholdSize_{0};    // threshold size for sending message
+  EventArrayMsg::UniquePtr msg_;
+  rclcpp::Publisher<EventArrayMsg>::SharedPtr eventPub_;
 
   // ------ related to sync
   rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
@@ -86,24 +108,12 @@ private:
   rclcpp::Time lastReadyTime_;          // last time ready message was published
 
   // ------ related to dynamic config and services
+  typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr callbackHandle_;
   std::shared_ptr<rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent, std::allocator<void>>>
     parameterSubscription_;
   ParameterMap biasParameters_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
-
-  // ------ related to rendered image publishing
-  ImageUpdater imageUpdater_;
-  double fps_;
-  rclcpp::TimerBase::SharedPtr frameTimer_;
-  image_transport::Publisher imagePub_;
-  sensor_msgs::msg::Image imageMsgTemplate_;
-  rclcpp::TimerBase::SharedPtr subscriptionCheckTimer_;
-
-  // -------- related to camerainfo
-  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
-  rclcpp::Publisher<CameraInfo>::SharedPtr cameraInfoPub_;
-  sensor_msgs::msg::CameraInfo cameraInfoMsg_;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS2_H_

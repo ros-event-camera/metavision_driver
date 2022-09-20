@@ -41,18 +41,23 @@ namespace metavision_ros_driver
 class MetavisionWrapper
 {
 public:
-  using RawData = Metavision::RawData;
-  using EventCD = Metavision::EventCD;
-  using EventExtTrigger = Metavision::EventExtTrigger;
-  enum EventType { CD, ExtTrigger, RAW };
   struct QueueElement
   {
     QueueElement() {}
-    QueueElement(EventType t, const void * s, uint32_t n) : eventType(t), start(s), numEvents(n) {}
+    QueueElement(const void * s, size_t n, uint64_t t) : start(s), numBytes(n), timeStamp(t) {}
     // ----- variables
-    EventType eventType{CD};
     const void * start{0};
-    uint32_t numEvents{0};
+    size_t numBytes{0};
+    uint64_t timeStamp{0};
+  };
+
+  struct Stats
+  {
+    size_t msgsSent{0};
+    size_t msgsRecv{0};
+    size_t bytesSent{0};
+    size_t bytesRecv{0};
+    size_t maxQueueSize{0};
   };
 
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
@@ -62,11 +67,18 @@ public:
 
   int getBias(const std::string & name);
   int setBias(const std::string & name, int val);
-  bool initialize(bool useMultithreading, double statItv, const std::string & biasFile);
+  bool initialize(bool useMultithreading, const std::string & biasFile);
   bool saveBiases();
-  inline void updateEventCount(int i, int inc) { eventCount_[i] += inc; }
-  inline void updateEventsSent(int inc) { totalEventsSent_ += inc; }
-  inline void updateMsgsSent(int inc) { totalMsgsSent_ += inc; }
+  inline void updateMsgsSent(int inc)
+  {
+    std::unique_lock<std::mutex> lock(statsMutex_);
+    stats_.msgsSent += inc;
+  }
+  inline void updateBytesSent(int inc)
+  {
+    std::unique_lock<std::mutex> lock(statsMutex_);
+    stats_.bytesSent += inc;
+  }
   bool stop();
   int getWidth() const { return (width_); }
   int getHeight() const { return (height_); }
@@ -79,6 +91,8 @@ public:
   void setSyncMode(const std::string & sm) { syncMode_ = sm; }
   bool startCamera(CallbackHandler * h);
   void setLoggerName(const std::string & s) { loggerName_ = s; }
+  void setStatisticsInterval(double sec) { statsInterval_ = sec; }
+
   // ROI is a double vector with length multiple of 4:
   // (x_top_1, y_top_1, width_1, height_1,
   //  x_top_2, y_top_2, width_2, height_2, .....)
@@ -92,69 +106,41 @@ public:
     ercMode_ = mode;
     ercRate_ = rate;
   }
-  void setCallbackHandler2(CallbackHandler * h) { callbackHandler2_ = h; }
+
   bool triggerActive() const
   {
     return (triggerInMode_ != "disabled" || triggerOutMode_ != "disabled");
   }
   bool triggerInActive() const { return (triggerInMode_ != "disabled"); }
-#ifdef CHECK_IF_OUTSIDE_ROI
-  inline void checkROI(uint16_t x, uint16_t y)
-  {
-    if (x < x_min_ || x >= x_max_ || y < y_min_ || y >= y_max_) {
-      outsideROI_++;
-    }
-  }
-#endif
 
 private:
   bool initializeCamera();
   void runtimeErrorCallback(const Metavision::CameraException & e);
   void statusChangeCallback(const Metavision::CameraStatus & s);
-  void updateStatistics(const EventCD * start, const EventCD * end);
-  void extTriggerCallback(const EventExtTrigger * start, const EventExtTrigger * end);
-
-  void eventCallback(const EventCD * start, const EventCD * end);
-  void eventCallbackMultithreaded(const EventCD * start, const EventCD * end);
 
   void rawDataCallback(const uint8_t * data, size_t size);
   void rawDataCallbackMultithreaded(const uint8_t * data, size_t size);
 
-  void extTriggerCallbackMultithreaded(const EventExtTrigger * start, const EventExtTrigger * end);
   void processingThread();
+  void statsThread();
   void applyROI(const std::vector<int> & roi);
   void applySyncMode(const std::string & mode);
   void configureExternalTriggers(
     const std::string & mode_in, const std::string & mode_out, const int period,
     const double duty_cycle);
   void configureEventRateController(const std::string & mode, const int rate);
+  void printStatistics();
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
-  CallbackHandler * callbackHandler2_{0};  // additional callback handler
   Metavision::Camera cam_;
   Metavision::CallbackId statusChangeCallbackId_;
   bool statusChangeCallbackActive_{false};
   Metavision::CallbackId runtimeErrorCallbackId_;
   bool runtimeErrorCallbackActive_{false};
-  Metavision::CallbackId contrastCallbackId_;
-  bool contrastCallbackActive_{false};
-  Metavision::CallbackId extTriggerCallbackId_;
-  bool rawDataCallbackActive_{false};
   Metavision::CallbackId rawDataCallbackId_;
-  bool extTriggerCallbackActive_{false};
+  bool rawDataCallbackActive_{false};
   int width_{0};   // image width
   int height_{0};  // image height
-  // related to statistics
-  int64_t statisticsPrintInterval_{1000000};
-  float maxRate_{0};
-  uint64_t totalEvents_{0};
-  float totalTime_{0};
-  int64_t lastPrintTime_{0};
-  int64_t lastEventTime_{-1};
-  size_t totalMsgsSent_{0};
-  size_t totalEventsSent_{0};
-  size_t maxQueueSize_{0};
-  uint32_t eventCount_[2];
   std::string biasFile_;
   std::string serialNumber_;
   std::string fromFile_;
@@ -169,20 +155,21 @@ private:
   int ercRate_;
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
+  // --  related to statistics
+  double statsInterval_{2.0};  // time between printouts
+  std::chrono::time_point<std::chrono::system_clock> lastPrintTime_;
+  Stats stats_;
+  std::mutex statsMutex_;
+  std::shared_ptr<std::thread> statsThread_;
+
+  // -----------
   // related to multi threading
   bool useMultithreading_{false};
   std::mutex mutex_;
   std::condition_variable cv_;
   std::deque<QueueElement> queue_;
-  std::shared_ptr<std::thread> thread_;
+  std::shared_ptr<std::thread> processingThread_;
   bool keepRunning_{true};
-#ifdef CHECK_IF_OUTSIDE_ROI
-  size_t outsideROI_{0};
-  uint16_t x_min_;
-  uint16_t x_max_;
-  uint16_t y_min_;
-  uint16_t y_max_;
-#endif
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
