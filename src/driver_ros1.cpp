@@ -26,6 +26,10 @@ namespace ph = std::placeholders;
 DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
 {
   configureWrapper(ros::this_node::getName());
+  messageThresholdTime_ =
+    uint64_t(std::abs(nh_.param<double>("event_message_time_threshold", 1e-3) * 1e9));
+  messageThresholdSize_ =
+    static_cast<size_t>(std::abs(nh_.param<int>("event_message_size_threshold", 1024 * 1024)));
 
   eventPub_ = nh_.advertise<std_msgs::Header>("events", nh_.param<int>("out_ros_queue_size", 1000));
 
@@ -130,6 +134,11 @@ bool DriverROS1::start()
     ROS_ERROR("driver initialization failed!");
     return (false);
   }
+  if (wrapper_->getSyncMode() == "secondary") {
+    ROS_INFO("secondary is decoding events...");
+    wrapper_->setDecodingEvents(true);
+  }
+
   lastReadyTime_ = ros::Time::now() - readyIntervalTime_;  // move to past
 
   if (frameId_.empty()) {
@@ -241,10 +250,11 @@ void DriverROS1::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
 
     if (t - lastMessageTime_ > messageThresholdTime_ || events.size() > messageThresholdSize_) {
       reserveSize_ = std::max(reserveSize_, events.size());
-      eventPub_.publish(std::move(msg_));
-      lastMessageTime_ = t;
       wrapper_->updateBytesSent(events.size());
       wrapper_->updateMsgsSent(1);
+      eventPub_.publish(std::move(msg_));
+      lastMessageTime_ = t;
+      msg_.reset();
     }
   } else {
     if (msg_) {
@@ -269,7 +279,7 @@ void DriverROS1::eventCDCallback(
     sendReadyMessage();
   } else {
     // alright, finaly the primary is up, no longer need the expensive
-    // ddociding
+    // decodidng
     ROS_INFO("secondary sees primary up!");
     wrapper_->setDecodingEvents(false);
   }

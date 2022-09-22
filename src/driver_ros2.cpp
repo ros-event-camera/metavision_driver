@@ -417,7 +417,7 @@ void DriverROS2::eventCDCallback(
     sendReadyMessage();
   } else {
     // alright, finaly the primary is up, no longer need the expensive
-    // ddociding
+    // decoding
     LOG_INFO("secondary sees primary up!");
     wrapper_->setDecodingEvents(false);
   }
