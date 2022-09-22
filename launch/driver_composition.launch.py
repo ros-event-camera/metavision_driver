@@ -45,9 +45,7 @@ def launch_setup(context, *args, **kwargs):
                     name=cam_name,
                     parameters=[
                         trigger_config,  # loads the whole file
-                        {'use_multithreading': True,
-                         'message_type': 'event_array',
-                         'statistics_print_interval': 2.0,
+                        {'use_multithreading': False,
                          'bias_file': bias_config,
                          'camerainfo_url': '',
                          'frame_id': '',

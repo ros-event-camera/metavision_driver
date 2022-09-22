@@ -74,32 +74,15 @@ def launch_setup(context, *args, **kwargs):
             ('~/events', cam_1_str + '/events')],
         extra_arguments=[{'use_intra_process_comms': True}],
     )
-    #
-    # recorder
-    #
-    recorder = ComposableNode(
-        package='rosbag2_composable_recorder',
-        plugin='rosbag2_composable_recorder::ComposableRecorder',
-        name="recorder",
-        parameters=[{'topics': ['/' + cam_0_str + '/events',
-                                '/' + cam_1_str + '/events'],
-                     'bag_prefix': 'events_'}],
-        extra_arguments=[{'use_intra_process_comms': True}],
-    )
-    #
-    # the container for all 3 executables, avoid network messages
-    #
     container = ComposableNodeContainer(
             name='metavision_driver_container',
             namespace='',
             package='rclcpp_components',
             executable='component_container',
-            # prefix=['xterm -e gdb -ex run --args'],
+            prefix=['xterm -e gdb -ex run --args'],
             composable_node_descriptions=[
                 cam_0,
-                cam_1,
-                recorder
-            ],
+                cam_1],
             output='screen',
     )
     return [container]

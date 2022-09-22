@@ -24,8 +24,6 @@
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
-    <!-- what kind of messages to write (dvs or prophesee, event_array) -->
-    <param name="message_type" value="event_array"/>
     <!-- listen for ready message from cam 1 -->
     <remap from="~ready" to ="/event_cam_1/ready"/>
   </node>
@@ -43,7 +41,5 @@
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
-    <!-- what kind of messages to write (dvs or prophesee, event_array) -->
-    <param name="message_type" value="event_array"/>
   </node>
 </launch>

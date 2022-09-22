@@ -40,7 +40,6 @@ def launch_setup(context, *args, **kwargs):
                 parameters=[
                     trigger_config,  # loads the whole file
                     {'use_multithreading': False,
-                     'message_type': 'event_array',
                      'statistics_print_interval': 2.0,
                      # 'bias_file': bias_config,
                      'camerainfo_url': '',

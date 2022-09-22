@@ -68,7 +68,7 @@ wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
 # wstool update -t src
 ```
 
-Optional: to use the efficient recording nodelet clone the
+Optional (ROS1): to use the efficient recording nodelet clone the
 [nodelet_rosbag](https://github.com/berndpfrommer/nodelet_rosbag) repository into our src tree:
 ```
 git clone -b open_bag_later git@github.com:berndpfrommer/nodelet_rosbag.git src/nodelet_rosbag
@@ -222,7 +222,7 @@ For efficient recording of the events you need to run the
 driver and the recorder in the same address space as ROS2 composable
 nodes. For this you will need to install the
 [composable recorder](https://github.com/berndpfrommer/rosbag2_composable_recorder)
-into your workspace as well.
+into your workspace as well (see below).
 
 ```
 ros2 launch metavision_ros_driver driver_node.launch.py        # (run as node)
@@ -257,7 +257,7 @@ All CPU loads below are with sensor saturating at close to 50Mevs.
 |--------------------------------|-----------------|----------------|--------------------------------------|
 | driver no subscriber           | 22%             | 59%            | no pub, extra copy for multithreaded |
 | driver with subscriber         | 37%             | 61%            | does interprocess communication      |
-| driver + rosbag record         | 70%             | 96%            | combined driver + record cpu load    |
+| driver + rosbag record node    | 70%             | 96%            | combined driver + record cpu load    |
 | driver + rosbag record nodelet | 52%             | 74%            | single process no ipc but disk/io    |
 
 
@@ -268,104 +268,92 @@ All CPU loads below are with sensor saturating at close to 50Mevs.
 All CPU loads below are with sensor saturating at close to 50Mevs.
 Middleware used was cyclonedds.
 
-| settings                        | DvsMsg        | EventArray | EventArray (multithr) | note                                 |
-|---------------------------------|---------------|------------|-----------------------|--------------------------------------|
-| driver, no subscriber           | 63%           | 63%        | 105% (fluct)          | no pub, extra copy for multithreaded |
-| driver, publish messages        | 63%           | 63%        | 110%                  | forced publishing, no subscriber(1)  |
-| driver + rostopic hz            | 102% (2)      | 71%        | 115%                  | does interprocess communication      |
-| driver + rosbag record composed | 117% (3)      | 120%       | 175%                  | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 112% + 5% (3) | 92% + 82%  | 122% + 94%            | does interproc. comm + disk i/o      |
-
-
-(1) The forced publishing makes no difference because in either case
-the data received from the SDK is parsed to get ON/OFF statistics (not
-done for ROS1 driver). That memory read access apparently dominates
-over the message creation. 
-(2) driver is dropping messages
-(3) driver spends virtually all time in publish(), does not produce messages at full rate
+| settings                       | single threaded | multi threaded | note                                 |
+|--------------------------------|-----------------|----------------|--------------------------------------|
+| driver no subscriber           | 22%             | 59%            | no pub, extra copy for multithreaded |
+| driver with subscriber         | 35%             | 44%            | does interprocess communication      |
+| driver + rosbag record node    | 80%             | 90%            | combined driver + record cpu load    |
+| driver + rosbag record composable | 58%          | 80%            | single process no ipc but disk/io    |
 
 ### About ROS time stamps
 
 The SDK provides hardware event time stamps directly from the
-camera. However, first there is a unknown offset between the clocks,
-and second there is clock drift because the camera's clock is not synchronized with the ROS
-host's. For this reason the ROS driver implements an ugly scheme for
-time stamping the ROS messages as follows:
-
-- within one ROS message, the time stamp differences between events are
-  identical to the SDK provided hardware time stamps
-
-- *inbetween* ROS messages however, the event time gaps can differ
-  from the hardware time stamps. This is necessary to catch up with
-  the sensor clock, or to wait for the sensor clock.
-
-- the event time stamps are never allowed to have negative
-  differences, i.e. the last event in a ROS message will have a time
-  stamp that is no later than the first one in the following message.
-
-- the header stamps are managed such that there is no long-term
-  drift vs the host clock, i.e. the ROS time stamps of events
-  should align with those of other sensor data collected on the
-  same host.
-
-- this occasionally leads to ROS time stamps being in the future,
-  i.e. a message may have a header stamp slightly ahead of it's
-  recording time stamp. The driver will try to remedy such a
-  situation the moment the incoming sensor data will permit.
-
-The following graph shows the clock skew between a SilkyEVCam and the
-host clock (green line). It also shows the difference between rosbag
-recording time stamp and ROS message header stamp. Note that a) there
-is no long-term drift between header stamps and recording stamps and
-b) there is very little variance between header stamps and sensor time
-stamps (aside from the drift).
-
-![timestamp image](images/time_offset_example.png)
-
-Note that using the ``time_base`` field of the ``EventArray`` message
-permits recovery of the original sensor timestamps.
+camera. Because for efficiency reasons the packets are not decoded the
+time stamps are not available to the driver. Thus the ROS driver
+simply puts the host wall clock arrival time into the header's stamp field.
 
 ## About Trigger Pins
 
 External triggers on prophesee cameras allows for a singal to be injected
-into the event stream. This is useful for synchronizing external devices.
-This becomes a new topic to which an ``EventArray`` message gets published.
-The encoding type is ``special`` which denotes that it is a single stream and
-only contains polarity and time information.
+into the event stream. This is useful for synchronizing external
+devices. The event stream contained in the packages will now contain
+trigger events that can be recovered with the decoder.
 
-Prophesee provides documentation on the trigger functions at a high level [here](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#chapter-concepts-triggers).
+Prophesee provides documentation on the trigger functions at a high
+level
+[here](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#chapter-concepts-triggers).
 
-(Trigger out)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle] functionality is exposed through ``trigger_out_mode``, ``trigger_out_period``, and ``trigger_out_duty_cycle``. These variables follow the same meaning as laid out in the internal documentaiton.
+(Trigger
+out)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle]
+functionality is exposed through ``trigger_out_mode``,
+``trigger_out_period``, and ``trigger_out_duty_cycle``. These
+variables follow the same meaning as laid out in the internal
+documentation. 
 
 - ``trigger_out_mode`` can be enabled or disabled
 - ``trigger_out_period`` can be from 2us to 1h (units are us)
-- ``trigger_out_duty_cycle`` is the pulse width ratio ( ``trigger_out_period * trigger_out_duty_cycle`` must be at least 1us)
+- ``trigger_out_duty_cycle`` is the pulse width ratio
+  (``trigger_out_period * trigger_out_duty_cycle`` must be at least 1us)
 
-(Trigger in)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle] functionality is abstracted away from pins to just ``loopback`` or ``external`` as the pin mappings are constant for a given camera configuration.
+(Trigger
+in)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle]
+functionality is abstracted away from pins to just ``loopback`` or
+``external`` as the pin mappings are constant for a given camera
+configuration. 
 
-- ``trigger_in_mode`` allows the user to specify for each camera ``loopback`` or ``external`` and lookup which pins are associated with that camera.
+- ``trigger_in_mode`` allows the user to specify for each camera
+  ``loopback`` or ``external`` and lookup which pins are associated
+  with that camera. 
 
-**WARNING** Running synchronization and triggers at the same time is possible, but requires understanding of your camera's underlying hardware (as most share trigger out and sync out pins).
+**WARNING** Running synchronization and triggers at the same time is
+possible, but requires understanding of your camera's underlying
+hardware (as most share trigger out and sync out pins). 
 
 ### Hardware configuration
 
-The hardware configuration file is ``config/trigger_pins.yaml``. The mappings for ``hal_plugin_gen*`` come from [Prophesee documentation](https://docs.prophesee.ai/stable/metavision_sdk/modules/metavision_hal/samples/hal_viewer.html#accessing-triggers). The mapping for ``evc3a_plugin_gen31`` has been validated on the SilkyEvCam (March 2022). The mapping goes from the HAL Software Info to pin numbers.
+The hardware configuration file is ``config/trigger_pins.yaml``. The
+mappings for ``hal_plugin_gen*`` come from
+[Prophesee
+documentation](https://docs.prophesee.ai/stable/metavision_sdk/modules/metavision_hal/samples/hal_viewer.html#accessing-triggers).
+The mapping for ``evc3a_plugin_gen31`` has been validated on the
+SilkyEvCam (March 2022). The mapping goes from the HAL Software Info
+to pin numbers. 
 
-If you camera is not yet supported, the software info is printed out on driver startup. Look for a line that contains:
+If you camera is not yet supported, the software info is printed out
+on driver startup. Look for a line that contains: 
 
 ```
 Plugin Software Name:
 ```
 
-This will be the key to place under ``prophesee_pin_config`` which can then be populated based on your camera's documentation.
+This will be the key to place under ``prophesee_pin_config`` which can
+then be populated based on your camera's documentation. 
 
-**WARNING** If this file is not loaded (or your camera is not yet supported), the default pin loaded will be 0. This may work in some cases, but not all.
+**WARNING** If this file is not loaded (or your camera is not yet
+supported), the default pin loaded will be 0. This may work in some
+cases, but not all.
 
 ### SilkyEvCam
 
-Documentation on the SilkyEvCam pinout can be found [here on page 6](https://www.centuryarks.com/images/product/sensor/silkyevcam/SilkyEvCam-USB_Spec_Rev102.pdf). This system uses 3.3V logic for both trigger in as well as trigger out.
+Documentation on the SilkyEvCam pinout can be found
+[here on page 6](https://www.centuryarks.com/images/product/sensor/silkyevcam/SilkyEvCam-USB_Spec_Rev102.pdf).
+This system uses 3.3V logic for both trigger in as well as trigger out. 
 
-While the loopback configuration is internal to the chip, the trigger out line will still pulse externally. This is useful if using an event camera to trigger an external system as you will maintain the timing relative to the internal clock (after association between the trigger event and the external system).
+While the loopback configuration is internal to the chip, the trigger
+out line will still pulse externally. This is useful if using an event
+camera to trigger an external system as you will maintain the timing
+relative to the internal clock (after association between the trigger
+event and the external system). 
 
 ### Other cameras
 

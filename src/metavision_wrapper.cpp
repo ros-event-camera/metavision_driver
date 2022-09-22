@@ -24,8 +24,13 @@
 #include <set>
 #include <thread>
 
+#ifdef USING_ROS_1
+#define GENERIC_ROS_OK() (ros::ok())
+#else
+#define GENERIC_ROS_OK() (rclcpp::ok())
+#endif
+
 #include "metavision_ros_driver/logging.h"
-#include "metavision_ros_driver/ros1_ros2_compatibility.h"
 
 namespace metavision_ros_driver
 {
@@ -300,7 +305,6 @@ bool MetavisionWrapper::initializeCamera()
                          : &MetavisionWrapper::rawDataCallback,
       this, ph::_1, ph::_2));
     rawDataCallbackActive_ = true;
-
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
     return (false);
