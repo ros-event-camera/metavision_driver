@@ -26,12 +26,18 @@ namespace ph = std::placeholders;
 DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
 {
   configureWrapper(ros::this_node::getName());
+
+  encoding_ = nh.param<std::string>("encoding", "evt3");
+  if (encoding_ != "evt3") {
+    ROS_ERROR_STREAM("invalid encoding: " << encoding_);
+    throw std::runtime_error("invalid encoding!");
+  }
   messageThresholdTime_ =
     uint64_t(std::abs(nh_.param<double>("event_message_time_threshold", 1e-3) * 1e9));
   messageThresholdSize_ =
     static_cast<size_t>(std::abs(nh_.param<int>("event_message_size_threshold", 1024 * 1024)));
 
-  eventPub_ = nh_.advertise<std_msgs::Header>("events", nh_.param<int>("out_ros_queue_size", 1000));
+  eventPub_ = nh_.advertise<EventArrayMsg>("events", nh_.param<int>("send_queue_size", 1000));
 
   if (wrapper_->getSyncMode() == "primary") {
     // defer starting the primary until the secondary is up
@@ -129,11 +135,13 @@ void DriverROS1::secondaryReadyCallback(const std_msgs::Header::ConstPtr &)
 
 bool DriverROS1::start()
 {
+  wrapper_->setStatisticsInterval(nh_.param<double>("statistics_print_interval", 1.0));
   if (!wrapper_->initialize(
         nh_.param<bool>("use_multithreading", false), nh_.param<std::string>("bias_file", ""))) {
     ROS_ERROR("driver initialization failed!");
     return (false);
   }
+
   if (wrapper_->getSyncMode() == "secondary") {
     ROS_INFO("secondary is decoding events...");
     wrapper_->setDecodingEvents(true);

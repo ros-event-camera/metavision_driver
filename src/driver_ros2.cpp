@@ -48,7 +48,7 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   messageThresholdSize_ = static_cast<size_t>(std::abs(mts));
 
   int qs;
-  this->get_parameter_or("out_ros_queue_size", qs, 1000);
+  this->get_parameter_or("send_queue_size", qs, 1000);
   eventPub_ = this->create_publisher<EventArrayMsg>(
     "~/events", rclcpp::QoS(rclcpp::KeepLast(qs)).best_effort().durability_volatile());
 

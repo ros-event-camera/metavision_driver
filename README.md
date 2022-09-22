@@ -1,12 +1,30 @@
 # metavision_ros_driver
 
 A combined ROS/ROS2 driver for event based cameras using Prophesee's Metavision SDK.
+This driver is not written or supported by Prophesee.
 
 ![banner image](images/silkyev_cam.png)
 
-This driver is not written or supported by Prophesee. It has several feature and performance improvements over the 
-[official Prophesee
-driver](https://github.com/prophesee-ai/prophesee_ros_wrapper).
+If you are looking for more speed and features than the [official
+Prophesee ROS
+driver](https://github.com/prophesee-ai/prophesee_ros_wrapper), this
+repository is for you. The driver can cope with the large amount of
+data produced by Prophesee's Gen3 and Gen4 sensors because it does
+little more than getting the RAW (currently EVT3 format) events from
+the camera and publishing them in ROS
+[event_array_msg](https://github.com/berndpfrommer/event_array_msgs)
+format. 
+
+Accessing the events now requires decoding them using the
+following ROS/ROS2 packages:
+
+- [event_array_codecs](https://github.com/berndpfrommer/event_array_codecs)
+  has C++ and Python routines to decode event_array_msgs.
+- [event_array_viewer](https://github.com/berndpfrommer/event_array_viewer)
+  a node / nodelet that renders and publishes ROS image messages.
+- [event_array_tools](https://github.com/berndpfrommer/event_array_tools)
+  a set of tools to echo, monitor performance and convert
+  event_array_msgs to legacy formats and into "RAW" format.
 
 ## Supported platforms
 
@@ -17,20 +35,18 @@ Tested on the following platforms:
 - Ubuntu 18.04 and 20.04 LTS
 - Metavision SDK (OpenEB) 2.2.2 - 3.0.2
 
-Note: there is currently a bug when using synchronization on
-Metavision 2.3.2. Hold off on upgrading if you want to use
-synchronization.
-
 Tested on the following hardware:
 
-- SilkyEVCam (Gen 3.1 sensor)
+- [SilkyEVCam VGA (Gen 3.1 sensor)](https://centuryarks.com/en/silkyevcam-vga/)
+- [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
 
 ## How to build
 
-Install the Metavision SDK or
-[OpenEB](https://github.com/prophesee-ai/openeb), and maybe install wstool
-(package python-wstool or python3-wstool).
+Prerequisites:
 
+- install Metavision SDK or
+ [OpenEB](https://github.com/prophesee-ai/openeb)
+- install ``wstool`` (ubuntu package python-wstool or python3-wstool).
 
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
 For example for ROS1 noetic:
@@ -52,6 +68,12 @@ wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
 # wstool update -t src
 ```
 
+Optional: to use the efficient recording nodelet clone the
+[nodelet_rosbag](https://github.com/berndpfrommer/nodelet_rosbag) repository into our src tree:
+```
+git clone -b open_bag_later git@github.com:berndpfrommer/nodelet_rosbag.git src/nodelet_rosbag
+```
+
 Now configure and build:
 
 ROS1:
@@ -71,11 +93,10 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 
 This driver differs from the Prophesee ROS driver in the following ways:
 
-- can publish:
-  - ``prophesee_msgs``: same as the Prophesee ROS driver
-  - ``dvs_msgs``: permits using ROS1 pipelines developed for the DVS camera
-  - ``event_array_msgs``: needed for ROS2 to get acceptable
-     performance, loads much faster when accessed through rosbag read API
+- publishes
+  [event_array_msg](https://github.com/berndpfrommer/event_array_msgs)
+  that store more densely and are faster to access than the older
+  message formats.
 - less CPU consumption by avoiding unnecessary memory copies.
 - implemented as nodelet such that it can be run in the same address space as
   e.g. a rosbag record nodelet without worrying about message loss in transmission.
@@ -86,45 +107,31 @@ This driver differs from the Prophesee ROS driver in the following ways:
   - ROI specification
   - camera synchronization (stereo)
   - external trigger events
-- low jitter ROS stamps
+  - event rate control
 
 Parameters:
 
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
 - ``from_file``: path to Metavision raw file. Instead of opening
-    camera, driver plays back data from this file.
+  camera, driver plays back data from this file.
 - ``serial``: specifies serial number of camera to open (useful for
-    stereo). To learn serial number format first start driver without
-    specifying serial number and look at the log files.
+  stereo). To learn serial number format first start driver without
+  specifying serial number and look at the log files.
 - ``event_message_time_threshold``: (in seconds) minimum time span of
-    events to be aggregated in one ROS event message before message is sent. Defaults to 100us.
-- ``sensor_max_mevs``: (in Million Events/sec) maximum number of
-    events per second that the sensor can produce. This helps the driver pre-allocate a
-    correct size message to avoid unnecessary memory copies. Defaults
-    to 50.
-- ``trigger_message_time_threshold``: (in seconds) minimum time span
-    of trigger events to be aggregated in one ROS event message before
-    message is sent. Defaults to 100us. Set it to 0 if you want each
-    trigger event to go out on a separate message immediately.
-- ``trigger_max_freq``: (in Hz) maximum frequency with which an
-    external trigger will fire. This helps the driver pre-allocate a
-    correct size message to avoid unnecessary memory copies. Defaults
-    to 1000.
+  events to be aggregated in one ROS event message before message is sent. Defaults to 1ms.
+- ``event_message_size_threshold``: (in bytes) minimum size of events
+  (in bytes) to be aggregated in one ROS event message before message is sent. Defaults to 1MB.
 - ``statistics_print_interval``: time in seconds between statistics printouts.
-- ``message_type``: can be set to ``dvs``, ``prophesee`` or ``event_array``, depending on
-  what message types the driver should publish. For ROS2 you must set
-  it to ``event_array`` to get acceptable performance, since the
-  marshalling/unmarshalling overhead is too large for the other
-  message types.
-- ``send_queue_size``: ros message send queue size (defaults to 1000).
+- ``send_queue_size``: outgoing ROS message send queue size (defaults
+  to 1000 messages).
 - ``use_multithreading``: decouples the SDK callback from the
   processing to ensure the SDK does not drop messages (defaults to
   false). The SDK already queues up messages but there is no documentation on
   the queue size and no way to determine if messages are dropped. Use multithreading to
   minimize the risk of dropping messages. However, be aware that this incurs an
   extra memory copy and threading overhead, raising the maximum CPU
-  load by about 50% of a CPU.
+  load by about 50% of a CPU. 
 - ``frame_id``: the frame id to use in the ROS message header
 - ``roi``: sets hardware region of interest (ROI). You can set
   multiple ROI rectangles with this parameter by concatenation:
@@ -157,7 +164,8 @@ Parameters:
    - ``disabled`` (default): Does not enable this functionality within the hardware
    - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
 - ``trigger_out_period``: Controls the period in microseconds of the trigger out pulse.
-- ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger out pulse. This is the period ratio. 
+- ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger
+  out pulse. This is the period ratio.
 
 Services:
 
@@ -185,13 +193,12 @@ roslaunch metavision_ros_driver driver_nodelet.launch   # (run as nodelet)
 
 The driver should print out message rate statistics like this:
 ```
-[ INFO] [1627733695.115154898]: rate[Mevs] avg:   0.007, max:   1.000, out sz:    3.06 ev, %on:  48 qs: 0
+[ INFO] [1663845360.494651335]: /event_camera: bw in: 106.08359 MB/s, msgs/s in:   51930, out:       0
 ```
-Prints out the average and maximum event rate (in million events per
-second), the size (in number of events) of the outgoing ROS message, and the maximum
-queue size (only non-zero if running in multithreaded mode) over the
-``statistics_print_interval``. Note that for efficiency reasons the percentage of ON events,
-is only computed if a subscriber is connected to the event topic.
+Prints out the incoming (from the SDK) bandwidth and incoming and
+published message rate. In multithreaded mode there will also be shown
+the maximum queue size observed during
+``statistics_print_interval``.
 
 To use the combined driver/recording facility:
 ```
@@ -200,16 +207,13 @@ roslaunch metavision_ros_driver recording_driver.launch bag:=`pwd`/test.bag
 Then start/stop recording like this:
 ```
 rosrun metavision_ros_driver start_recording.py
-```
-And stop recording:
-```
 rosrun metavision_ros_driver stop_recording.py
 ```
 
-To visualize the events, run a ``slicer`` node from the
-[event_ros_tools repo](https://github.com/ZiyunClaudeWang/event_ros_tools):
+To visualize the events, run a ``viewer`` node from the
+[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer):
 ```
-roslaunch event_ros_tools slicer_node.launch
+roslaunch event_array_viewer viewer.launch
 ```
 
 # How to use (ROS2):
@@ -226,10 +230,10 @@ ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composa
 ```
 The printout should be similar to the one for ROS1.
 
-To visualize the events, run a ``slicer`` node from the
-[event_ros_tools repo](https://github.com/ZiyunClaudeWang/event_ros_tools):
+To visualize the events, run a ``viewer`` node from the
+[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer):
 ```
-ros2 launch event_ros_tools slicer_node.launch.py
+ros2 launch event_array_viewer viewer.launch.py
 ```
 
 To use the combined driver/recorder and start the recording:
@@ -249,13 +253,14 @@ by producing maximum event rates about (48Mevs) with a SilkyEVCam:
 
 All CPU loads below are with sensor saturating at close to 50Mevs.
 
-| settings                        | DvsMsg    | EventArray | EventArray (multithr) | note                                 |
-|---------------------------------|-----------|------------|-----------------------|--------------------------------------|
-| driver, no subscriber           | 49%       | 49%        | 106% (fluct)          | no pub, extra copy for multithreaded |
-| driver, publish messages        | 81%       | 58%        | 109%                  | forced publishing, no subscriber     |
-| driver(nodelet) + rostopic hz   | 135%      | 101%       | 151%                  | does interprocess communication      |
-| driver + rosbag record nodelet  | 190%      | 147%       | 191%                  | no interproc. comm, but disk i/o     |
-| driver + rosbag record separate | 131%+115% | 100%+100%  | 155%+100%             | does interproc. comm + disk i/o      |
+| settings                       | single threaded | multi threaded | note                                 |
+|--------------------------------|-----------------|----------------|--------------------------------------|
+| driver no subscriber           | 22%             | 59%            | no pub, extra copy for multithreaded |
+| driver with subscriber         | 37%             | 61%            | does interprocess communication      |
+| driver + rosbag record         | 70%             | 96%            | combined driver + record cpu load    |
+| driver + rosbag record nodelet | 52%             | 74%            | single process no ipc but disk/io    |
+
+
   
 
 ### ROS2
