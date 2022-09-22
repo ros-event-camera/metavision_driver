@@ -31,31 +31,30 @@ def launch_setup(context, *args, **kwargs):
     pkg_name = 'metavision_ros_driver'
     share_dir = get_package_share_directory(pkg_name)
     trigger_config = os.path.join(share_dir, 'config', 'trigger_pins.yaml')
-    bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
+    # bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
     node = Node(package='metavision_ros_driver',
                 executable='driver_node',
                 output='screen',
-                prefix=['xterm -e gdb -ex run --args'],
+                # prefix=['xterm -e gdb -ex run --args'],
                 name=cam_name,
                 parameters=[
                     trigger_config,  # loads the whole file
                     {'use_multithreading': False,
                      'message_type': 'event_array',
                      'statistics_print_interval': 2.0,
-                     'bias_file': bias_config,
+                     # 'bias_file': bias_config,
                      'camerainfo_url': '',
                      'frame_id': '',
                      'serial': LaunchConfig('serial'),
                      'erc_mode': 'enabled',
                      'erc_rate': 100000000,
-                     # 'roi': [315, 235, 20, 10],
+                     # 'roi': [0, 0, 100, 100],
                      # valid: 'enabled', 'loopback', 'disabled'
                      'trigger_in_mode': 'disabled',
                      # valid: 'enabled', 'disabled'
                      'trigger_out_mode': 'disabled',
                      'trigger_out_period': 100000,  # in usec
                      'trigger_duty_cycle': 0.5,     # fraction high/low
-                     'trigger_message_time_threshold': 0.0,  # immediately
                      'event_message_time_threshold': 1.0e-3}],
                 remappings=[
                     ('~/events', cam_str + '/events')])

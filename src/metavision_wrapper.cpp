@@ -95,6 +95,12 @@ bool MetavisionWrapper::stop()
   if (statusChangeCallbackActive_) {
     cam_.remove_status_change_callback(statusChangeCallbackId_);
   }
+  if (contrastCallbackActive_) {
+    cam_.cd().remove_callback(contrastCallbackId_);
+  }
+  if (extTriggerCallbackActive_) {
+    cam_.ext_trigger().remove_callback(extTriggerCallbackId_);
+  }
 
   keepRunning_ = false;
   if (processingThread_) {
@@ -302,6 +308,29 @@ bool MetavisionWrapper::initializeCamera()
   return (true);
 }
 
+void MetavisionWrapper::setDecodingEvents(bool decodeEvents)
+{
+  if (decodeEvents && !contrastCallbackActive_) {
+    contrastCallbackId_ =
+      cam_.cd().add_callback(std::bind(&MetavisionWrapper::cdCallback, this, ph::_1, ph::_2));
+    contrastCallbackActive_ = true;
+  }
+  if (decodeEvents && !extTriggerCallbackActive_) {
+    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(
+      std::bind(&MetavisionWrapper::extTriggerCallback, this, ph::_1, ph::_2));
+    extTriggerCallbackActive_ = true;
+  }
+
+  if (!decodeEvents && contrastCallbackActive_) {
+    cam_.cd().remove_callback(contrastCallbackId_);
+    contrastCallbackActive_ = false;
+  }
+  if (!decodeEvents && extTriggerCallbackActive_) {
+    cam_.ext_trigger().remove_callback(extTriggerCallbackId_);
+    extTriggerCallbackActive_ = false;
+  }
+}
+
 bool MetavisionWrapper::startCamera(CallbackHandler * h)
 {
   try {
@@ -382,6 +411,23 @@ void MetavisionWrapper::rawDataCallbackMultithreaded(const uint8_t * data, size_
       stats_.bytesRecv += size;
     }
   }
+}
+
+void MetavisionWrapper::cdCallback(
+  const Metavision::EventCD * start, const Metavision::EventCD * end)
+{
+  // this code only used during startup for synchronization,
+  // not during regular operation
+  const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+  callbackHandler_->eventCDCallback(t, start, end);
+}
+
+void MetavisionWrapper::extTriggerCallback(
+  const Metavision::EventExtTrigger *, const Metavision::EventExtTrigger *)
+{
+  // do nothing for now
 }
 
 void MetavisionWrapper::processingThread()

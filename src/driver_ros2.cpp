@@ -15,9 +15,7 @@
 
 #include "metavision_ros_driver/driver_ros2.h"
 
-#include <dvs_msgs/msg/event_array.hpp>
 #include <event_array_msgs/msg/event_array.hpp>
-#include <prophesee_event_msgs/msg/event_array.hpp>
 #include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 #include <vector>
@@ -37,7 +35,6 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
 {
   configureWrapper(get_name());
 
-  const auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
   this->get_parameter_or("encoding", encoding_, std::string("evt3"));
   if (encoding_ != "evt3") {
     LOG_ERROR("invalid encoding: " << encoding_);
@@ -50,8 +47,12 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   this->get_parameter_or("event_message_size_threshold", mts, int64_t(1000000000));
   messageThresholdSize_ = static_cast<size_t>(std::abs(mts));
 
+  int qs;
+  this->get_parameter_or("out_ros_queue_size", qs, 1000);
   eventPub_ = this->create_publisher<EventArrayMsg>(
-    "~/events", rclcpp::QoS(rclcpp::KeepLast(1000)).best_effort().durability_volatile());
+    "~/events", rclcpp::QoS(rclcpp::KeepLast(qs)).best_effort().durability_volatile());
+
+  const auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
 
   if (wrapper_->getSyncMode() == "primary") {
     // defer starting the primary until secondary is up
@@ -246,6 +247,11 @@ bool DriverROS2::start()
     LOG_ERROR("driver initialization failed!");
     return (false);
   }
+  if (wrapper_->getSyncMode() == "secondary") {
+    LOG_INFO("secondary is decoding events...");
+    wrapper_->setDecodingEvents(true);
+  }
+
   lastReadyTime_ = this->now() - readyIntervalTime_;  // move to past
 
   if (frameId_.empty()) {
@@ -254,7 +260,7 @@ bool DriverROS2::start()
     frameId_ = sn.substr(sn.size() - 4);
   }
   LOG_INFO("using frame id: " << frameId_);
-  
+
   // ------ get other parameters from camera
   width_ = wrapper_->getWidth();
   height_ = wrapper_->getHeight();
@@ -392,6 +398,28 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
     if (msg_) {
       msg_.reset();
     }
+  }
+}
+
+void DriverROS2::eventCDCallback(
+  uint64_t, const Metavision::EventCD * start, const Metavision::EventCD * end)
+{
+  // check if there are valid timestamps then the primary is ready
+  bool hasZeroTime(false);
+  for (auto e = start; e != end; e++) {
+    if (e->t == 0) {
+      hasZeroTime = true;
+      break;
+    }
+  }
+  if (hasZeroTime) {
+    // tell primary we are up so it can start the camera
+    sendReadyMessage();
+  } else {
+    // alright, finaly the primary is up, no longer need the expensive
+    // ddociding
+    LOG_INFO("secondary sees primary up!");
+    wrapper_->setDecodingEvents(false);
   }
 }
 

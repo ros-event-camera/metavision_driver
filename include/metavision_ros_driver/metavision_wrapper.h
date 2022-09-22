@@ -112,6 +112,7 @@ public:
     return (triggerInMode_ != "disabled" || triggerOutMode_ != "disabled");
   }
   bool triggerInActive() const { return (triggerInMode_ != "disabled"); }
+  void setDecodingEvents(bool decodeEvents);
 
 private:
   bool initializeCamera();
@@ -120,6 +121,9 @@ private:
 
   void rawDataCallback(const uint8_t * data, size_t size);
   void rawDataCallbackMultithreaded(const uint8_t * data, size_t size);
+  void cdCallback(const Metavision::EventCD * start, const Metavision::EventCD * end);
+  void extTriggerCallback(
+    const Metavision::EventExtTrigger * start, const Metavision::EventExtTrigger * end);
 
   void processingThread();
   void statsThread();
@@ -139,6 +143,10 @@ private:
   bool runtimeErrorCallbackActive_{false};
   Metavision::CallbackId rawDataCallbackId_;
   bool rawDataCallbackActive_{false};
+  Metavision::CallbackId contrastCallbackId_;
+  bool contrastCallbackActive_{false};
+  Metavision::CallbackId extTriggerCallbackId_;
+  bool extTriggerCallbackActive_{false};
   int width_{0};   // image width
   int height_{0};  // image height
   std::string biasFile_;

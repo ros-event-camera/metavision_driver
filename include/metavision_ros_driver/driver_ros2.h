@@ -25,26 +25,7 @@
 #include <string>
 
 #include "metavision_ros_driver/callback_handler.h"
-
-//
-// resize without initializing, taken from
-// https://stackoverflow.com/questions/15219984/
-// using-vectorchar-as-a-buffer-without-initializing-it-on-resize
-
-template <typename V>
-void resize_hack(V & v, size_t newSize)
-{
-  struct vt
-  {
-    typename V::value_type v;
-    vt() {}
-  };
-  static_assert(sizeof(vt[10]) == sizeof(typename V::value_type[10]), "alignment error");
-  typedef std::vector<
-    vt, typename std::allocator_traits<typename V::allocator_type>::template rebind_alloc<vt>>
-    V2;
-  reinterpret_cast<V2 &>(v).resize(newSize);
-}
+#include "metavision_ros_driver/resize_hack.h"
 
 namespace metavision_ros_driver
 {
@@ -60,7 +41,10 @@ public:
 
   // ---------------- inherited from CallbackHandler -----------
   void rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end) override;
+  void eventCDCallback(
+    uint64_t t, const Metavision::EventCD * begin, const Metavision::EventCD * end) override;
   // ---------------- end of inherited  -----------
+
 private:
   // service call to dump biases
   void saveBiases(

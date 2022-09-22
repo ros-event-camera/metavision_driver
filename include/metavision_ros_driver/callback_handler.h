@@ -26,6 +26,8 @@ public:
   CallbackHandler() {}
   virtual ~CallbackHandler() {}
   virtual void rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end) = 0;
+  virtual void eventCDCallback(
+    uint64_t t, const Metavision::EventCD * start, const Metavision::EventCD * end) = 0;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__CALLBACK_HANDLER_H_

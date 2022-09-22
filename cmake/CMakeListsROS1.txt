@@ -14,7 +14,7 @@
 # limitations under the License.
 
 #add_compile_options(-Wall -Wextra -pedantic -Werror)
-add_compile_options(-Wall -Wextra -pedantic)
+add_compile_options(-Wall -Wextra)
 #add_compile_definitions(USING_ROS_1)
 add_definitions(-DUSING_ROS_1)
 
@@ -22,12 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
   dynamic_reconfigure
-  camera_info_manager
-  image_transport
-  dvs_msgs
-  prophesee_event_msgs
   event_array_msgs
-  sensor_msgs
   std_srvs
   )
 
