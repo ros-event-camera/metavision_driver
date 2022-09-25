@@ -64,17 +64,11 @@ rclcpp_components_register_nodes(driver_ros2 "metavision_ros_driver::DriverROS2"
 ament_auto_add_executable(driver_node
   src/driver_node_ros2.cpp)
 
-# --------- sync test -------------
-
-ament_auto_add_executable(sync_test
-  src/sync_test_ros2.cpp src/sync_test_node_ros2.cpp)
-
-
 
 # the node must go into the project specific lib directory or else
 # the launch file will not find it
 install(TARGETS
-  driver_node sync_test
+  driver_node
   DESTINATION lib/${PROJECT_NAME}/
   )
 

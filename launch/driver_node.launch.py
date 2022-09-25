@@ -49,9 +49,9 @@ def launch_setup(context, *args, **kwargs):
                      'erc_rate': 100000000,
                      # 'roi': [0, 0, 100, 100],
                      # valid: 'enabled', 'loopback', 'disabled'
-                     'trigger_in_mode': 'disabled',
+                     'trigger_in_mode': 'loopback',
                      # valid: 'enabled', 'disabled'
-                     'trigger_out_mode': 'disabled',
+                     'trigger_out_mode': 'enabled',
                      'trigger_out_period': 100000,  # in usec
                      'trigger_duty_cycle': 0.5,     # fraction high/low
                      'event_message_time_threshold': 1.0e-3}],
