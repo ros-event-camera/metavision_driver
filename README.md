@@ -7,8 +7,8 @@ This driver is not written or supported by Prophesee.
 
 If you are looking for more speed and features than the [official
 Prophesee ROS
-driver](https://github.com/prophesee-ai/prophesee_ros_wrapper), this
-repository is for you. The driver can cope with the large amount of
+driver](https://github.com/prophesee-ai/prophesee_ros_wrapper) you
+have found the right repository. This driver can cope with the large amount of
 data produced by Prophesee's Gen3 and Gen4 sensors because it does
 little more than getting the RAW (currently EVT3 format) events from
 the camera and publishing them in ROS
