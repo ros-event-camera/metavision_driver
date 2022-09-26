@@ -46,7 +46,7 @@ def launch_setup(context, *args, **kwargs):
              'bias_file': bias_config,
              'camerainfo_url': '',
              'frame_id': 'cam_0',
-             'serial': 'CenturyArks:evc3a_plugin_gen31:0000000000000198',
+             'serial': 'CenturyArks:evc3a_plugin_gen31:00000198',
              'sync_mode': 'primary',
              'event_message_time_threshold': 1.0e-3}],
         remappings=[
@@ -67,7 +67,7 @@ def launch_setup(context, *args, **kwargs):
              'bias_file': bias_config,
              'camerainfo_url': '',
              'frame_id': 'cam_1',
-             'serial': 'CenturyArks:evc3a_plugin_gen31:0000000000000293',
+             'serial': 'CenturyArks:evc3a_plugin_gen31:00000293',
              'sync_mode': 'secondary',
              'event_message_time_threshold': 1.0e-3}],
         remappings=[
