@@ -15,9 +15,7 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file_cam_0)"/>
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="true"/>
-    <!-- what kind of messages to write (dvs or prophesee, event_array) -->
-    <param name="message_type" value="event_array"/>
+    <param name="use_multithreading" value="false"/>
     <!-- listen for ready message from cam 1 -->
     <remap from="~ready" to ="/event_cam_1/ready"/>
   </node>
@@ -34,9 +32,7 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file_cam_1)"/>
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="true"/>
-    <!-- what kind of messages to write (dvs or prophesee, event_array) -->
-    <param name="message_type" value="event_array"/>
+    <param name="use_multithreading" value="false"/>
     <!-- trigger setup -->
     <param name="trigger_message_time_threshold" value="0"/>
     <param name="trigger_out_mode" value="enabled"/>

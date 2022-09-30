@@ -16,12 +16,19 @@
 #include "metavision_ros_driver/metavision_wrapper.h"
 
 #include <metavision/hal/facilities/i_device_control.h>
+#include <metavision/hal/facilities/i_erc.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
 #include <chrono>
 #include <set>
 #include <thread>
+
+#ifdef USING_ROS_1
+#define GENERIC_ROS_OK() (ros::ok())
+#else
+#define GENERIC_ROS_OK() (rclcpp::ok())
+#endif
 
 #include "metavision_ros_driver/logging.h"
 
@@ -30,8 +37,7 @@ namespace metavision_ros_driver
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
-  eventCount_[0] = 0;
-  eventCount_[1] = 0;
+  lastPrintTime_ = std::chrono::system_clock::now();
 }
 
 MetavisionWrapper::~MetavisionWrapper() { stop(); }
@@ -69,13 +75,11 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
   return (now);
 }
 
-bool MetavisionWrapper::initialize(
-  bool useMultithreading, double statItv, const std::string & biasFile)
+bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
 {
   biasFile_ = biasFile;
   useMultithreading_ = useMultithreading;
 
-  statisticsPrintInterval_ = static_cast<int>(statItv * 1e6);
   if (!initializeCamera()) {
     LOG_ERROR_NAMED("could not initialize camera!");
     return (false);
@@ -90,26 +94,35 @@ bool MetavisionWrapper::stop()
     cam_.stop();
     status = true;
   }
-  if (contrastCallbackActive_) {
-    cam_.cd().remove_callback(contrastCallbackId_);
-  }
-  if (runtimeErrorCallbackActive_) {
-    cam_.remove_runtime_error_callback(runtimeErrorCallbackId_);
+  if (rawDataCallbackActive_) {
+    cam_.raw_data().remove_callback(rawDataCallbackId_);
   }
   if (statusChangeCallbackActive_) {
     cam_.remove_status_change_callback(statusChangeCallbackId_);
   }
+  if (contrastCallbackActive_) {
+    cam_.cd().remove_callback(contrastCallbackId_);
+  }
   if (extTriggerCallbackActive_) {
     cam_.ext_trigger().remove_callback(extTriggerCallbackId_);
   }
-  if (thread_) {
-    keepRunning_ = false;
+
+  keepRunning_ = false;
+  if (processingThread_) {
     {
       std::unique_lock<std::mutex> lock(mutex_);
       cv_.notify_all();
     }
-    thread_->join();
-    thread_.reset();
+    processingThread_->join();
+    processingThread_.reset();
+  }
+  if (statsThread_) {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      cv_.notify_all();
+    }
+    statsThread_->join();
+    statsThread_.reset();
   }
   return (status);
 }
@@ -144,7 +157,6 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
       cam_.roi().set(rects);
     }
   } else {
-    cam_.roi().unset();
 #ifdef CHECK_IF_OUTSIDE_ROI
     x_min_ = 0;
     x_max_ = std::numeric_limits<uint16_t>::max();
@@ -207,11 +219,20 @@ void MetavisionWrapper::configureExternalTriggers(
     } else {
       LOG_ERROR_NAMED("Failed enabling trigger input");
     }
-    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(std::bind(
-      useMultithreading_ ? &MetavisionWrapper::extTriggerCallbackMultithreaded
-                         : &MetavisionWrapper::extTriggerCallback,
-      this, ph::_1, ph::_2));
-    extTriggerCallbackActive_ = true;
+  }
+}
+
+void MetavisionWrapper::configureEventRateController(
+  const std::string & mode, const int events_per_sec)
+{
+  if (mode == "enabled" || mode == "disabled") {
+    Metavision::I_Erc * i_erc = cam_.get_device().get_facility<Metavision::I_Erc>();
+    if (i_erc) {
+      i_erc->enable(mode == "enabled");
+      i_erc->set_cd_event_rate(events_per_sec);
+    } else {
+      LOG_WARN_NAMED("cannot set event rate control for this camera!");
+    }
   }
 }
 
@@ -271,6 +292,7 @@ bool MetavisionWrapper::initializeCamera()
       applyROI(roi_);
       configureExternalTriggers(
         triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+      configureEventRateController(ercMode_, ercRate_);
     }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
@@ -278,11 +300,11 @@ bool MetavisionWrapper::initializeCamera()
     runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
       std::bind(&MetavisionWrapper::runtimeErrorCallback, this, ph::_1));
     runtimeErrorCallbackActive_ = true;
-    contrastCallbackId_ = cam_.cd().add_callback(std::bind(
-      useMultithreading_ ? &MetavisionWrapper::eventCallbackMultithreaded
-                         : &MetavisionWrapper::eventCallback,
+    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(
+      useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
+                         : &MetavisionWrapper::rawDataCallback,
       this, ph::_1, ph::_2));
-    contrastCallbackActive_ = true;
+    rawDataCallbackActive_ = true;
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
     return (false);
@@ -290,13 +312,37 @@ bool MetavisionWrapper::initializeCamera()
   return (true);
 }
 
+void MetavisionWrapper::setDecodingEvents(bool decodeEvents)
+{
+  if (decodeEvents && !contrastCallbackActive_) {
+    contrastCallbackId_ =
+      cam_.cd().add_callback(std::bind(&MetavisionWrapper::cdCallback, this, ph::_1, ph::_2));
+    contrastCallbackActive_ = true;
+  }
+  if (decodeEvents && !extTriggerCallbackActive_) {
+    extTriggerCallbackId_ = cam_.ext_trigger().add_callback(
+      std::bind(&MetavisionWrapper::extTriggerCallback, this, ph::_1, ph::_2));
+    extTriggerCallbackActive_ = true;
+  }
+
+  if (!decodeEvents && contrastCallbackActive_) {
+    cam_.cd().remove_callback(contrastCallbackId_);
+    contrastCallbackActive_ = false;
+  }
+  if (!decodeEvents && extTriggerCallbackActive_) {
+    cam_.ext_trigger().remove_callback(extTriggerCallbackId_);
+    extTriggerCallbackActive_ = false;
+  }
+}
+
 bool MetavisionWrapper::startCamera(CallbackHandler * h)
 {
   try {
     callbackHandler_ = h;
     if (useMultithreading_) {
-      thread_ = std::make_shared<std::thread>(&MetavisionWrapper::processingThread, this);
+      processingThread_ = std::make_shared<std::thread>(&MetavisionWrapper::processingThread, this);
     }
+    statsThread_ = std::make_shared<std::thread>(&MetavisionWrapper::statsThread, this);
     // this will actually start the camera
     cam_.start();
   } catch (const Metavision::CameraException & e) {
@@ -333,156 +379,148 @@ bool MetavisionWrapper::saveBiases()
   return (true);
 }
 
-void MetavisionWrapper::updateStatistics(const EventCD * start, const EventCD * end)
+void MetavisionWrapper::rawDataCallback(const uint8_t * data, size_t size)
 {
-  const int64_t t_end = (end - 1)->t;
-  const unsigned int num_events = end - start;
-  const float dt = static_cast<float>(t_end - (lastEventTime_ < 0 ? t_end : lastEventTime_));
-  const float dt_inv = dt != 0 ? (1.0 / dt) : 0;
-  const float rate = num_events * dt_inv;
-  maxRate_ = std::max(rate, maxRate_);
-  totalEvents_ += num_events;
-  totalTime_ += dt;
-  lastEventTime_ = t_end;
-
-  if (t_end > lastPrintTime_ + statisticsPrintInterval_) {
-    const float avgRate = totalEvents_ * (totalTime_ > 0 ? 1.0 / totalTime_ : 0);
-    const float avgSize = totalEventsSent_ * (totalMsgsSent_ != 0 ? 1.0 / totalMsgsSent_ : 0);
-    const uint32_t totCount = eventCount_[1] + eventCount_[0];
-    const int pctOn = (100 * eventCount_[1]) / (totCount == 0 ? 1 : totCount);
-#ifndef USING_ROS_1
-#ifdef CHECK_IF_OUTSIDE_ROI
-    LOG_INFO_NAMED_FMT(
-      "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
-      "%4zu !roi: %8zu",
-      avgRate, maxRate_, avgSize, pctOn, maxQueueSize_, outsideROI_);
-#else
-    LOG_INFO_NAMED_FMT(
-      "avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
-      "%4zu",
-      avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
-#endif
-#else
-    LOG_INFO_NAMED_FMT(
-      "%s: avg: %9.5f Mevs, max: %7.3f, out sz: %7.2f ev, %%on: %3d, qs: "
-      "%4zu",
-      loggerName_.c_str(), avgRate, maxRate_, avgSize, pctOn, maxQueueSize_);
-#endif
-    maxRate_ = 0;
-    lastPrintTime_ = t_end;
-    totalEvents_ = 0;
-    totalTime_ = 0;
-    totalMsgsSent_ = 0;
-    totalEventsSent_ = 0;
-    eventCount_[0] = 0;
-    eventCount_[1] = 0;
-    maxQueueSize_ = 0;
-#ifdef CHECK_IF_OUTSIDE_ROI
-    outsideROI_ = 0;
-#endif
-  }
-}
-
-void MetavisionWrapper::extTriggerCallback(
-  const EventExtTrigger * start, const EventExtTrigger * end)
-{
-  const size_t n = end - start;
-  if (n != 0) {
-    callbackHandler_->triggerEventCallback(start, end);
-  }
-}
-
-void MetavisionWrapper::extTriggerCallbackMultithreaded(
-  const EventExtTrigger * start, const EventExtTrigger * end)
-{
-  // queue stuff away quickly to prevent events from being
-  // dropped at the SDK level
-  const size_t n = end - start;
-  if (n != 0) {
-    const size_t n_bytes = n * sizeof(EventCD);
-    void * memblock = malloc(n_bytes);
-    memcpy(memblock, start, n_bytes);
-    std::unique_lock<std::mutex> lock(mutex_);
-    queue_.push_front(QueueElement(ExtTrigger, memblock, n));
-    cv_.notify_all();
-  }
-}
-
-void MetavisionWrapper::eventCallback(const EventCD * start, const EventCD * end)
-{
-  const size_t n = end - start;
-  if (n != 0) {
-    updateStatistics(start, end);
-    callbackHandler_->cdEventCallback(start, end);
-    if (callbackHandler2_) {
-      callbackHandler2_->cdEventCallback(start, end);
+  if (size != 0) {
+    const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+    callbackHandler_->rawDataCallback(t, data, data + size);
+    {
+      std::unique_lock<std::mutex> lock(statsMutex_);
+      stats_.msgsRecv++;
+      stats_.bytesRecv += size;
     }
   }
 }
 
-void MetavisionWrapper::eventCallbackMultithreaded(const EventCD * start, const EventCD * end)
+void MetavisionWrapper::rawDataCallbackMultithreaded(const uint8_t * data, size_t size)
 {
   // queue stuff away quickly to prevent events from being
   // dropped at the SDK level
-  const size_t n = end - start;
-  if (n != 0) {
-    const size_t n_bytes = n * sizeof(EventCD);
-    void * memblock = malloc(n_bytes);
-    memcpy(memblock, start, n_bytes);
-    std::unique_lock<std::mutex> lock(mutex_);
-    queue_.push_front(QueueElement(CD, memblock, n));
-    cv_.notify_all();
+  if (size != 0) {
+    const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+    {
+      void * memblock = malloc(size);
+      memcpy(memblock, data, size);
+      std::unique_lock<std::mutex> lock(mutex_);
+      queue_.push_front(QueueElement(memblock, size, t));
+      cv_.notify_all();
+    }
+    {
+      std::unique_lock<std::mutex> lock(statsMutex_);
+      stats_.msgsRecv++;
+      stats_.bytesRecv += size;
+    }
   }
+}
+
+void MetavisionWrapper::cdCallback(
+  const Metavision::EventCD * start, const Metavision::EventCD * end)
+{
+  // this code only used during startup for synchronization,
+  // not during regular operation
+  const uint64_t t = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                       std::chrono::system_clock::now().time_since_epoch())
+                       .count();
+  callbackHandler_->eventCDCallback(t, start, end);
+}
+
+void MetavisionWrapper::extTriggerCallback(
+  const Metavision::EventExtTrigger *, const Metavision::EventExtTrigger *)
+{
+  // do nothing for now
 }
 
 void MetavisionWrapper::processingThread()
 {
   const std::chrono::microseconds timeout((int64_t)(1000000LL));
-  while (callbackHandler_->keepRunning() && keepRunning_) {
+  while (GENERIC_ROS_OK() && keepRunning_) {
     QueueElement qe;
     size_t qs = 0;
     {  // critical section, no processing done here
       std::unique_lock<std::mutex> lock(mutex_);
-      while (callbackHandler_->keepRunning() && keepRunning_ && queue_.empty()) {
+      while (GENERIC_ROS_OK() && keepRunning_ && queue_.empty()) {
         cv_.wait_for(lock, timeout);
       }
       if (!queue_.empty()) {
         qs = queue_.size();
-        qe = queue_.back();  // makes copy
+        qe = queue_.back();  // makes copy of element, not the data
         queue_.pop_back();
       }
     }
-    if (qe.numEvents != 0) {
-      maxQueueSize_ = std::max(maxQueueSize_, qs);
-      switch (qe.eventType) {
-        case CD: {
-          const EventCD * start = static_cast<const EventCD *>(qe.start);
-          const EventCD * end = start + qe.numEvents;
-          updateStatistics(start, end);
-          callbackHandler_->cdEventCallback(start, end);
-          if (callbackHandler2_) {
-            callbackHandler2_->cdEventCallback(start, end);
-          }
-          break;
-        }
-        case ExtTrigger: {
-          const EventExtTrigger * start = static_cast<const EventExtTrigger *>(qe.start);
-          const EventExtTrigger * end = start + qe.numEvents;
-          callbackHandler_->triggerEventCallback(start, end);
-          break;
-        }
-      }
+    if (qe.numBytes != 0) {
+      const uint8_t * data = static_cast<const uint8_t *>(qe.start);
+      callbackHandler_->rawDataCallback(qe.timeStamp, data, data + qe.numBytes);
       free(const_cast<void *>(qe.start));
+      {
+        std::unique_lock<std::mutex> lock(statsMutex_);
+        stats_.maxQueueSize = std::max(stats_.maxQueueSize, qs);
+      }
     }
   }
   LOG_INFO_NAMED("processing thread exited!");
 }
+
 void MetavisionWrapper::setExternalTriggerOutMode(
   const std::string & mode, const int period, const double duty_cycle)
 {
   triggerOutMode_ = mode;
   triggerOutPeriod_ = period;
   triggerOutDutyCycle_ = duty_cycle;
+}
+
+void MetavisionWrapper::statsThread()
+{
+  while (GENERIC_ROS_OK() && keepRunning_) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(statsInterval_ * 1000)));
+    printStatistics();
+  }
+  LOG_INFO_NAMED("statistics thread exited!");
+}
+
+void MetavisionWrapper::printStatistics()
+{
+  Stats stats;
+  {
+    std::unique_lock<std::mutex> lock(statsMutex_);
+    stats = stats_;
+    stats_ = Stats();  // reset statistics
+  }
+  std::chrono::time_point<std::chrono::system_clock> t_now = std::chrono::system_clock::now();
+  const double dt = std::chrono::duration<double>(t_now - lastPrintTime_).count();
+  lastPrintTime_ = t_now;
+  const double invT = dt > 0 ? 1.0 / dt : 0;
+  const double recvByteRate = 1e-6 * stats.bytesRecv * invT;
+
+  const int recvMsgRate = static_cast<int>(stats.msgsRecv * invT);
+  const int sendMsgRate = static_cast<int>(stats.msgsSent * invT);
+
+#ifndef USING_ROS_1
+  if (useMultithreading_) {
+    LOG_INFO_NAMED_FMT(
+      "bw in: %9.5f MB/s, msgs/s in: %7d, "
+      "out: %7d, maxq: %4zu",
+      recvByteRate, recvMsgRate, sendMsgRate, stats.maxQueueSize);
+  } else {
+    LOG_INFO_NAMED_FMT(
+      "bw in: %9.5f MB/s, msgs/s in: %7d, "
+      "out: %7d",
+      recvByteRate, recvMsgRate, sendMsgRate);
+  }
+#else
+  if (useMultithreading_) {
+    LOG_INFO_NAMED_FMT(
+      "%s: bw in: %9.5f MB/s, msgs/s in: %7d, out: %7d, maxq: %4zu", loggerName_.c_str(),
+      recvByteRate, recvMsgRate, sendMsgRate, stats.maxQueueSize);
+  } else {
+    LOG_INFO_NAMED_FMT(
+      "%s: bw in: %9.5f MB/s, msgs/s in: %7d, out: %7d", loggerName_.c_str(), recvByteRate,
+      recvMsgRate, sendMsgRate);
+  }
+#endif
 }
 
 }  // namespace metavision_ros_driver

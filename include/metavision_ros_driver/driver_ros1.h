@@ -16,38 +16,38 @@
 #ifndef METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
 #define METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
 
-#include <camera_info_manager/camera_info_manager.h>
 #include <dynamic_reconfigure/server.h>
-#include <image_transport/image_transport.h>
+#include <event_array_msgs/EventArray.h>
 #include <ros/ros.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Image.h>
 #include <std_srvs/Trigger.h>
 
 #include <memory>
 #include <string>
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
-#include "metavision_ros_driver/event_publisher_base.h"
-#include "metavision_ros_driver/image_updater.h"
-#include "metavision_ros_driver/synchronizer.h"
+#include "metavision_ros_driver/callback_handler.h"
+#include "metavision_ros_driver/resize_hack.h"
 
 namespace metavision_ros_driver
 {
 class MetavisionWrapper;  // forward decl
 
-class DriverROS1 : public Synchronizer
+class DriverROS1 : public CallbackHandler
 {
+  using Config = MetaVisionDynConfig;
+  using EventArrayMsg = event_array_msgs::EventArray;
+
 public:
   explicit DriverROS1(ros::NodeHandle & nh);
   ~DriverROS1();
-  // ----------- from synchronizer ---------
-  bool sendReadyMessage() override;
+
+  // ---------------- inherited from CallbackHandler -----------
+  void rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end) override;
+  void eventCDCallback(
+    uint64_t t, const Metavision::EventCD * begin, const Metavision::EventCD * end) override;
+  // ---------------- end of inherited  -----------
 
 private:
-  using Config = MetaVisionDynConfig;
-  using CameraInfo = sensor_msgs::CameraInfo;
-
   // service call to dump biases
   bool saveBiases(std_srvs::Trigger::Request & req, std_srvs::Trigger::Response & res);
 
@@ -58,24 +58,29 @@ private:
   // for primary sync
   void secondaryReadyCallback(const std_msgs::Header::ConstPtr &);
 
-  // functions related to frame and camerainfo publishing
-  void cameraInfoConnectCallback(const ros::SingleSubscriberPublisher & pub);
-  void imageConnectCallback(const image_transport::SingleSubscriberPublisher & pub);
-  void frameTimerExpired(const ros::TimerEvent &);
-  void updateFrameTimer();
-  void startNewImage();
-
   // misc helper functions
   bool start();
   bool stop();
-  void makeEventPublisher();
   void configureWrapper(const std::string & name);
+
+  // for synchronization with primary
+  bool sendReadyMessage();
 
   // ------------------------  variables ------------------------------
   ros::NodeHandle nh_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
-  std::shared_ptr<EventPublisherBase> eventPub_;
+  int width_;   // image width
+  int height_;  // image height
+  bool isBigEndian_;
   std::string frameId_;  // ROS frame id
+  std::string encoding_;
+  uint64_t seq_{0};        // sequence number
+  size_t reserveSize_{0};  // recommended reserve size
+  uint64_t lastMessageTime_{0};
+  uint64_t messageThresholdTime_{0};  // threshold time for sending message
+  size_t messageThresholdSize_{0};    // threshold size for sending message
+  EventArrayMsg::Ptr msg_;
+  ros::Publisher eventPub_;
 
   // ------ related to sync
   ros::Publisher secondaryReadyPub_;      // secondary publishes on this
@@ -87,18 +92,6 @@ private:
   Config config_;
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   ros::ServiceServer saveBiasService_;
-
-  // ------ related to rendered image publishing
-  ImageUpdater imageUpdater_;
-  double fps_;  // frequency of image publishing
-  ros::Timer frameTimer_;
-  image_transport::Publisher imagePub_;
-  sensor_msgs::Image imageMsgTemplate_;
-
-  // -------- related to camerainfo
-  std::shared_ptr<camera_info_manager::CameraInfoManager> infoManager_;
-  ros::Publisher cameraInfoPub_;
-  CameraInfo cameraInfoMsg_;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS1_H_

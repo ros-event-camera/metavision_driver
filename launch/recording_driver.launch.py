@@ -21,17 +21,12 @@ from launch_ros.descriptions import ComposableNode
 from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
-from ament_index_python.packages import get_package_share_directory
-import os
 
 
 def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_name = LaunchConfig('camera_name')
     cam_str = cam_name.perform(context)
-    pkg_name = 'metavision_ros_driver'
-    share_dir = get_package_share_directory(pkg_name)
-    bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
     container = ComposableNodeContainer(
             name='metavision_driver_container',
             namespace='',
@@ -44,10 +39,8 @@ def launch_setup(context, *args, **kwargs):
                     plugin='metavision_ros_driver::DriverROS2',
                     name=cam_name,
                     parameters=[
-                        {'use_multithreading': True,
-                         'message_type': 'event_array',
+                        {'use_multithreading': False,
                          'statistics_print_interval': 2.0,
-                         'bias_file': bias_config,
                          'camerainfo_url': '',
                          'frame_id': '',
                          'event_message_time_threshold': 1.0e-3}],

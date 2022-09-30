@@ -14,7 +14,7 @@
 # limitations under the License.
 
 #add_compile_options(-Wall -Wextra -pedantic -Werror)
-add_compile_options(-Wall -Wextra -pedantic)
+add_compile_options(-Wall -Wextra)
 #add_compile_definitions(USING_ROS_1)
 add_definitions(-DUSING_ROS_1)
 
@@ -22,12 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
   dynamic_reconfigure
-  camera_info_manager
-  image_transport
-  dvs_msgs
-  prophesee_event_msgs
   event_array_msgs
-  sensor_msgs
   std_srvs
   )
 
@@ -65,11 +60,6 @@ target_link_libraries(driver_node driver_common MetavisionSDK::driver ${catkin_L
 # to ensure messages get built before executable
 add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
 
-# sync test
-add_executable(sync_test src/sync_test_ros1.cpp src/sync_test_node_ros1.cpp)
-# to ensure messages get built before executable
-add_dependencies(sync_test ${metavision_ros_driver_EXPORTED_TARGETS})
-target_link_libraries(sync_test ${catkin_LIBRARIES})
 
 #############
 ## Install ##

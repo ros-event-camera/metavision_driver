@@ -12,18 +12,18 @@
 	message, else there will always be at least 2 trigger events
 	per message -->
     <param name="serial" value="$(arg serial)"/>
-    <param name="trigger_message_time_threshold" value="0"/>
     <param name="trigger_out_mode" value="enabled"/>
     <!-- units of trigger_out_period is usec -->
     <param name="trigger_out_period" value="1000"/>
     <param name="trigger_out_duty_cycle" value="0.5"/>
     <param name="trigger_in_mode" value="loopback"/>
+    <!-- erc mode: na, enabled, disabled -->
+    <param name="erc_mode" value="na"/>
+    <param name="erc_rate" value="100000000"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="1.0"/>
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
-    <!-- what kind of messages to write (dvs or prophesee) -->
-    <param name="message_type" value="event_array"/>
     <!-- define region of interest: top left (x, y) then width, height
     <rosparam param="roi">[315, 235, 20, 10]</rosparam>
     -->
