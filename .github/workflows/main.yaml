@@ -69,7 +69,7 @@ jobs:
       - uses: berndpfrommer/run-on-arch-action@master
         name: compile from source
         with:
-          arch: arm64v8
+          arch: aarch64
           distro: jammy_humble_openeb
           run:  |
             ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
