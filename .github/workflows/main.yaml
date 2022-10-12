@@ -66,5 +66,10 @@ jobs:
         with:
           path: src/metavision_ros_driver
           fetch-depth: 0
-      - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
+      - uses: berndpfrommer/run-on-arch-action@master
+        name: compile from source
+        with:
+          arch: arm64v8
+          distro: jammy_humble_openeb
+          run:  |
+            ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
