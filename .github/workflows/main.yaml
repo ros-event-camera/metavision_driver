@@ -58,18 +58,33 @@ jobs:
   build_jammy_ros2:
     runs-on: ubuntu-22.04
     container:
-      image: berndpfrommer/arm64v8_jammy_humble_openeb
-    name: ROS2 on jammy (arm64v8)
+      image: berndpfrommer/amd64_jammy_humble_openeb
+    name: ROS2 on focal (x86_64)
     steps:
       - name: check out github repo
         uses: actions/checkout@v3
         with:
           path: src/metavision_ros_driver
           fetch-depth: 0
-      - uses: berndpfrommer/run-on-arch-action@master
-        name: compile from source
-        with:
-          arch: aarch64
-          distro: jammy_humble_openeb
-          run:  |
-            ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
+      - name: compile from source
+        run: ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
+
+# somehow arch64 under jammy/humble  does not work on github
+#  build_jammy_ros2:
+#    runs-on: ubuntu-22.04
+#    container:
+#      image: berndpfrommer/arm64v8_jammy_humble_openeb
+#    name: ROS2 on jammy (arm64v8)
+#    steps:
+#      - name: check out github repo
+#        uses: actions/checkout@v3
+#        with:
+#          path: src/metavision_ros_driver
+#          fetch-depth: 0
+#      - uses: berndpfrommer/run-on-arch-action@master
+#        name: compile from source
+#        with:
+#          arch: aarch64
+#          distro: jammy_humble_openeb
+#          run:  |
+#            ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
