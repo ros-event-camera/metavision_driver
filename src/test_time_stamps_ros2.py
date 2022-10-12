@@ -59,7 +59,7 @@ def read_bag(args):
     storage_filter = rosbag2_py.StorageFilter(topics=[args.topic])
     reader.set_filter(storage_filter)
 
-    print(f'iterating through messages...')
+    print('iterating through messages...')
     t0_ros, t0_sensor = None, None
     t_last_evt = None
     ros_times, sensor_times, rec_times = [], [], []
