@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 def read_bag(args):
     print(f'opening bag {args.bag} ...')
     bag = rosbag.Bag(args.bag)
-    print(f'iterating through it ...')
+    print('iterating through messages...')
     t0_ros, t0_sensor = None, None
     t_last_evt = None
     ros_times, sensor_times, rec_times = [], [], []
