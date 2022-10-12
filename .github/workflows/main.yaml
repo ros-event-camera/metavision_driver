@@ -59,7 +59,7 @@ jobs:
     runs-on: ubuntu-22.04
     container:
       image: berndpfrommer/amd64_jammy_humble_openeb
-    name: ROS2 on focal (x86_64)
+    name: ROS2 on jammy (x86_64)
     steps:
       - name: check out github repo
         uses: actions/checkout@v3
