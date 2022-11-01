@@ -297,7 +297,7 @@ static MetavisionWrapper::HardwarePinConfig get_hardware_pin_config(rclcpp::Node
   // config["evc3a_plugin_gen31"]["external"] = 0
   // config["evc3a_plugin_gen31"]["loopback"] = 6
   const auto params = node->list_parameters({"prophesee_pin_config"}, 10 /* 10 deep */);
-  for (const auto name : params.names) {
+  for (const auto & name : params.names) {
     auto a = split_string(name);
     if (a.size() != 3) {
       RCLCPP_ERROR_STREAM(node->get_logger(), "invalid pin config found: " << name);

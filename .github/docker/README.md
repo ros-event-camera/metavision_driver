@@ -43,3 +43,17 @@ Build and push the container with OpenEB which now has the plugins as well:
 docker build . -f Dockerfile.jetson_r34_noetic_metavision -t ${your_dockerhub_name}/jetson_r34_noetic_metavision
 docker push ${your_dockerhub_name}/jetson_r34_noetic_metavision
 ```
+
+## Build docker image for armv7
+
+For cross-compilation, i.e. running ARM v7, [first do this](https://medium.com/@Smartcow_ai/building-arm64-based-docker-containers-for-nvidia-jetson-devices-on-an-x86-based-host-d72cfa535786):
+```
+sudo apt-get install qemu binfmt-support qemu-user-static
+docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+```
+
+Build and push the container with OpenEB which now has the plugins as well:
+```
+docker build . -f Dockerfile.jetson_r34_noetic_metavision -t ${your_dockerhub_name}/jetson_r34_noetic_metavision
+docker push ${your_dockerhub_name}/jetson_r34_noetic_metavision
+```
