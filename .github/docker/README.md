@@ -3,7 +3,7 @@
 ## Build the base image (ROS1 and ROS2 combined)
 Change into the ``.github/docker`` directory and build the base image:
 ```
-ros_flavor=focal
+os_flavor=focal
 ros1_flavor=noetic
 ros2_flavor=galactic
 your_dockerhub_name=<here your dockerhub name>

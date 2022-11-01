@@ -12,7 +12,7 @@ RUN apt-get -y install software-properties-common apt-utils
 #
 # some additional ROS1 packages
 #
-RUN apt-get -y install python3-osrf-pycommon python3-catkin-tools ros-${ROS1_VERSION}-image-transport ros-${ROS1_VERSION}-cv-bridge ros-${ROS1_VERSION}-sensor-msgs ros-${ROS1_VERSION}-std-msgs ros-${ROS1_VERSION}-rosbag ros-${ROS1_VERSION}-eigen-conversions ros-${ROS1_VERSION}-tf2-ros ros-${ROS1_VERSION}-image-geometry ros-${ROS1_VERSION}-tf2-geometry-msgs ros-${ROS1_VERSION}-message-generation ros-${ROS1_VERSION}-message-runtime ros-${ROS1_VERSION}-dynamic-reconfigure ros-${ROS1_VERSION}-camera-info-manager
+RUN apt-get -y install python3-osrf-pycommon python3-catkin-tools ros-${ROS1_VERSION}-image-transport ros-${ROS1_VERSION}-cv-bridge ros-${ROS1_VERSION}-sensor-msgs ros-${ROS1_VERSION}-std-msgs ros-${ROS1_VERSION}-rosbag ros-${ROS1_VERSION}-eigen-conversions ros-${ROS1_VERSION}-tf2-ros ros-${ROS1_VERSION}-image-geometry ros-${ROS1_VERSION}-tf2-geometry-msgs ros-${ROS1_VERSION}-message-generation ros-${ROS1_VERSION}-message-runtime ros-${ROS1_VERSION}-dynamic-reconfigure ros-${ROS1_VERSION}-camera-info-manager ros-${ROS1_VERSION}-pybind11-catkin
 
 
 #

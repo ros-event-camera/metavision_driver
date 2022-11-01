@@ -1,11 +1,13 @@
 FROM dustynv/ros:noetic-ros-base-l4t-r34.1.1
 LABEL maintainer="bernd.pfrommer@gmail.com"
 LABEL version="1.0"
-LABEL description="jetson ubuntu 18.04 + ros noetic + metavision SDK (latest)"
+LABEL description="jetson ubuntu 18.04 + ros noetic + openeb (latest)"
+ARG ROS1_VERSION=noetic
 
 RUN apt-get update
 RUN apt-get -y install software-properties-common apt-utils python3-osrf-pycommon python3-catkin-tools libceres-dev python3-wstool iputils-ping wget libcanberra-gtk-module mesa-utils cmake libboost-program-options-dev libeigen3-dev libavcodec58 libavformat58 libswscale5 libswresample3 libavutil56 libusb-1.0-0 libpcre2-16-0 libdouble-conversion3 libxcb-xinput0 libxcb-xinerama0 build-essential unzip curl git libgtest-dev libboost-all-dev libusb-1.0-0-dev libglew-dev libglfw3-dev libcanberra-gtk-module ffmpeg libyaml-cpp-dev
 
+RUN apt-get -y install ros-${ROS1_VERSION}-pybind11-catkin
 
 #
 # build image common which contains the required camera_info_manager
