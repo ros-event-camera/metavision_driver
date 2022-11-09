@@ -1,5 +1,6 @@
 <launch>
   <arg name="bias_file" default=""/>
+  <arg name="serial" default=""/>
   <node pkg="nodelet" type="nodelet"
     name="driver_nodelet" args="standalone metavision_ros_driver/DriverNodelet"
     clear_params="true" output="screen">
@@ -10,6 +11,7 @@
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
+    <param name="serial" value="$(arg serial)"/>
     <remap from="~/events" to="/event_camera/events"/>
     <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins.yaml"/>
   </node>
