@@ -19,7 +19,9 @@ Accessing the events now requires decoding them using the
 following ROS/ROS2 packages:
 
 - [event_array_codecs](https://github.com/berndpfrommer/event_array_codecs)
-  has C++ and Python routines to decode event_array_msgs.
+  has C++ routines to decode event_array_msgs.
+- [event_array_py](https://github.com/berndpfrommer/event_array_py)
+  module for fast event decoding in python.
 - [event_array_viewer](https://github.com/berndpfrommer/event_array_viewer)
   a node / nodelet that renders and publishes ROS image messages.
 - [event_array_tools](https://github.com/berndpfrommer/event_array_tools)
@@ -156,7 +158,7 @@ Parameters:
 - ``trigger_in_mode``: Controls the mode of the trigger input hardware.
   Allowed values:
    - ``disabled`` (default): Does not enable this functionality within the hardware
-   - ``enabled``: Enables the external hardware pin to route to the trigger input hardware.
+   - ``external``: Enables the external hardware pin to route to the trigger input hardware.
      This will be the pin on the camera's connector.
    - ``loopback``: Connects the trigger out pin to the trigger input hardware.
 - ``trigger_out_mode``: Controls the mode of the trigger output hardware.
