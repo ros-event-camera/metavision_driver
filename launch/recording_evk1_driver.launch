@@ -1,0 +1,30 @@
+<launch>
+  <arg name="bag"/>
+  <arg name="bias_file" default="$(find metavision_ros_driver)/config/gen4_CD_standard.bias"/>
+  <arg name="serial" default="Prophesee:hal_plugin_gen4_fx3:00001689"/>
+  <arg name="trigger_in_mode" default="external"/>
+
+  <node pkg="nodelet" type="nodelet" name="recording_driver"
+	args="manager" output="screen"/>
+  <node pkg="nodelet" type="nodelet" name="recorder_nodelet"
+	args="load nodelet_rosbag/NodeletRosbag recording_driver" output="screen">
+    <param name="rosbag_path" value="$(arg bag)"/>
+    <param name="receive_queue_size" value="1000"/>
+    <rosparam param="rosbag_record_topics"> ["/event_camera/events"]</rosparam>
+  </node>
+  <node pkg="nodelet" type="nodelet"
+    name="event_camera" args="load
+			      metavision_ros_driver/DriverNodelet recording_driver"
+    clear_params="true" output="screen">
+    <!-- run in multithreaded mode -->
+    <param name="use_multithreading" value="false"/>
+    <param name="event_message_time_threshold" value="0.001"/>
+    <!-- time interval between printout of rate statistics -->
+    <param name="statistics_print_interval" value="1.0"/>
+    <!-- from where to load the bias file (if any)  -->
+    <param name="bias_file" value="$(arg bias_file)"/>
+    <param name="serial" value="$(arg serial)"/>
+    <param name="trigger_in_mode" value="$(arg trigger_in_mode)"/>
+    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_nodelet.yaml"/>
+  </node>
+</launch>
