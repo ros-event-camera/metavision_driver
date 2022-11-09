@@ -255,10 +255,14 @@ bool MetavisionWrapper::initializeCamera()
     } catch (const Metavision::CameraException & e) {
       const std::string src =
         fromFile_.empty() ? (serialNumber_.empty() ? "default" : serialNumber_) : fromFile_;
-      LOG_WARN_NAMED(
-        "cannot open " << src << " on attempt " << i + 1 << ", retrying " << num_tries - i
-                       << " more times");
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      if (i < num_tries - 1) {
+        LOG_WARN_NAMED(
+          "cannot open " << src << " on attempt " << i + 1 << ", retrying " << num_tries - i - 1
+                         << " more times");
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      } else {
+        LOG_ERROR_NAMED("cannot open " << src << ", giving up!");
+      }
     }
   }
 
