@@ -1,7 +1,7 @@
 <launch>
   <arg name="bias_file" default=""/>
   <arg name="serial" default=""/>
-  <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
+  <node pkg="metavision_ros_driver" type="driver_node" name="$(arg name)" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
