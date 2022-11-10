@@ -107,6 +107,7 @@ void DriverROS1::configure(Config & config, int level)
     config.bias_diff_off = wrapper_->getBias("bias_diff_off");
     config.bias_diff_on = wrapper_->getBias("bias_diff_on");
     config.bias_fo = wrapper_->getBias("bias_fo");
+    config.bias_fo_n = wrapper_->getBias("bias_fo_n");
     config.bias_hpf = wrapper_->getBias("bias_hpf");
     config.bias_pr = wrapper_->getBias("bias_pr");
     config.bias_refr = wrapper_->getBias("bias_refr");
@@ -116,6 +117,7 @@ void DriverROS1::configure(Config & config, int level)
     setBias(&config.bias_diff_off, "bias_diff_off");
     setBias(&config.bias_diff_on, "bias_diff_on");
     setBias(&config.bias_fo, "bias_fo");
+    config.bias_fo_n = wrapper_->getBias("bias_fo_n");
     setBias(&config.bias_hpf, "bias_hpf");
     setBias(&config.bias_pr, "bias_pr");
     setBias(&config.bias_refr, "bias_refr");
