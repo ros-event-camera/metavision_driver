@@ -34,6 +34,7 @@ class MetavisionWrapper;  // forward decl
 class DriverROS2 : public rclcpp::Node, public CallbackHandler
 {
   using EventArrayMsg = event_array_msgs::msg::EventArray;
+  using Trigger = std_srvs::srv::Trigger;
 
 public:
   explicit DriverROS2(const rclcpp::NodeOptions & options);
@@ -48,8 +49,8 @@ public:
 private:
   // service call to dump biases
   void saveBiases(
-    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-    const std::shared_ptr<std_srvs::srv::Trigger::Response> response);
+    const std::shared_ptr<Trigger::Request> request,
+    const std::shared_ptr<Trigger::Response> response);
 
   // related to dynanmic config (runtime parameter update)
   rcl_interfaces::msg::SetParametersResult parameterChanged(
@@ -59,16 +60,10 @@ private:
   void initializeBiasParameters();
   void declareBiasParameters();
 
-  // for primary sync
-  void secondaryReadyCallback(std_msgs::msg::Header::ConstSharedPtr msg);
-
   // misc helper functions
-  bool start();
+  void start();
   bool stop();
   void configureWrapper(const std::string & name);
-
-  // for synchronization with primary
-  bool sendReadyMessage();
 
   // ------------------------  variables ------------------------------
   std::shared_ptr<MetavisionWrapper> wrapper_;
@@ -84,20 +79,16 @@ private:
   size_t messageThresholdSize_{0};    // threshold size for sending message
   EventArrayMsg::UniquePtr msg_;
   rclcpp::Publisher<EventArrayMsg>::SharedPtr eventPub_;
-
   // ------ related to sync
-  rclcpp::Publisher<std_msgs::msg::Header>::SharedPtr secondaryReadyPub_;
-  rclcpp::Subscription<std_msgs::msg::Header>::SharedPtr secondaryReadySub_;
-  rclcpp::Duration readyIntervalTime_;  // frequency of publishing ready messages
-  rclcpp::Time lastReadyTime_;          // last time ready message was published
-
+  rclcpp::Service<Trigger>::SharedPtr secondaryReadyServer_;
+  rclcpp::TimerBase::SharedPtr oneOffTimer_;
   // ------ related to dynamic config and services
   typedef std::map<std::string, rcl_interfaces::msg::ParameterDescriptor> ParameterMap;
   rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr callbackHandle_;
   std::shared_ptr<rclcpp::Subscription<rcl_interfaces::msg::ParameterEvent, std::allocator<void>>>
     parameterSubscription_;
   ParameterMap biasParameters_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr saveBiasesService_;
+  rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS2_H_

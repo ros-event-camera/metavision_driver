@@ -15,6 +15,7 @@
 
 #include "metavision_ros_driver/driver_ros2.h"
 
+#include <chrono>
 #include <event_array_msgs/msg/event_array.hpp>
 #include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
@@ -29,9 +30,7 @@ namespace metavision_ros_driver
 DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
 : Node(
     "metavision_ros_driver",
-    rclcpp::NodeOptions(options).automatically_declare_parameters_from_overrides(true)),
-  readyIntervalTime_(rclcpp::Duration::from_seconds(1.0))
-
+    rclcpp::NodeOptions(options).automatically_declare_parameters_from_overrides(true))
 {
   configureWrapper(get_name());
 
@@ -52,22 +51,32 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   eventPub_ = this->create_publisher<EventArrayMsg>(
     "~/events", rclcpp::QoS(rclcpp::KeepLast(qs)).best_effort().durability_volatile());
 
-  const auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).best_effort().durability_volatile();
-
   if (wrapper_->getSyncMode() == "primary") {
-    // defer starting the primary until secondary is up
-    const std::string topic = "~/ready";
-    LOG_INFO("waiting for secondary to publish ready message on topic \"" << topic << "\"");
-    secondaryReadySub_ = this->create_subscription<std_msgs::msg::Header>(
-      topic, qos, std::bind(&DriverROS2::secondaryReadyCallback, this, std::placeholders::_1));
+    // delay primary until secondary is up and running
+    // need to delay this to finish the constructor and release the thread
+    oneOffTimer_ = this->create_wall_timer(std::chrono::seconds(1), [=]() {
+      oneOffTimer_->cancel();
+      auto client = this->create_client<Trigger>("~/ready");
+      while (!client->wait_for_service(std::chrono::seconds(1))) {
+        if (!rclcpp::ok()) {
+          RCLCPP_ERROR(this->get_logger(), "Interrupted!");
+          throw std::runtime_error("interrupted!");
+        }
+        RCLCPP_INFO(this->get_logger(), "primary waiting for secondary...");
+      }
+      RCLCPP_INFO_STREAM(this->get_logger(), "secondary is up!");
+      start();  // only now can this be started
+    });
+  } else if (wrapper_->getSyncMode() == "secondary") {
+    start();
+    // creation of server signals to primary that we are ready.
+    // We don't handle the callback
+    secondaryReadyServer_ = this->create_service<Trigger>(
+      "~/ready",
+      [=](const std::shared_ptr<Trigger::Request>, std::shared_ptr<Trigger::Response>) {});
   } else {
-    if (wrapper_->getSyncMode() == "secondary") {
-      secondaryReadyPub_ = this->create_publisher<std_msgs::msg::Header>("~/ready", qos);
-    }
-    if (!start()) {
-      LOG_ERROR("startup failed!");
-      throw std::runtime_error("startup of DriverROS2 node failed!");
-    }
+    // standalone mode
+    start();
   }
 }
 
@@ -77,28 +86,9 @@ DriverROS2::~DriverROS2()
   wrapper_.reset();  // invoke destructor
 }
 
-bool DriverROS2::sendReadyMessage()
-{
-  if (wrapper_->getSyncMode() == "secondary") {
-    // secondary does not see sync signal from the master, so at given intervals
-    // send a "ready" message to the primary so it knows it can start
-    const rclcpp::Time t = this->now();
-    if (lastReadyTime_ < t - readyIntervalTime_) {
-      LOG_INFO("secondary waiting for primary to come up");
-      std_msgs::msg::Header header;
-      header.stamp = t;
-      header.frame_id = frameId_;
-      secondaryReadyPub_->publish(header);
-      lastReadyTime_ = t;
-    }
-    return (true);
-  }
-  return (false);
-}
-
 void DriverROS2::saveBiases(
-  const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+  const std::shared_ptr<Trigger::Request> request,
+  const std::shared_ptr<Trigger::Response> response)
 {
   (void)request;
   response->success = false;
@@ -220,20 +210,7 @@ void DriverROS2::declareBiasParameters()
   }
 }
 
-void DriverROS2::secondaryReadyCallback(std_msgs::msg::Header::ConstSharedPtr msg)
-{
-  (void)msg;
-  if (secondaryReadySub_) {
-    secondaryReadySub_.reset();  // unsubscribe
-  }
-  LOG_INFO("secondary is ready, starting primary!");
-  if (!start()) {
-    LOG_ERROR("startup failed!");
-    throw std::runtime_error("startup of DriverROS2 node failed!");
-  }
-}
-
-bool DriverROS2::start()
+void DriverROS2::start()
 {
   // must wait with initialize() until all trigger params have been set
   bool useMT;
@@ -245,14 +222,16 @@ bool DriverROS2::start()
   this->get_parameter_or("bias_file", biasFile, std::string(""));
   if (!wrapper_->initialize(useMT, biasFile)) {
     LOG_ERROR("driver initialization failed!");
-    return (false);
+    throw std::runtime_error("driver initialization failed!");
   }
   if (wrapper_->getSyncMode() == "secondary") {
+    // For Gen3 the secondary will produce data with time stamps == 0
+    // until it sees a clock signal. To filter out those events we
+    // decode the events and wait until the time stamps are good.
+    // Only then do we switch to "raw" mode.
     LOG_INFO("secondary is decoding events...");
     wrapper_->setDecodingEvents(true);
   }
-
-  lastReadyTime_ = this->now() - readyIntervalTime_;  // move to past
 
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
@@ -276,10 +255,9 @@ bool DriverROS2::start()
     this->get_node_topics_interface(),
     std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
-  saveBiasesService_ = this->create_service<std_srvs::srv::Trigger>(
+  saveBiasesService_ = this->create_service<Trigger>(
     "save_biases",
     std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
-  return (true);
 }
 
 bool DriverROS2::stop()
@@ -404,7 +382,9 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
 void DriverROS2::eventCDCallback(
   uint64_t, const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
-  // check if there are valid timestamps then the primary is ready
+  // This callback will only be exercised during startup on the
+  // secondary until good data is available. The moment good time stamps
+  // are available we disable decoding and use the raw interface.
   bool hasZeroTime(false);
   for (auto e = start; e != end; e++) {
     if (e->t == 0) {
@@ -412,12 +392,8 @@ void DriverROS2::eventCDCallback(
       break;
     }
   }
-  if (hasZeroTime) {
-    // tell primary we are up so it can start the camera
-    sendReadyMessage();
-  } else {
-    // alright, finaly the primary is up, no longer need the expensive
-    // decoding
+  if (!hasZeroTime) {
+    // finally the primary is up, no longer need the expensive decoding
     LOG_INFO("secondary sees primary up!");
     wrapper_->setDecodingEvents(false);
   }
