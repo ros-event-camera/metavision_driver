@@ -36,6 +36,7 @@ class DriverROS1 : public CallbackHandler
 {
   using Config = MetaVisionDynConfig;
   using EventArrayMsg = event_array_msgs::EventArray;
+  using Trigger = std_srvs::Trigger;
 
 public:
   explicit DriverROS1(ros::NodeHandle & nh);
@@ -49,22 +50,19 @@ public:
 
 private:
   // service call to dump biases
-  bool saveBiases(std_srvs::Trigger::Request & req, std_srvs::Trigger::Response & res);
+  bool saveBiases(Trigger::Request & req, Trigger::Response & res);
 
   // related to dynanmic config (runtime parameter update)
   void setBias(int * current, const std::string & name);
   void configure(Config & config, int level);
 
   // for primary sync
-  void secondaryReadyCallback(const std_msgs::Header::ConstPtr &);
+  bool secondaryReadyCallback(Trigger::Request & req, Trigger::Response & res);
 
   // misc helper functions
-  bool start();
+  void start();
   bool stop();
   void configureWrapper(const std::string & name);
-
-  // for synchronization with primary
-  bool sendReadyMessage();
 
   // ------------------------  variables ------------------------------
   ros::NodeHandle nh_;
@@ -83,11 +81,7 @@ private:
   ros::Publisher eventPub_;
 
   // ------ related to sync
-  ros::Publisher secondaryReadyPub_;      // secondary publishes on this
-  ros::Subscriber secondaryReadySub_;     // primary subscribes on this
-  ros::Duration readyIntervalTime_{1.0};  // frequency of publishing ready messages
-  ros::Time lastReadyTime_;               // last time ready message was published
-
+  ros::ServiceServer secondaryReadyServer_;
   // ------ related to dynamic config and services
   Config config_;
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
