@@ -1,6 +1,8 @@
 <launch>
   <arg name="bias_file" default=""/>
   <arg name="serial" default=""/>
+  <arg name="sync_mode" default=""/>
+  <arg name="name" default="event_camera"/>
   <node pkg="metavision_ros_driver" type="driver_node" name="$(arg name)" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
@@ -12,6 +14,7 @@
 	message, else there will always be at least 2 trigger events
 	per message -->
     <param name="serial" value="$(arg serial)"/>
+    <param name="sync_mode" value="$(arg sync_mode)"/>
     <param name="trigger_out_mode" value="enabled"/>
     <!-- units of trigger_out_period is usec -->
     <param name="trigger_out_period" value="1000"/>
