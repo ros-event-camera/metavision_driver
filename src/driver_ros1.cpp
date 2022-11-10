@@ -48,10 +48,10 @@ DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
     if (wrapper_->getSyncMode() == "secondary") {
       secondaryReadyPub_ = nh_.advertise<std_msgs::Header>("ready", 1);
     }
-    if (!start()) {
-      ROS_ERROR("startup failed!");
-      throw std::runtime_error("startup of CameraDriver node failed!");
-    }
+  }
+  if (!start()) {
+    ROS_ERROR("startup failed!");
+    throw std::runtime_error("startup of CameraDriver node failed!");
   }
 }
 
