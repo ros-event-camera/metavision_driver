@@ -50,10 +50,11 @@ DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
     ROS_INFO_STREAM("secondary is up: " << trig.response.message);
     start();  // only now can this be started
   } else if (wrapper_->getSyncMode() == "secondary") {
-    //
+    // on the secondary first start the camera before bringing
+    // up the server
+    start();
     secondaryReadyServer_ =
       nh_.advertiseService("ready", &DriverROS1::secondaryReadyCallback, this);
-    start();
   } else {  // standalone mode
     start();
   }
