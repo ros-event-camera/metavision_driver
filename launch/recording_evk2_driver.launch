@@ -1,8 +1,8 @@
 <launch>
   <arg name="bag"/>
-  <arg name="bias_file"/>
-  <arg name="serial" default=""/>
-  <arg name="trigger_in_mode" default="disabled"/>
+  <arg name="bias_file" default="$(find metavision_ros_driver)/config/gen41.bias"/>
+  <arg name="serial" default="Prophesee:hal_plugin_gen41_evk2:0000a472"/>
+  <arg name="trigger_in_mode" default="external"/>
 
   <node pkg="nodelet" type="nodelet" name="recording_driver"
 	args="manager" output="screen"/>
