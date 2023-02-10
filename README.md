@@ -40,6 +40,7 @@ Tested on the following platforms:
 Tested on the following hardware:
 
 - [SilkyEVCam VGA (Gen 3.1 sensor)](https://centuryarks.com/en/silkyevcam-vga/)
+- [SilkyEVCam HD (Gen 4 sensor)](https://centuryarks.com/en/silkyevcam-hd/)
 - [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
 
 ## How to build
@@ -286,7 +287,7 @@ simply puts the host wall clock arrival time into the header's stamp field.
 
 ## About Trigger Pins
 
-External triggers on prophesee cameras allows for a singal to be injected
+External triggers on prophesee cameras allows for a signal to be injected
 into the event stream. This is useful for synchronizing external
 devices. The event stream contained in the packages will now contain
 trigger events that can be recovered with the decoder.
@@ -295,20 +296,18 @@ Prophesee provides documentation on the trigger functions at a high
 level
 [here](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#chapter-concepts-triggers).
 
-(Trigger
-out)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle]
+[Trigger out](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle)
 functionality is exposed through ``trigger_out_mode``,
 ``trigger_out_period``, and ``trigger_out_duty_cycle``. These
 variables follow the same meaning as laid out in the internal
 documentation. 
 
-- ``trigger_out_mode`` can be enabled or disabled
+- ``trigger_out_mode`` can be ``enabled`` or ``disabled``
 - ``trigger_out_period`` can be from 2us to 1h (units are us)
 - ``trigger_out_duty_cycle`` is the pulse width ratio
   (``trigger_out_period * trigger_out_duty_cycle`` must be at least 1us)
 
-(Trigger
-in)[https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle]
+[Trigger in](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle)
 functionality is abstracted away from pins to just ``loopback`` or
 ``external`` as the pin mappings are constant for a given camera
 configuration. 
@@ -359,7 +358,8 @@ event and the external system).
 
 ### Other cameras
 
-Validation on other cameras is in the works.
+External triggering works on SilkyEVCam HD, i.e. you can trigger the
+SilkyEVCam HD externally the same way as the SilkyEVCam VGA.
 
 ## License
 
