@@ -4,6 +4,9 @@ event_cam_0:  # must match node name per ROS2 convention!!!
       evc3a_plugin_gen31:
         external: 0
         loopback: 6
+      evc4a_plugin_imx636:
+        external: 0
+        loopback: 6
       hal_plugin_gen31_evk2:
         external: 0
         loopback: 3
@@ -29,6 +32,9 @@ event_cam_1:
   ros__parameters:  # must be present for ROS2
     prophesee_pin_config:
       evc3a_plugin_gen31:
+        external: 0
+        loopback: 6
+      evc4a_plugin_imx636:
         external: 0
         loopback: 6
       hal_plugin_gen31_evk2:
