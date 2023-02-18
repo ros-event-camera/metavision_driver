@@ -17,6 +17,7 @@
 
 #include <metavision/hal/facilities/i_device_control.h>
 #include <metavision/hal/facilities/i_erc.h>
+#include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
@@ -53,6 +54,15 @@ int MetavisionWrapper::getBias(const std::string & name)
     throw(std::runtime_error("bias parameter not found!"));
   }
   return (it->second);
+}
+
+bool MetavisionWrapper::hasBias(const std::string & name)
+{
+  Metavision::Biases & biases = cam_.biases();
+  Metavision::I_LL_Biases * hw_biases = biases.get_facility();
+  const auto pmap = hw_biases->get_all_biases();
+  auto it = pmap.find(name);
+  return (it != pmap.end());
 }
 
 int MetavisionWrapper::setBias(const std::string & name, int val)
@@ -268,11 +278,16 @@ bool MetavisionWrapper::initializeCamera()
 
   try {
     // Record the plugin software information about the camera.
-    Metavision::I_PluginSoftwareInfo * psi =
-      cam_.get_device().get_facility<Metavision::I_PluginSoftwareInfo>();
+    using PSI = Metavision::I_PluginSoftwareInfo;
+    const PSI * psi = cam_.get_device().get_facility<PSI>();
     softwareInfo_ = psi->get_plugin_name();
-    LOG_INFO_NAMED("Plugin Software Name: " << softwareInfo_);
-
+    LOG_INFO_NAMED("plugin software name: " << softwareInfo_);
+    using HWI = Metavision::I_HW_Identification;
+    const HWI * hwi = cam_.get_device().get_facility<HWI>();
+    const auto sinfo = hwi->get_sensor_info();
+    sensorVersion_ =
+      std::to_string(sinfo.major_version_) + "." + std::to_string(sinfo.minor_version_);
+    LOG_INFO_NAMED("sensor version: " << sensorVersion_);
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
@@ -282,7 +297,13 @@ bool MetavisionWrapper::initializeCamera()
         LOG_WARN_NAMED("continuing with default biases!");
       }
     } else {
-      LOG_INFO_NAMED("no bias file provided, using camera defaults");
+      LOG_INFO_NAMED("no bias file provided, using camera defaults:");
+      const Metavision::Biases biases = cam_.biases();
+      Metavision::I_LL_Biases * hw_biases = biases.get_facility();
+      const auto pmap = hw_biases->get_all_biases();
+      for (const auto & bp : pmap) {
+        LOG_INFO_NAMED("found bias param: " << bp.first << " " << bp.second);
+      }
     }
     // overwrite serial in case it was not set
     serialNumber_ = cam_.get_camera_configuration().serial_number;
