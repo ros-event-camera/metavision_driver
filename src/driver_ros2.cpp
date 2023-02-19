@@ -17,8 +17,10 @@
 
 #include <chrono>
 #include <event_array_msgs/msg/event_array.hpp>
+#include <map>
 #include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
+#include <string>
 #include <vector>
 
 #include "metavision_ros_driver/check_endian.h"
@@ -163,35 +165,37 @@ std::vector<std::string> split_string(const std::string & s)
   return (words);
 }
 
-void DriverROS2::addBiasParameter(
-  const std::string & name, int min_val, int max_val, const std::string & desc)
+void DriverROS2::addBiasParameter(const std::string & name, const BiasParameter & bp)
 {
-  rcl_interfaces::msg::IntegerRange rg;
-  rg.from_value = min_val;
-  rg.to_value = max_val;
-  rg.step = 1;
-  rcl_interfaces::msg::ParameterDescriptor pd;
-  pd.name = name;
-  pd.type = rclcpp::ParameterType::PARAMETER_INTEGER;
-  pd.integer_range.push_back(rg);
-  pd.description = desc;
-  biasParameters_.insert(ParameterMap::value_type(name, pd));
+  if (wrapper_->hasBias(name)) {
+    rcl_interfaces::msg::IntegerRange rg;
+    rg.from_value = bp.minVal;
+    rg.to_value = bp.maxVal;
+    rg.step = 1;
+    rcl_interfaces::msg::ParameterDescriptor pd;
+    pd.name = name;
+    pd.type = rclcpp::ParameterType::PARAMETER_INTEGER;
+    pd.integer_range.push_back(rg);
+    pd.description = bp.info;
+    biasParameters_.insert(ParameterMap::value_type(name, pd));
+  }
 }
 
-void DriverROS2::initializeBiasParameters()
+void DriverROS2::initializeBiasParameters(const std::string & sensorVersion)
 {
-  addBiasParameter("bias_diff", 0, 1800, "reference level for diff_off and diff_on");
-  addBiasParameter("bias_diff_off", 0, 298, "off threshold level");
-  addBiasParameter("bias_diff_on", 300, 1800, "on threshold level");
-  addBiasParameter("bias_fo", 0, 1800, "source follower low pass filter");
-  addBiasParameter("bias_hpf", 0, 1800, "differentiator high pass filter");
-  addBiasParameter("bias_pr", 0, 1800, "photoreceptor (frontend) bias");
-  addBiasParameter("bias_refr", 0, 1800, "refractory time bias");
+  const auto map = BiasParameter::getAll(sensorVersion);
+  if (map.empty()) {
+    LOG_WARN("unknown sensor version " << sensorVersion << ", disabling tunable biases");
+  } else {
+    for (const auto & p : map) {  // loop through params
+      addBiasParameter(p.first, p.second);
+    }
+  }
 }
 
-void DriverROS2::declareBiasParameters()
+void DriverROS2::declareBiasParameters(const std::string & sensorVersion)
 {
-  initializeBiasParameters();
+  initializeBiasParameters(sensorVersion);
   for (const auto & p : biasParameters_) {
     const auto & name = p.first;
     try {
@@ -248,7 +252,7 @@ void DriverROS2::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
-  declareBiasParameters();
+  declareBiasParameters(wrapper_->getSensorVersion());
   callbackHandle_ = this->add_on_set_parameters_callback(
     std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
   parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(

@@ -77,27 +77,41 @@ bool DriverROS1::saveBiases(Trigger::Request & req, Trigger::Response & res)
   return (res.success);
 }
 
-void DriverROS1::setBias(int * current, const std::string & name)
+int DriverROS1::getBias(const std::string & name) const
 {
-  wrapper_->setBias(name, *current);
-  const int new_val = wrapper_->getBias(name);
-  *current = new_val;  // feed back if not changed to desired value!
+  if (biasParameters_.find(name) != biasParameters_.end()) {
+    return (wrapper_->getBias(name));
+  }
+  return (0);
+}
+
+void DriverROS1::setBias(int * field, const std::string & name)
+{
+  auto it = biasParameters_.find(name);
+  if (it != biasParameters_.end()) {
+    auto & bp = it->second;
+    int val = std::min(std::max(*field, bp.minVal), bp.maxVal);
+    if (val != *field) {
+      ROS_WARN_STREAM(name << " must be between " << bp.minVal << " and " << bp.maxVal);
+    }
+    wrapper_->setBias(name, val);
+    const int new_val = wrapper_->getBias(name);  // read back
+    *field = new_val;                             // feed back if not changed to desired value!
+  }
 }
 
 void DriverROS1::configure(Config & config, int level)
 {
   if (level < 0) {  // initial call
     // initialize config from current settings
-    config.bias_diff = wrapper_->getBias("bias_diff");
-    config.bias_diff_off = wrapper_->getBias("bias_diff_off");
-    config.bias_diff_on = wrapper_->getBias("bias_diff_on");
-    config.bias_fo = wrapper_->getBias("bias_fo");
-    config.bias_hpf = wrapper_->getBias("bias_hpf");
-    config.bias_pr = wrapper_->getBias("bias_pr");
-    config.bias_refr = wrapper_->getBias("bias_refr");
+    config.bias_diff_off = getBias("bias_diff_off");
+    config.bias_diff_on = getBias("bias_diff_on");
+    config.bias_fo = getBias("bias_fo");
+    config.bias_hpf = getBias("bias_hpf");
+    config.bias_pr = getBias("bias_pr");
+    config.bias_refr = getBias("bias_refr");
     ROS_INFO("initialized config to camera biases");
   } else {
-    setBias(&config.bias_diff, "bias_diff");
     setBias(&config.bias_diff_off, "bias_diff_off");
     setBias(&config.bias_diff_on, "bias_diff_on");
     setBias(&config.bias_fo, "bias_fo");
@@ -144,12 +158,21 @@ void DriverROS1::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
+  initializeBiasParameters(wrapper_->getSensorVersion());
   // hook up dynamic config server *after* the camera has
   // been initialized so we can read the bias values
   configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
   configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
 
   saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
+}
+
+void DriverROS1::initializeBiasParameters(const std::string & sensorVersion)
+{
+  biasParameters_ = BiasParameter::getAll(sensorVersion);
+  if (biasParameters_.empty()) {
+    ROS_WARN_STREAM("unknown sensor version " << sensorVersion << ", disabling tunable biases");
+  }
 }
 
 bool DriverROS1::stop()

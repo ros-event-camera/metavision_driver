@@ -24,6 +24,7 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
+#include "metavision_ros_driver/bias_parameter.h"
 #include "metavision_ros_driver/callback_handler.h"
 #include "metavision_ros_driver/resize_hack.h"
 
@@ -56,9 +57,9 @@ private:
   rcl_interfaces::msg::SetParametersResult parameterChanged(
     const std::vector<rclcpp::Parameter> & params);
   void onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::ParameterEvent> event);
-  void addBiasParameter(const std::string & n, int min_v, int max_v, const std::string & desc);
-  void initializeBiasParameters();
-  void declareBiasParameters();
+  void addBiasParameter(const std::string & n, const BiasParameter & bp);
+  void initializeBiasParameters(const std::string & sensorVersion);
+  void declareBiasParameters(const std::string & sensorVersion);
 
   // misc helper functions
   void start();

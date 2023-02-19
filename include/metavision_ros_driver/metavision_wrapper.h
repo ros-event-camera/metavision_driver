@@ -66,6 +66,7 @@ public:
   ~MetavisionWrapper();
 
   int getBias(const std::string & name);
+  bool hasBias(const std::string & name);
   int setBias(const std::string & name, int val);
   bool initialize(bool useMultithreading, const std::string & biasFile);
   bool saveBiases();
@@ -86,6 +87,8 @@ public:
   const std::string & getSoftwareInfo() const { return (softwareInfo_); }
   const std::string & getExternalTriggerInMode() const { return (triggerInMode_); }
   const std::string & getSyncMode() const { return (syncMode_); }
+  const std::string & getSensorVersion() const { return (sensorVersion_); }
+
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
   void setFromFile(const std::string & f) { fromFile_ = f; }
   void setSyncMode(const std::string & sm) { syncMode_ = sm; }
@@ -163,6 +166,7 @@ private:
   int ercRate_;
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
+  std::string sensorVersion_{"0.0"};
   // --  related to statistics
   double statsInterval_{2.0};  // time between printouts
   std::chrono::time_point<std::chrono::system_clock> lastPrintTime_;

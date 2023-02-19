@@ -25,6 +25,7 @@
 #include <string>
 
 #include "metavision_ros_driver/MetaVisionDynConfig.h"
+#include "metavision_ros_driver/bias_parameter.h"
 #include "metavision_ros_driver/callback_handler.h"
 #include "metavision_ros_driver/resize_hack.h"
 
@@ -53,7 +54,9 @@ private:
   bool saveBiases(Trigger::Request & req, Trigger::Response & res);
 
   // related to dynanmic config (runtime parameter update)
-  void setBias(int * current, const std::string & name);
+  void setBias(int * field, const std::string & name);
+  int getBias(const std::string & name) const;
+
   void configure(Config & config, int level);
 
   // for primary sync
@@ -63,7 +66,7 @@ private:
   void start();
   bool stop();
   void configureWrapper(const std::string & name);
-
+  void initializeBiasParameters(const std::string & sensorVersion);
   // ------------------------  variables ------------------------------
   ros::NodeHandle nh_;
   std::shared_ptr<MetavisionWrapper> wrapper_;
@@ -86,6 +89,8 @@ private:
   Config config_;
   std::shared_ptr<dynamic_reconfigure::Server<Config>> configServer_;
   ros::ServiceServer saveBiasService_;
+  using ParameterMap = std::map<std::string, BiasParameter>;
+  ParameterMap biasParameters_;
 };
 }  // namespace metavision_ros_driver
 #endif  // METAVISION_ROS_DRIVER__DRIVER_ROS1_H_

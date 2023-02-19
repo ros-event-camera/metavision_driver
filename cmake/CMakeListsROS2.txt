@@ -52,6 +52,7 @@ ament_auto_find_build_dependencies(REQUIRED ${ROS2_DEPENDENCIES})
 
 ament_auto_add_library(driver_ros2 SHARED
   src/metavision_wrapper.cpp
+  src/bias_parameter.cpp
   src/driver_ros2.cpp)
 
 target_include_directories(driver_ros2 PRIVATE include)
