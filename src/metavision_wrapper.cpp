@@ -15,13 +15,20 @@
 
 #include "metavision_ros_driver/metavision_wrapper.h"
 
+#ifdef USING_METAVISION_3
 #include <metavision/hal/facilities/i_device_control.h>
 #include <metavision/hal/facilities/i_erc.h>
+#else
+#include <metavision/hal/facilities/i_camera_synchronization.h>
+#include <metavision/hal/facilities/i_erc_module.h>
+#endif
+
 #include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
 #include <chrono>
+#include <map>
 #include <set>
 #include <thread>
 
@@ -35,6 +42,20 @@
 
 namespace metavision_ros_driver
 {
+#ifdef USING_METAVISION_3
+using CameraSynchronization = Metavision::I_DeviceControl;
+using Window = Metavision::Roi::Rectangle;
+using ErcModule = Metavision::I_Erc;
+#else
+using CameraSynchronization = Metavision::I_CameraSynchronization;
+using Window = Metavision::Roi::Window;
+using ErcModule = Metavision::I_ErcModule;
+static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap = {
+  {"external", Metavision::I_TriggerIn::Channel::Main},
+  {"aux", Metavision::I_TriggerIn::Channel::Aux},
+  {"loopback", Metavision::I_TriggerIn::Channel::Loopback}};
+#endif
+
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
@@ -149,9 +170,9 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
       y_min_ = std::numeric_limits<uint16_t>::max();
       y_max_ = std::numeric_limits<uint16_t>::min();
 #endif
-      std::vector<Metavision::Roi::Rectangle> rects;
+      std::vector<Window> rects;
       for (size_t i = 0; i < roi.size(); i += 4) {
-        Metavision::Roi::Rectangle rect;
+        decltype(rects)::value_type rect;
         rect.x = roi[i];
         rect.y = roi[i + 1];
         rect.width = roi[i + 2];
@@ -178,9 +199,8 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
 
 void MetavisionWrapper::applySyncMode(const std::string & mode)
 {
-  Metavision::I_DeviceControl * control =
-    cam_.get_device().get_facility<Metavision::I_DeviceControl>();
-  if (!control) {  // happens when playing from file
+  auto * sync = cam_.get_device().get_facility<CameraSynchronization>();
+  if (!sync) {  // happens when playing from file
     if (mode != "standalone") {
       LOG_WARN_NAMED("cannot set sync mode to: " << mode);
     }
@@ -188,13 +208,13 @@ void MetavisionWrapper::applySyncMode(const std::string & mode)
   }
 
   if (mode == "standalone") {
-    if (control->get_mode() != Metavision::I_DeviceControl::SyncMode::STANDALONE) {
-      control->set_mode_standalone();
+    if (sync->get_mode() != CameraSynchronization::SyncMode::STANDALONE) {
+      sync->set_mode_standalone();
     }
   } else if (mode == "primary") {
-    control->set_mode_master();
+    sync->set_mode_master();
   } else if (mode == "secondary") {
-    control->set_mode_slave();
+    sync->set_mode_slave();
   } else {
     LOG_ERROR_NAMED("INVALID SYNC MODE: " << mode);
     throw std::runtime_error("invalid sync mode!");
@@ -218,16 +238,29 @@ void MetavisionWrapper::configureExternalTriggers(
     }
   }
 
-  if (mode_in == "external" || mode_in == "loopback") {
-    Metavision::I_TriggerIn * i_trigger_in =
-      cam_.get_device().get_facility<Metavision::I_TriggerIn>();
-
-    if (i_trigger_in) {
-      int pin = hardwarePinConfig_[softwareInfo_][mode_in];
-      i_trigger_in->enable(pin);
-      LOG_INFO_NAMED("Enabled trigger input " << mode_in << " on " << pin);
+  if (mode_in != "disabled") {
+    auto channel = channelMap.find(mode_in);
+    if (channel == channelMap.end()) {
+      LOG_ERROR_NAMED("invalid trigger mode: " << mode_in);
     } else {
-      LOG_ERROR_NAMED("Failed enabling trigger input");
+      Metavision::I_TriggerIn * i_trigger_in =
+        cam_.get_device().get_facility<Metavision::I_TriggerIn>();
+      if (i_trigger_in) {
+#ifdef USING_METAVISION_3
+        auto it = hardwarePinConfig_[softwareInfo_].find(mode_in);
+        if (it == hardwarePinConfig_[softwareInfo_].end()) {
+          LOG_ERROR_NAMED("no pin defined for trigger in mode " << mode_in);
+        } else {
+          i_trigger_in->enable(it->second);
+          LOG_INFO_NAMED("Enabled trigger input " << mode_in << " on " << it->second);
+        }
+#else
+        i_trigger_in->enable(channel->second);
+        LOG_INFO_NAMED("Enabled trigger input " << mode_in);
+#endif
+      } else {
+        LOG_ERROR_NAMED("Failed enabling trigger input");
+      }
     }
   }
 }
@@ -236,7 +269,7 @@ void MetavisionWrapper::configureEventRateController(
   const std::string & mode, const int events_per_sec)
 {
   if (mode == "enabled" || mode == "disabled") {
-    Metavision::I_Erc * i_erc = cam_.get_device().get_facility<Metavision::I_Erc>();
+    auto * i_erc = cam_.get_device().get_facility<ErcModule>();
     if (i_erc) {
       i_erc->enable(mode == "enabled");
       i_erc->set_cd_event_rate(events_per_sec);

@@ -29,6 +29,10 @@ endif()
 # find dependencies
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
+if(MetavisionSDK_VERSION_MAJOR LESS 4)
+  add_definitions(-DUSING_METAVISION_3)
+endif()
+
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_auto REQUIRED)
 find_package(ament_cmake_ros REQUIRED)
