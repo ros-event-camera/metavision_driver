@@ -28,6 +28,10 @@ find_package(catkin REQUIRED COMPONENTS
 
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
+if(MetavisionSDK_VERSION_MAJOR LESS 4)
+  add_definitions(-DUSING_METAVISION_3)
+endif()
+
 generate_dynamic_reconfigure_options(
   cfg/MetaVisionDyn.cfg
   )

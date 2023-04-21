@@ -33,9 +33,9 @@ following ROS/ROS2 packages:
 Tested on the following platforms:
 
 - ROS Noetic
-- ROS2 Galactic
-- Ubuntu 18.04 and 20.04 LTS
-- Metavision SDK (OpenEB) 2.2.2 - 3.0.2
+- ROS2 Galactic / Humble
+- Ubuntu 20.04, 22.04 LTS
+- Metavision SDK (OpenEB) 2.2.2 - 4.0.1
 
 Tested on the following hardware:
 
@@ -162,7 +162,8 @@ Parameters:
    - ``external``: Enables the external hardware pin to route to the trigger input hardware.
      This will be the pin on the camera's connector.
    - ``loopback``: Connects the trigger out pin to the trigger input hardware.
-- ``trigger_out_mode``: Controls the mode of the trigger output hardware.
+- ``trigger_out_mode``: Controls the mode of the trigger output
+  hardware. NOTE: 4-th gen sensors no longer support trigger out!
   Allowed values:
    - ``disabled`` (default): Does not enable this functionality within the hardware
    - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
