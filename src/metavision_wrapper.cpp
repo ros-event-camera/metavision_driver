@@ -239,28 +239,28 @@ void MetavisionWrapper::configureExternalTriggers(
   }
 
   if (mode_in != "disabled") {
-    auto channel = channelMap.find(mode_in);
-    if (channel == channelMap.end()) {
-      LOG_ERROR_NAMED("invalid trigger mode: " << mode_in);
-    } else {
-      Metavision::I_TriggerIn * i_trigger_in =
-        cam_.get_device().get_facility<Metavision::I_TriggerIn>();
-      if (i_trigger_in) {
+    Metavision::I_TriggerIn * i_trigger_in =
+      cam_.get_device().get_facility<Metavision::I_TriggerIn>();
+    if (i_trigger_in) {
 #ifdef USING_METAVISION_3
-        auto it = hardwarePinConfig_[softwareInfo_].find(mode_in);
-        if (it == hardwarePinConfig_[softwareInfo_].end()) {
-          LOG_ERROR_NAMED("no pin defined for trigger in mode " << mode_in);
-        } else {
-          i_trigger_in->enable(it->second);
-          LOG_INFO_NAMED("Enabled trigger input " << mode_in << " on " << it->second);
-        }
+      auto it = hardwarePinConfig_[softwareInfo_].find(mode_in);
+      if (it == hardwarePinConfig_[softwareInfo_].end()) {
+        LOG_ERROR_NAMED("no pin defined for trigger in mode " << mode_in);
+      } else {
+        i_trigger_in->enable(it->second);
+        LOG_INFO_NAMED("Enabled trigger input " << mode_in << " on " << it->second);
+      }
 #else
+      auto channel = channelMap.find(mode_in);
+      if (channel == channelMap.end()) {
+        LOG_ERROR_NAMED("invalid trigger mode: " << mode_in);
+      } else {
         i_trigger_in->enable(channel->second);
         LOG_INFO_NAMED("Enabled trigger input " << mode_in);
-#endif
-      } else {
-        LOG_ERROR_NAMED("Failed enabling trigger input");
       }
+#endif
+    } else {
+      LOG_ERROR_NAMED("Failed enabling trigger input");
     }
   }
 }
