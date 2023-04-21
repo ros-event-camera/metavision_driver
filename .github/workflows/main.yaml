@@ -12,36 +12,6 @@ on:
     branches: [ master]
 
 jobs:
-  build_focal_ros1:
-    runs-on: ubuntu-18.04
-    name: ROS1 noetic on focal (x86_64)
-    container:
-      image: berndpfrommer/focal_noetic_galactic_metavision
-    steps:
-      - name: check out github repo
-        uses: actions/checkout@v3
-        with:
-          path: src/metavision_ros_driver
-          fetch-depth: 0
-      - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros1.bash
-
-  build_jetson_bionic_noetic:
-    runs-on: ubuntu-18.04
-    name: ROS1 noetic on bionic (jetson armv7).
-    steps:
-      - uses: actions/checkout@v3
-        name: check out github repo
-        with:
-          path: src/metavision_ros_driver
-          fetch-depth: 0
-      - uses: berndpfrommer/run-on-arch-action@master
-        name: compile from source
-        with:
-          arch: jetson_r34
-          distro: noetic_metavision
-          run:  |
-            ./src/metavision_ros_driver/.github/scripts/build_ros1.bash
   build_focal_ros2:
     runs-on: ubuntu-20.04
     container:

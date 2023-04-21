@@ -34,7 +34,7 @@ Tested on the following platforms:
 
 - ROS Noetic
 - ROS2 Galactic / Humble
-- Ubuntu 18.04, 20.04, 22.04 LTS
+- Ubuntu 20.04, 22.04 LTS
 - Metavision SDK (OpenEB) 2.2.2 - 4.0.1
 
 Tested on the following hardware:
