@@ -49,7 +49,7 @@ Prerequisites:
 
 - install Metavision SDK or
  [OpenEB](https://github.com/prophesee-ai/openeb)
-- install ``wstool`` (ubuntu package python-wstool or python3-wstool).
+- install ``vcs`` (ubuntu package python3-vcstool).
 
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
 For example for ROS1 noetic:
@@ -57,18 +57,17 @@ For example for ROS1 noetic:
 source /opt/ros/noetic/setup.bash
 ```
 
-Create a workspace (``metavision_ros_driver_ws``), clone this repo, and use ``wstool``
+Create a workspace (``metavision_ros_driver_ws``), clone this repo, and use ``vcs``
 to pull in the remaining dependencies:
 
 ```
-mkdir -p ~/metavision_ros_driver_ws/src
-cd ~/metavision_ros_driver_ws
-git clone git@github.com:berndpfrommer/metavision_ros_driver src/metavision_ros_driver
-wstool init src src/metavision_ros_driver/metavision_ros_driver.rosinstall
-
-# or to update an existing space
-# wstool merge -t src src/metavision_ros_driver/metavision_ros_driver.rosinstall
-# wstool update -t src
+pkg=metavision_ros_driver
+mkdir -p ~/${pkg}_ws/src
+cd ~/${pkg}_ws
+git clone https://github.com/berndpfrommer/${pkg}.git src/${pkg}
+cd src
+vcs import < ${pkg}/${pkg}.repos
+cd ..
 ```
 
 Optional (ROS1): to use the efficient recording nodelet clone the
@@ -161,7 +160,8 @@ Parameters:
    - ``disabled`` (default): Does not enable this functionality within the hardware
    - ``external``: Enables the external hardware pin to route to the trigger input hardware.
      This will be the pin on the camera's connector.
-   - ``loopback``: Connects the trigger out pin to the trigger input hardware.
+   - ``loopback``: Connects the trigger out pin to the trigger input hardware. Only available
+     on Gen3 sensors (SilkyEVCam VGA).
 - ``trigger_out_mode``: Controls the mode of the trigger output
   hardware. NOTE: 4-th gen sensors no longer support trigger out!
   Allowed values:
@@ -177,7 +177,8 @@ Services:
   this to work the ``bias_file`` parameter must be set to a non-empty value.
 
 
-Dynamic reconfiguration parameters (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
+Dynamic reconfiguration parameters
+(see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
 
 - ``bias_diff`` (read only)
 - ``bias_diff_off``
@@ -215,7 +216,7 @@ rosrun metavision_ros_driver stop_recording.py
 ```
 
 To visualize the events, run a ``viewer`` node from the
-[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer):
+[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer) package:
 ```
 roslaunch event_array_viewer viewer.launch
 ```
@@ -235,7 +236,7 @@ ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composa
 The printout should be similar to the one for ROS1.
 
 To visualize the events, run a ``viewer`` node from the
-[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer):
+[event_array_viewer](https://github.com/berndpfrommer/event_array_viewer) package:
 ```
 ros2 launch event_array_viewer viewer.launch.py
 ```
@@ -250,7 +251,7 @@ To stop the recording you have to kill (Ctrl-C) the recording driver.
 ## CPU load
 
 Here are some approximate performance numbers on a 16 thread (8-core) AMD
-Ryzen 7480h with max clock speed of 2.9GHz. All numbers were obtained
+Ryzen 7480h laptop with max clock speed of 2.9GHz. All numbers were obtained
 by producing maximum event rates about (48Mevs) with a SilkyEVCam:
 
 ### ROS1 
@@ -282,9 +283,10 @@ Middleware used was cyclonedds.
 ### About ROS time stamps
 
 The SDK provides hardware event time stamps directly from the
-camera. Because for efficiency reasons the packets are not decoded the
-time stamps are not available to the driver. Thus the ROS driver
-simply puts the host wall clock arrival time into the header's stamp field.
+camera. For efficiency reasons the packets are not decoded and so the
+sensor time stamps are not available to the driver. Therefore the ROS driver
+simply puts the host wall clock arrival time of the *first* SDK packet
+into the ROS packet's header stamp field.
 
 ## About Trigger Pins
 
