@@ -91,11 +91,6 @@ install(DIRECTORY
   FILES_MATCHING PATTERN "*.py"
   )
 
-install(PROGRAMS
-  src/start_recording_ros2.py
-  DESTINATION lib/${PROJECT_NAME}/
-  )
-
 # install some example bias files
 install(DIRECTORY
   config

@@ -220,6 +220,8 @@ To visualize the events, run a ``viewer`` node from the
 ```
 roslaunch event_array_viewer viewer.launch
 ```
+The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
+
 
 # How to use (ROS2):
 
@@ -235,18 +237,19 @@ ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composa
 ```
 The printout should be similar to the one for ROS1.
 
+To use the combined driver/recorder and start the recording:
+```
+ros2 launch metavision_ros_driver recording_driver.launch.py
+ros2 run rosbag2_composable_recorder start_recording.py
+```
+To stop the recording you have to kill (Ctrl-C) the recording driver.
+
 To visualize the events, run a ``viewer`` node from the
 [event_array_viewer](https://github.com/berndpfrommer/event_array_viewer) package:
 ```
 ros2 launch event_array_viewer viewer.launch.py
 ```
-
-To use the combined driver/recorder and start the recording:
-```
-ros2 launch recording_driver.launch.py
-ros2 run metavision_ros_driver start_recording_ros2.py
-```
-To stop the recording you have to kill (Ctrl-C) the recording driver.
+The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
 ## CPU load
 
