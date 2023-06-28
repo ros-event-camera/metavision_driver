@@ -48,8 +48,8 @@ def launch_setup(context, *args, **kwargs):
                      'erc_mode': 'enabled',
                      'erc_rate': 100000000,
                      # 'roi': [0, 0, 100, 100],
-                     # valid: 'enabled', 'loopback', 'disabled'
-                     'trigger_in_mode': 'loopback',
+                     # valid: 'external', 'loopback', 'disabled'
+                     'trigger_in_mode': 'external',
                      # valid: 'enabled', 'disabled'
                      'trigger_out_mode': 'enabled',
                      'trigger_out_period': 100000,  # in usec
