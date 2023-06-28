@@ -2,6 +2,8 @@
 # continuous integration workflow
 #
 name: build repo
+env:
+  PACKAGE: metavision_ros_driver
 
 on:
  push:
@@ -11,63 +13,44 @@ on:
  workflow_dispatch:
     branches: [ master]
 
-jobs:
-  build_focal_ros1:
+  build_focal_noetic:
     runs-on: ubuntu-20.04
+    name: focal/noetic (x86_64)
     container:
-      image: berndpfrommer/focal_noetic_galactic_metavision
-    name: ROS1 on focal (x86_64)
+      image: berndpfrommer/focal_noetic_metavision
     steps:
       - name: check out github repo
         uses: actions/checkout@v3
         with:
-          path: src/metavision_ros_driver
+          path: src/${{ env.PACKAGE }}
           fetch-depth: 0
       - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros1.bash
-  build_focal_ros2:
+        run: ./src/${{ env.PACKAGE }}/.github/scripts/build_ros1.bash ${{ env.PACKAGE }}
+
+  build_focal_galactic:
     runs-on: ubuntu-20.04
     container:
-      image: berndpfrommer/focal_noetic_galactic_metavision
-    name: ROS2 on focal (x86_64)
+      image: berndpfrommer/focal_galactic_metavision
+    name: focal/galactic (x86_64)
     steps:
       - name: check out github repo
         uses: actions/checkout@v3
         with:
-          path: src/metavision_ros_driver
+          path: src/${{ env.PACKAGE }}
           fetch-depth: 0
       - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
-  build_jammy_ros2:
+        run: ./src/${{ env.PACKAGE }}/.github/scripts/build_ros2.bash ${{ env.PACKAGE }}
+
+  build_jammy_humble:
     runs-on: ubuntu-22.04
     container:
-      image: berndpfrommer/amd64_jammy_humble_openeb
-    name: ROS2 on jammy (x86_64)
+      image: berndpfrommer/jammy_humble_metavision
+    name: jammy/humble (x86_64)
     steps:
       - name: check out github repo
         uses: actions/checkout@v3
         with:
-          path: src/metavision_ros_driver
+          path: src/${{ env.PACKAGE }}
           fetch-depth: 0
       - name: compile from source
-        run: ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
-
-# somehow arch64 under jammy/humble  does not work on github
-#  build_jammy_ros2:
-#    runs-on: ubuntu-22.04
-#    container:
-#      image: berndpfrommer/arm64v8_jammy_humble_openeb
-#    name: ROS2 on jammy (arm64v8)
-#    steps:
-#      - name: check out github repo
-#        uses: actions/checkout@v3
-#        with:
-#          path: src/metavision_ros_driver
-#          fetch-depth: 0
-#      - uses: berndpfrommer/run-on-arch-action@master
-#        name: compile from source
-#        with:
-#          arch: aarch64
-#          distro: jammy_humble_openeb
-#          run:  |
-#            ./src/metavision_ros_driver/.github/scripts/build_ros2.bash
+        run: ./src/${{ env.PACKAGE }}/.github/scripts/build_ros2.bash ${{ env.PACKAGE }}

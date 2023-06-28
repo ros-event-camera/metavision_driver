@@ -1,7 +1,7 @@
 #!/bin/bash
 # set up ROS
 distros=('foxy' 'galactic' 'humble')
-
+pkg=$1
 #
 # probe for the ROS2 distro
 #
@@ -15,8 +15,10 @@ done
 
 echo "found ros version: ${ROS_VERSION} distro: ${ROS_DISTRO}"
 
-# run wstool to bring in the additional repositories required
-wstool init src ./src/metavision_ros_driver/metavision_ros_driver.rosinstall
+# run vcs tool to bring in the additional repositories required
+cd src
+vcs import < ${pkg}/${pkg}.repos
+cd ..
 
 # build and test
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo && colcon test && colcon test-result --verbose
