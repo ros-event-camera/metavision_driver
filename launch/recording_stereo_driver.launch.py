@@ -83,7 +83,8 @@ def launch_setup(context, *args, **kwargs):
         name="recorder",
         parameters=[{'topics': ['/' + cam_0_str + '/events',
                                 '/' + cam_1_str + '/events'],
-                     'bag_prefix': 'events_'}],
+                     'bag_name': LaunchConfig('bag'),
+                     'bag_prefix': LaunchConfig('bag_prefix')}, ],
         extra_arguments=[{'use_intra_process_comms': True}],
     )
     #
@@ -112,5 +113,9 @@ def generate_launch_description():
                   description='camera name of camera 0'),
         LaunchArg('camera_1_name', default_value=['event_cam_1'],
                   description='camera name of camera 1'),
+        LaunchArg('bag', default_value=[''],
+                  description='name of output bag'),
+        LaunchArg('bag_prefix', default_value=['events_'],
+                  description='prefix of output bag'),
         OpaqueFunction(function=launch_setup)
         ])
