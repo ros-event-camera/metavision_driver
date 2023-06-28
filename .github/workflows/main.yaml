@@ -12,6 +12,7 @@ on:
  workflow_dispatch:
     branches: [ master]
 
+jobs:
   build_focal_noetic:
     runs-on: ubuntu-20.04
     name: focal/noetic (x86_64)
