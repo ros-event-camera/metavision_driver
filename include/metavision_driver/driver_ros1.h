@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
-#define METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
+#ifndef METAVISION_DRIVER__DRIVER_ROS1_H_
+#define METAVISION_DRIVER__DRIVER_ROS1_H_
 
 #include <dynamic_reconfigure/server.h>
 #include <event_array_msgs/EventArray.h>
@@ -24,12 +24,12 @@
 #include <memory>
 #include <string>
 
-#include "metavision_ros_driver/MetaVisionDynConfig.h"
-#include "metavision_ros_driver/bias_parameter.h"
-#include "metavision_ros_driver/callback_handler.h"
-#include "metavision_ros_driver/resize_hack.h"
+#include "metavision_driver/MetaVisionDynConfig.h"
+#include "metavision_driver/bias_parameter.h"
+#include "metavision_driver/callback_handler.h"
+#include "metavision_driver/resize_hack.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 class MetavisionWrapper;  // forward decl
 
@@ -92,5 +92,5 @@ private:
   using ParameterMap = std::map<std::string, BiasParameter>;
   ParameterMap biasParameters_;
 };
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__DRIVER_ROS1_H_

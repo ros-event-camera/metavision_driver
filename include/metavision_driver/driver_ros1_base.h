@@ -1,5 +1,5 @@
 // -*-c++-*---------------------------------------------------------------------------------------
-// Copyright 2023 Bernd Pfrommer <bernd.pfrommer@gmail.com>
+// Copyright 2022 Bernd Pfrommer <bernd.pfrommer@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,22 +13,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__BIAS_PARAMETER_H_
-#define METAVISION_ROS_DRIVER__BIAS_PARAMETER_H_
+#ifndef METAVISION_DRIVER__DRIVER_ROS1_BASE_H_
+#define METAVISION_DRIVER__DRIVER_ROS1_BASE_H_
 
-#include <map>
-#include <string>
-
-namespace metavision_ros_driver
+namespace metavision_driver
 {
-struct BiasParameter
+class DriverROS1Base
 {
-  BiasParameter(int nv, int xv, const std::string & inf) : minVal(nv), maxVal(xv), info(inf) {}
-  int minVal;
-  int maxVal;
-  std::string info;
-
-  static const std::map<std::string, BiasParameter> & getAll(const std::string & sensorVersion);
+public:
+  DriverROS1Base() {}
+  virtual ~DriverROS1Base() {}
 };
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__BIAS_PARAMETER_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__DRIVER_ROS1_BASE_H_

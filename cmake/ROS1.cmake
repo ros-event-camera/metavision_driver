@@ -23,8 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   nodelet
   dynamic_reconfigure
   event_array_msgs
-  std_srvs
-  )
+  std_srvs)
 
 find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
@@ -33,13 +32,11 @@ if(MetavisionSDK_VERSION_MAJOR LESS 4)
 endif()
 
 generate_dynamic_reconfigure_options(
-  cfg/MetaVisionDyn.cfg
-  )
+  cfg/MetaVisionDyn.cfg)
 
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
-  )
+  ${catkin_INCLUDE_DIRS})
 
 catkin_package(CATKIN_DEPENDS dynamic_reconfigure)
 
@@ -51,19 +48,19 @@ add_library(driver_common
   src/driver_ros1.cpp src/bias_parameter.cpp src/metavision_wrapper.cpp)
 target_link_libraries(driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_common ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_common ${metavision_driver_EXPORTED_TARGETS})
 
 # nodelet
 add_library(driver_nodelet src/driver_nodelet_ros1.cpp)
 target_link_libraries(driver_nodelet driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_nodelet ${metavision_driver_EXPORTED_TARGETS})
 
 # node
 add_executable(driver_node src/driver_node_ros1.cpp)
 target_link_libraries(driver_node driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_node ${metavision_driver_EXPORTED_TARGETS})
 
 
 #############
@@ -76,17 +73,14 @@ install(TARGETS driver_node
 install(TARGETS driver_nodelet
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-  )
- 
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+
 install(FILES nodelet_plugins.xml
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  FILES_MATCHING PATTERN "*.launch"
-  )
+  FILES_MATCHING PATTERN "*.launch")
 
 
 #############

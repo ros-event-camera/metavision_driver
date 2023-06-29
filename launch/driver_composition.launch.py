@@ -29,7 +29,7 @@ def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_name = LaunchConfig('camera_name')
     cam_str = cam_name.perform(context)
-    pkg_name = 'metavision_ros_driver'
+    pkg_name = 'metavision_driver'
     share_dir = get_package_share_directory(pkg_name)
     trigger_config = os.path.join(share_dir, 'config', 'trigger_pins.yaml')
     bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
@@ -40,8 +40,8 @@ def launch_setup(context, *args, **kwargs):
             executable='component_container',
             composable_node_descriptions=[
                 ComposableNode(
-                    package='metavision_ros_driver',
-                    plugin='metavision_ros_driver::DriverROS2',
+                    package='metavision_driver',
+                    plugin='metavision_driver::DriverROS2',
                     name=cam_name,
                     parameters=[
                         trigger_config,  # loads the whole file

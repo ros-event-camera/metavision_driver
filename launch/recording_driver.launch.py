@@ -35,8 +35,8 @@ def launch_setup(context, *args, **kwargs):
             # prefix=['xterm -e gdb -ex run --args'],
             composable_node_descriptions=[
                 ComposableNode(
-                    package='metavision_ros_driver',
-                    plugin='metavision_ros_driver::DriverROS2',
+                    package='metavision_driver',
+                    plugin='metavision_driver::DriverROS2',
                     name=cam_name,
                     parameters=[
                         {'use_multithreading': False,

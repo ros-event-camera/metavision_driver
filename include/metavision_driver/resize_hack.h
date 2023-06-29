@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__RESIZE_HACK_H_
-#define METAVISION_ROS_DRIVER__RESIZE_HACK_H_
-namespace metavision_ros_driver
+#ifndef METAVISION_DRIVER__RESIZE_HACK_H_
+#define METAVISION_DRIVER__RESIZE_HACK_H_
+namespace metavision_driver
 {
 //
 // resize without initializing, taken from
@@ -36,5 +36,5 @@ void resize_hack(V & v, size_t newSize)
     V2;
   reinterpret_cast<V2 &>(v).resize(newSize);
 }
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__RESIZE_HACK_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__RESIZE_HACK_H_

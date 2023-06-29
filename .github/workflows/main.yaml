@@ -3,7 +3,7 @@
 #
 name: build repo
 env:
-  PACKAGE: metavision_ros_driver
+  PACKAGE: metavision_driver
 on:
  push:
     branches: [ master]

@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__LOGGING_H_
-#define METAVISION_ROS_DRIVER__LOGGING_H_
+#ifndef METAVISION_DRIVER__LOGGING_H_
+#define METAVISION_DRIVER__LOGGING_H_
 #ifdef USING_ROS_1
 #include <ros/ros.h>
 #define LOG_INFO_NAMED(...)       \
@@ -175,4 +175,4 @@
 
 #endif  // USING_ROS_1
 
-#endif  // METAVISION_ROS_DRIVER__LOGGING_H_
+#endif  // METAVISION_DRIVER__LOGGING_H_

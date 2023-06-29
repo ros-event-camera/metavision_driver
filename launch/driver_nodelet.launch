@@ -1,7 +1,7 @@
 <launch>
   <arg name="bias_file" default=""/>
   <node pkg="nodelet" type="nodelet"
-    name="driver_nodelet" args="standalone metavision_ros_driver/DriverNodelet"
+    name="driver_nodelet" args="standalone metavision_driver/DriverNodelet"
     clear_params="true" output="screen">
     <param name="use_multithreading" value="false"/>
     <param name="event_message_time_threshold" value="0.001"/>
@@ -11,6 +11,6 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <remap from="~/events" to="/event_camera/events"/>
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins.yaml"/>
+    <rosparam command="load" file="$(find metavision_driver)/config/trigger_pins.yaml"/>
   </node>
 </launch>

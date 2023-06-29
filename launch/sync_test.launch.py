@@ -26,7 +26,7 @@ def launch_setup(context, *args, **kwargs):
     """Create simple node."""
     topic_0 = LaunchConfig('cam_0_topic')
     topic_1 = LaunchConfig('cam_1_topic')
-    node = Node(package='metavision_ros_driver',
+    node = Node(package='metavision_driver',
                 executable='sync_test',
                 output='screen',
                 # prefix=['xterm -e gdb -ex run --args'],

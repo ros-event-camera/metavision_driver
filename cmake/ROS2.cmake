@@ -62,7 +62,7 @@ ament_auto_add_library(driver_ros2 SHARED
 target_include_directories(driver_ros2 PRIVATE include)
 target_link_libraries(driver_ros2 MetavisionSDK::driver)
 
-rclcpp_components_register_nodes(driver_ros2 "metavision_ros_driver::DriverROS2")
+rclcpp_components_register_nodes(driver_ros2 "metavision_driver::DriverROS2")
 
 # --------- driver (plain old node) -------------
 
@@ -74,29 +74,24 @@ ament_auto_add_executable(driver_node
 # the launch file will not find it
 install(TARGETS
   driver_node
-  DESTINATION lib/${PROJECT_NAME}/
-  )
+  DESTINATION lib/${PROJECT_NAME}/)
 
 # the shared library goes into the global lib dir so it can
 # be used as a composable node by other projects
 
 install(TARGETS
   driver_ros2
-  DESTINATION lib
-)
+  DESTINATION lib)
 
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME}/
-  FILES_MATCHING PATTERN "*.py"
-  )
+  FILES_MATCHING PATTERN "*.py")
 
 # install some example bias files
 install(DIRECTORY
   config
-  DESTINATION share/${PROJECT_NAME}/
-)
- 
+  DESTINATION share/${PROJECT_NAME}/)
 
 if(BUILD_TESTING)
   find_package(ament_cmake REQUIRED)

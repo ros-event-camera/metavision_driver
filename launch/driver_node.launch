@@ -1,7 +1,7 @@
 <launch>
   <arg name="bias_file" default=""/>
   <arg name="serial" default=""/>
-  <node pkg="metavision_ros_driver" type="driver_node" name="event_camera" clear_params="true"
+  <node pkg="metavision_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
@@ -28,6 +28,6 @@
     <rosparam param="roi">[315, 235, 20, 10]</rosparam>
     -->
     <!-- load trigger pin layout for sensors -->
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins.yaml"/>
+    <rosparam command="load" file="$(find metavision_driver)/config/trigger_pins.yaml"/>
   </node>
 </launch>

@@ -15,7 +15,7 @@
 
 #include <ros/ros.h>
 
-#include "metavision_ros_driver/driver_ros1.h"
+#include "metavision_driver/driver_ros1.h"
 
 int main(int argc, char ** argv)
 {
@@ -23,7 +23,7 @@ int main(int argc, char ** argv)
   ros::NodeHandle pnh("~");
 
   try {
-    metavision_ros_driver::DriverROS1 node(pnh);
+    metavision_driver::DriverROS1 node(pnh);
     ros::spin();
   } catch (const std::exception & e) {
     ROS_ERROR("%s: %s", pnh.getNamespace().c_str(), e.what());

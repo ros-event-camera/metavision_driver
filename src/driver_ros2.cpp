@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "metavision_ros_driver/driver_ros2.h"
+#include "metavision_driver/driver_ros2.h"
 
 #include <chrono>
 #include <event_array_msgs/msg/event_array.hpp>
@@ -23,15 +23,15 @@
 #include <string>
 #include <vector>
 
-#include "metavision_ros_driver/check_endian.h"
-#include "metavision_ros_driver/logging.h"
-#include "metavision_ros_driver/metavision_wrapper.h"
+#include "metavision_driver/check_endian.h"
+#include "metavision_driver/logging.h"
+#include "metavision_driver/metavision_wrapper.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
 : Node(
-    "metavision_ros_driver",
+    "metavision_driver",
     rclcpp::NodeOptions(options).automatically_declare_parameters_from_overrides(true))
 {
   configureWrapper(get_name());
@@ -403,6 +403,6 @@ void DriverROS2::eventCDCallback(
   }
 }
 
-}  // namespace metavision_ros_driver
+}  // namespace metavision_driver
 
-RCLCPP_COMPONENTS_REGISTER_NODE(metavision_ros_driver::DriverROS2)
+RCLCPP_COMPONENTS_REGISTER_NODE(metavision_driver::DriverROS2)
