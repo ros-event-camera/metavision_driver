@@ -4,7 +4,7 @@
   <arg name="serial_cam_0"/>
   <arg name="serial_cam_1"/>
 
-  <node pkg="metavision_ros_driver" type="driver_node" name="event_cam_0" clear_params="true"
+  <node pkg="metavision_driver" type="driver_node" name="event_cam_0" clear_params="true"
 	output="screen">
     <param name="frame_id" value="event_cam_0"/>
     <param name="sync_mode" value="primary"/>
@@ -21,7 +21,7 @@
   </node>
 
   <!-- triggers seem to only work for the secondary or in standalone -->
-  <node pkg="metavision_ros_driver" type="driver_node" name="event_cam_1" clear_params="true"
+  <node pkg="metavision_driver" type="driver_node" name="event_cam_1" clear_params="true"
 	output="screen">
     <param name="frame_id" value="event_cam_1"/>
     <param name="sync_mode" value="secondary"/>
@@ -41,6 +41,6 @@
     <param name="trigger_out_duty_cycle" value="0.5"/>
     <param name="trigger_in_mode" value="loopback"/>
     <!-- load trigger pin layout for sensors -->
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_stereo.yaml"/>
+    <rosparam command="load" file="$(find metavision_driver)/config/trigger_pins_stereo.yaml"/>
   </node>
 </launch>

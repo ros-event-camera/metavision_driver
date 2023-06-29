@@ -22,7 +22,7 @@ from launch.actions import OpaqueFunction
 
 def launch_setup(context, *args, **kwargs):
     """Create simple node."""
-    node = Node(package='metavision_ros_driver',
+    node = Node(package='metavision_driver',
                 # prefix=['xterm -e gdb -ex run --args'],
                 executable='recorder_node',
                 output='screen',

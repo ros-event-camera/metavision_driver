@@ -51,19 +51,19 @@ add_library(driver_common
   src/driver_ros1.cpp src/bias_parameter.cpp src/metavision_wrapper.cpp)
 target_link_libraries(driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_common ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_common ${metavision_driver_EXPORTED_TARGETS})
 
 # nodelet
 add_library(driver_nodelet src/driver_nodelet_ros1.cpp)
 target_link_libraries(driver_nodelet driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_nodelet ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_nodelet ${metavision_driver_EXPORTED_TARGETS})
 
 # node
 add_executable(driver_node src/driver_node_ros1.cpp)
 target_link_libraries(driver_node driver_common MetavisionSDK::driver ${catkin_LIBRARIES})
 # to ensure messages get built before executable
-add_dependencies(driver_node ${metavision_ros_driver_EXPORTED_TARGETS})
+add_dependencies(driver_node ${metavision_driver_EXPORTED_TARGETS})
 
 
 #############

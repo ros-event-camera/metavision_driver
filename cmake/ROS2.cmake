@@ -62,7 +62,7 @@ ament_auto_add_library(driver_ros2 SHARED
 target_include_directories(driver_ros2 PRIVATE include)
 target_link_libraries(driver_ros2 MetavisionSDK::driver)
 
-rclcpp_components_register_nodes(driver_ros2 "metavision_ros_driver::DriverROS2")
+rclcpp_components_register_nodes(driver_ros2 "metavision_driver::DriverROS2")
 
 # --------- driver (plain old node) -------------
 

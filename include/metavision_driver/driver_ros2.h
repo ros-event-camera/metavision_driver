@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
-#define METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
+#ifndef METAVISION_DRIVER__DRIVER_ROS2_H_
+#define METAVISION_DRIVER__DRIVER_ROS2_H_
 
 #include <event_array_msgs/msg/event_array.hpp>
 #include <map>
@@ -24,11 +24,11 @@
 #include <std_srvs/srv/trigger.hpp>
 #include <string>
 
-#include "metavision_ros_driver/bias_parameter.h"
-#include "metavision_ros_driver/callback_handler.h"
-#include "metavision_ros_driver/resize_hack.h"
+#include "metavision_driver/bias_parameter.h"
+#include "metavision_driver/callback_handler.h"
+#include "metavision_driver/resize_hack.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 class MetavisionWrapper;  // forward decl
 
@@ -91,5 +91,5 @@ private:
   ParameterMap biasParameters_;
   rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
 };
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__DRIVER_ROS2_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__DRIVER_ROS2_H_

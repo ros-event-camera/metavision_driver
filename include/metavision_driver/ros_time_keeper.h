@@ -13,17 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__ROS_TIME_KEEPER_H_
-#define METAVISION_ROS_DRIVER__ROS_TIME_KEEPER_H_
+#ifndef METAVISION_DRIVER__ROS_TIME_KEEPER_H_
+#define METAVISION_DRIVER__ROS_TIME_KEEPER_H_
 
 #include <algorithm>  // min/max
 #include <chrono>
 #include <memory>
 #include <string>
 
-#include "metavision_ros_driver/logging.h"
+#include "metavision_driver/logging.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 class ROSTimeKeeper
 {
@@ -156,5 +156,5 @@ private:
   uint64_t prevROSTime_{0};          // last time the ROS offset was updated
 };
 
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__ROS_TIME_KEEPER_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__ROS_TIME_KEEPER_H_

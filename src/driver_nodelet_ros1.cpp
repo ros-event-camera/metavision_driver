@@ -18,9 +18,9 @@
 
 #include <memory>
 
-#include "metavision_ros_driver/driver_ros1.h"
+#include "metavision_driver/driver_ros1.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 class DriverNodeletROS1 : public nodelet::Nodelet
 {
@@ -36,7 +36,7 @@ private:
   std::shared_ptr<DriverROS1> driver_;
   ros::NodeHandle nh_;
 };
-}  // namespace metavision_ros_driver
+}  // namespace metavision_driver
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(metavision_ros_driver::DriverNodeletROS1, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(metavision_driver::DriverNodeletROS1, nodelet::Nodelet)

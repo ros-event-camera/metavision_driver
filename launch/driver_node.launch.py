@@ -28,11 +28,11 @@ def launch_setup(context, *args, **kwargs):
     """Create simple node."""
     cam_name = LaunchConfig('camera_name')
     cam_str = cam_name.perform(context)
-    pkg_name = 'metavision_ros_driver'
+    pkg_name = 'metavision_driver'
     share_dir = get_package_share_directory(pkg_name)
     trigger_config = os.path.join(share_dir, 'config', 'trigger_pins.yaml')
     # bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
-    node = Node(package='metavision_ros_driver',
+    node = Node(package='metavision_driver',
                 executable='driver_node',
                 output='screen',
                 # prefix=['xterm -e gdb -ex run --args'],

@@ -13,7 +13,7 @@
   </node>
   <node pkg="nodelet" type="nodelet"
     name="event_camera" args="load
-			      metavision_ros_driver/DriverNodelet recording_driver"
+			      metavision_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>

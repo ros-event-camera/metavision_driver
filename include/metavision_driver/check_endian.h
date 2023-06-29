@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__CHECK_ENDIAN_H_
-#define METAVISION_ROS_DRIVER__CHECK_ENDIAN_H_
+#ifndef METAVISION_DRIVER__CHECK_ENDIAN_H_
+#define METAVISION_DRIVER__CHECK_ENDIAN_H_
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 namespace check_endian
 {
@@ -30,5 +30,5 @@ inline bool isBigEndian()
   return (combined_int.c[0] == 1);
 }
 }  // namespace check_endian
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__CHECK_ENDIAN_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__CHECK_ENDIAN_H_

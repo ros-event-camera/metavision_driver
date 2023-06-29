@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "metavision_ros_driver/metavision_wrapper.h"
+#include "metavision_driver/metavision_wrapper.h"
 
 #ifdef USING_METAVISION_3
 #include <metavision/hal/facilities/i_device_control.h>
@@ -38,9 +38,9 @@
 #define GENERIC_ROS_OK() (rclcpp::ok())
 #endif
 
-#include "metavision_ros_driver/logging.h"
+#include "metavision_driver/logging.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 #ifdef USING_METAVISION_3
 using CameraSynchronization = Metavision::I_DeviceControl;
@@ -581,4 +581,4 @@ void MetavisionWrapper::printStatistics()
 #endif
 }
 
-}  // namespace metavision_ros_driver
+}  // namespace metavision_driver

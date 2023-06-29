@@ -1,6 +1,6 @@
 <launch>
   <arg name="bias_file" default=""/>
-  <node pkg="metavision_ros_driver" type="sync_test" name="sync_test" clear_params="true"
+  <node pkg="metavision_driver" type="sync_test" name="sync_test" clear_params="true"
 	output="screen">
     <param name="use_ros_time" value="false"/>
     <remap from="~events_cam_0" to="/event_cam_0/events"/>

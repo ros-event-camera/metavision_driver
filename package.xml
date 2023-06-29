@@ -1,32 +1,33 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>metavision_ros_driver</name>
+  <name>metavision_driver</name>
   <version>1.0.0</version>
-  <description>ROS1 and ROS2 drivers for the metavision based event cameras</description>
+  <description>ROS1 and ROS2 drivers for metavision based event cameras</description>
   <maintainer email="bernd.pfrommer@gmail.com">Bernd Pfrommer</maintainer>
   <license>Apache-2</license>
 
-  <buildtool_depend>ament_cmake</buildtool_depend>
-  <buildtool_depend>ament_cmake_auto</buildtool_depend>
-  <buildtool_depend>catkin</buildtool_depend>
+  <!-- ROS1 specific dependencies -->
+  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
+  <depend condition="$ROS_VERSION == 1">dynamic_reconfigure</depend>
+  <depend condition="$ROS_VERSION == 1">nodelet</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <!-- ROS2 specific dependencies -->
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_auto</buildtool_depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
+  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_auto</test_depend>
+  <test_depend condition="$ROS_VERSION == 2">ament_lint_common</test_depend>
+  <!--
+   for some reason the build fails if rosbag2_composable_recorder is not present
+   <exec_depend condition="$ROS_VERSION == 2">rosbag2_composable_recorder</exec_depend>
+  -->
 
   <!-- common dependencies -->
   <depend>event_array_msgs</depend>
   <depend>std_srvs</depend>
   
-  <!-- ROS1 specific dependencies -->
-  <depend>dynamic_reconfigure</depend>
-  <depend>nodelet</depend>
-
-  <!-- ROS2 specific dependencies -->
-  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
-  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
-  <exec_depend condition="$ROS_VERSION == 2">rosbag2_composable_recorder</exec_depend>
-
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
     <!-- this is crucial else the package will not be registered! -->

@@ -1,4 +1,4 @@
-# metavision_ros_driver
+# metavision_driver
 
 A combined ROS/ROS2 driver for event based cameras using Prophesee's Metavision SDK.
 This driver is not written or supported by Prophesee.
@@ -57,14 +57,14 @@ For example for ROS1 noetic:
 source /opt/ros/noetic/setup.bash
 ```
 
-Create a workspace (``metavision_ros_driver_ws``), clone this repo, and use ``vcs``
+Create a workspace (``metavision_driver_ws``), clone this repo, and use ``vcs``
 to pull in the remaining dependencies:
 
 ```
-pkg=metavision_ros_driver
+pkg=metavision_driver
 mkdir -p ~/${pkg}_ws/src
 cd ~/${pkg}_ws
-git clone https://github.com/berndpfrommer/${pkg}.git src/${pkg}
+git clone https://github.com/berndpfrommer/metavision_driver.git src/${pkg}
 cd src
 vcs import < ${pkg}/${pkg}.repos
 cd ..
@@ -192,8 +192,8 @@ Dynamic reconfiguration parameters
 # How to use (ROS1):
 
 ```
-roslaunch metavision_ros_driver driver_node.launch   # (run as node)
-roslaunch metavision_ros_driver driver_nodelet.launch   # (run as nodelet)
+roslaunch metavision_driver driver_node.launch   # (run as node)
+roslaunch metavision_driver driver_nodelet.launch   # (run as nodelet)
 ```
 
 The driver should print out message rate statistics like this:
@@ -207,12 +207,12 @@ the maximum queue size observed during
 
 To use the combined driver/recording facility:
 ```
-roslaunch metavision_ros_driver recording_driver.launch bag:=`pwd`/test.bag
+roslaunch metavision_driver recording_driver.launch bag:=`pwd`/test.bag
 ```
 Then start/stop recording like this:
 ```
-rosrun metavision_ros_driver start_recording.py
-rosrun metavision_ros_driver stop_recording.py
+rosrun metavision_driver start_recording.py
+rosrun metavision_driver stop_recording.py
 ```
 
 To visualize the events, run a ``viewer`` node from the
@@ -232,14 +232,14 @@ nodes. For this you will need to install the
 into your workspace as well (see below).
 
 ```
-ros2 launch metavision_ros_driver driver_node.launch.py        # (run as node)
-ros2 launch metavision_ros_driver driver_composition.launch.py # (run as composable node)
+ros2 launch metavision_driver driver_node.launch.py        # (run as node)
+ros2 launch metavision_driver driver_composition.launch.py # (run as composable node)
 ```
 The printout should be similar to the one for ROS1.
 
 To use the combined driver/recorder and start the recording:
 ```
-ros2 launch metavision_ros_driver recording_driver.launch.py
+ros2 launch metavision_driver recording_driver.launch.py
 ros2 run rosbag2_composable_recorder start_recording.py
 ```
 To stop the recording you have to kill (Ctrl-C) the recording driver.

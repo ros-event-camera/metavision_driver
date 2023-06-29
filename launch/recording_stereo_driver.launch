@@ -13,7 +13,7 @@
   <!-- cam 0 -->
   <node pkg="nodelet" type="nodelet"
     name="event_cam_0" args="load
-				metavision_ros_driver/DriverNodelet recording_driver"
+				metavision_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
     <param name="frame_id" value="event_cam_0"/>
     <param name="sync_mode" value="primary"/>
@@ -30,7 +30,7 @@
 
   <!-- cam 1 -->
   <node pkg="nodelet" type="nodelet"
-    name="event_cam_1" args="load metavision_ros_driver/DriverNodelet recording_driver"
+    name="event_cam_1" args="load metavision_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
     <param name="frame_id" value="event_cam_1"/>
     <param name="sync_mode" value="secondary"/>

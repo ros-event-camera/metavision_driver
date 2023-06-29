@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
-#define METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
+#ifndef METAVISION_DRIVER__METAVISION_WRAPPER_H_
+#define METAVISION_DRIVER__METAVISION_WRAPPER_H_
 
 #include <metavision/sdk/driver/camera.h>
 
@@ -28,7 +28,7 @@
 #include <thread>
 #include <utility>
 
-#include "metavision_ros_driver/callback_handler.h"
+#include "metavision_driver/callback_handler.h"
 
 namespace ph = std::placeholders;
 
@@ -36,7 +36,7 @@ namespace ph = std::placeholders;
 // when related SDK/driver/camera issues have been resolved.
 // #define CHECK_IF_OUTSIDE_ROI
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 class MetavisionWrapper
 {
@@ -183,5 +183,5 @@ private:
   std::shared_ptr<std::thread> processingThread_;
   bool keepRunning_{true};
 };
-}  // namespace metavision_ros_driver
-#endif  // METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
+}  // namespace metavision_driver
+#endif  // METAVISION_DRIVER__METAVISION_WRAPPER_H_

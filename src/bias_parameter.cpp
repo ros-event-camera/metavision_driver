@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "metavision_ros_driver/bias_parameter.h"
+#include "metavision_driver/bias_parameter.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 static const std::map<std::string, std::map<std::string, BiasParameter>> biasParameters{
   {{"UNKNOWN", {}},
@@ -48,4 +48,4 @@ const std::map<std::string, BiasParameter> & BiasParameter::getAll(
   }
   return (it->second);
 }
-}  // namespace metavision_ros_driver
+}  // namespace metavision_driver

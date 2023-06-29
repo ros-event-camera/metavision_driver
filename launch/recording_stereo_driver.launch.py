@@ -31,15 +31,15 @@ def launch_setup(context, *args, **kwargs):
     cam_0_str = cam_0_name.perform(context)
     cam_1_name = LaunchConfig('camera_1_name')
     cam_1_str = cam_1_name.perform(context)
-    pkg_name = 'metavision_ros_driver'
+    pkg_name = 'metavision_driver'
     share_dir = get_package_share_directory(pkg_name)
     bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias') # noqa F841
     #
     # camera 0
     #
     cam_0 = ComposableNode(
-        package='metavision_ros_driver',
-        plugin='metavision_ros_driver::DriverROS2',
+        package='metavision_driver',
+        plugin='metavision_driver::DriverROS2',
         name=cam_0_name,
         parameters=[
             {'use_multithreading': False,
@@ -59,8 +59,8 @@ def launch_setup(context, *args, **kwargs):
     # camera 1
     #
     cam_1 = ComposableNode(
-        package='metavision_ros_driver',
-        plugin='metavision_ros_driver::DriverROS2',
+        package='metavision_driver',
+        plugin='metavision_driver::DriverROS2',
         name=cam_1_name,
         parameters=[
             {'use_multithreading': False,

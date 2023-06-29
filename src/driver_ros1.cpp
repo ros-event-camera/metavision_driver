@@ -13,14 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "metavision_ros_driver/driver_ros1.h"
+#include "metavision_driver/driver_ros1.h"
 
 #include <event_array_msgs/EventArray.h>
 
-#include "metavision_ros_driver/check_endian.h"
-#include "metavision_ros_driver/metavision_wrapper.h"
+#include "metavision_driver/check_endian.h"
+#include "metavision_driver/metavision_wrapper.h"
 
-namespace metavision_ros_driver
+namespace metavision_driver
 {
 namespace ph = std::placeholders;
 DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
@@ -293,4 +293,4 @@ void DriverROS1::eventCDCallback(
   }
 }
 
-}  // namespace metavision_ros_driver
+}  // namespace metavision_driver
