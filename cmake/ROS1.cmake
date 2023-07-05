@@ -14,7 +14,7 @@
 # limitations under the License.
 
 #add_compile_options(-Wall -Wextra -pedantic -Werror)
-add_compile_options(-Wall -Wextra)
+add_compile_options(-Wall -Wextra -Wpedantic)
 #add_compile_definitions(USING_ROS_1)
 add_definitions(-DUSING_ROS_1)
 
@@ -25,7 +25,8 @@ find_package(catkin REQUIRED COMPONENTS
   event_array_msgs
   std_srvs)
 
-find_package(MetavisionSDK COMPONENTS driver REQUIRED)
+# MetavisionSDK is now found otherwise
+# find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
 if(MetavisionSDK_VERSION_MAJOR LESS 4)
   add_definitions(-DUSING_METAVISION_3)
@@ -81,6 +82,16 @@ install(FILES nodelet_plugins.xml
 install(DIRECTORY launch
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   FILES_MATCHING PATTERN "*.launch")
+
+# install some example bias files
+install(DIRECTORY
+  config
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+
+if (MUST_INSTALL_METAVISION)
+  install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+endif()
 
 
 #############
