@@ -19,7 +19,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+  # metavision SDK header files produce warnings, switch off for now
+  #add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -27,7 +29,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # find dependencies
-find_package(MetavisionSDK COMPONENTS driver REQUIRED)
+
+# MetavisionSDK is now found otherwise
+# find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
 if(MetavisionSDK_VERSION_MAJOR LESS 4)
   add_definitions(-DUSING_METAVISION_3)
@@ -92,6 +96,11 @@ install(DIRECTORY
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}/)
+
+if (MUST_INSTALL_METAVISION)
+  install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
+    DESTINATION ${CMAKE_INSTALL_PREFIX})
+endif()
 
 if(BUILD_TESTING)
   find_package(ament_cmake REQUIRED)
