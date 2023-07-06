@@ -16,6 +16,40 @@
 cmake_minimum_required(VERSION 3.5)
 project(metavision_driver)
 
+include(FetchContent)
+
+
+# must set various variables for OpenEB *before* fetching openEB.
+# CMAKE_ARGS seems to not work for FetchContent_Declare()
+
+set(BUILD_TESTING OFF CACHE INTERNAL "Build tests")
+set(COMPILE_3DVIEW OFF CACHE INTERNAL "Build 3d viewer")
+set(COMPILE_PLAYER OFF CACHE INTERNAL "Build player")
+set(COMPILE_PYTHON3_BINDINGS OFF CACHE INTERNAL "build python3 bindings")
+set(UDEV_RULES_SYSTEM_INSTALL OFF CACHE INTERNAL "install udev rules")
+
+
+find_package(MetavisionSDK COMPONENTS driver QUIET)
+
+# if metavision sdk is not present, download it into the build directory
+set(MUST_INSTALL_METAVISION FALSE)
+if (NOT MetavisionSDK_FOUND)
+  # set(CMAKE_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX} CACHE INTERNAL "install prefix")
+  FetchContent_Declare(
+    metavision
+    GIT_REPOSITORY https://github.com/ros-event-camera/openeb.git
+    GIT_TAG   4.2.0-cmake_current_source_dir)
+ 
+  FetchContent_MakeAvailable(metavision)
+
+  # do this to avoid the "install" target being run on the metavision sdk
+  if(IS_DIRECTORY "${metavision_SOURCE_DIR}")
+    set_property(DIRECTORY ${metavision_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL YES)
+  endif()
+
+  set(MUST_INSTALL_METAVISION TRUE)
+endif()
+
 if(DEFINED ENV{ROS_VERSION})
   if($ENV{ROS_VERSION} EQUAL "2")
     # to avoid cmake warning: "Manually-specified variables were not used by the project"
