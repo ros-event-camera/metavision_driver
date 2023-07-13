@@ -138,7 +138,7 @@ Parameters:
   ``[top_left_x_1, top_left_y_1, width_1, height_1, top_left_x_2, top_left_y_2, width_2...]``.
   The length of the ``roi`` parameter vector must therefore be a multiple
   of 4. Beware that when using multiple ROIs, per Metavision SDK  documentation:
-  ["Any line or column enabled by a single ROI is also enabled for all the other"](https://docs.prophesee.ai/stable/metavision_sdk/modules/driver/api/features.html#_CPPv4N10Metavision3RoiE).
+  ["Any line or column enabled by a single ROI is also enabled for all the other"](https://docs.prophesee.ai/stable/api/cpp/driver/features.html#_CPPv4N10Metavision3RoiE).
 - ``erc_mode``: event rate control mode (Gen4 sensor): ``na``,
   ``disabled``, ``enabled``. Default: ``na``.
 - ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
@@ -298,9 +298,9 @@ trigger events that can be recovered with the decoder.
 
 Prophesee provides documentation on the trigger functions at a high
 level
-[here](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#chapter-concepts-triggers).
+[here](https://docs.prophesee.ai/stable/hw/manuals/timing_interfaces.html).
 
-[Trigger out](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-out-principle)
+[Trigger out](https://docs.prophesee.ai/stable/hw/manuals/timing_interfaces.html#trigger-out)
 functionality is exposed through ``trigger_out_mode``,
 ``trigger_out_period``, and ``trigger_out_duty_cycle``. These
 variables follow the same meaning as laid out in the internal
@@ -311,7 +311,7 @@ documentation.
 - ``trigger_out_duty_cycle`` is the pulse width ratio
   (``trigger_out_period * trigger_out_duty_cycle`` must be at least 1us)
 
-[Trigger in](https://docs.prophesee.ai/stable/hw/manuals/triggers.html#trigger-in-principle)
+[Trigger in](https://docs.prophesee.ai/stable/hw/manuals/timing_interfaces.html#trigger-in)
 functionality is abstracted away from pins to just ``loopback`` or
 ``external`` as the pin mappings are constant for a given camera
 configuration. 
@@ -329,12 +329,12 @@ hardware (as most share trigger out and sync out pins).
 The hardware configuration file is ``config/trigger_pins.yaml``. The
 mappings for ``hal_plugin_gen*`` come from
 [Prophesee
-documentation](https://docs.prophesee.ai/stable/metavision_sdk/modules/metavision_hal/samples/hal_viewer.html#accessing-triggers).
+documentation](https://docs.prophesee.ai/3.1.2/metavision_sdk/modules/hal/samples/hal_viewer.html#configuring-trigger-in-and-trigger-out).
 The mapping for ``evc3a_plugin_gen31`` has been validated on the
 SilkyEvCam (March 2022). The mapping goes from the HAL Software Info
 to pin numbers. 
 
-If you camera is not yet supported, the software info is printed out
+If your camera is not yet supported, the software info is printed out
 on driver startup. Look for a line that contains: 
 
 ```
