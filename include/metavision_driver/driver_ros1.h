@@ -17,7 +17,7 @@
 #define METAVISION_DRIVER__DRIVER_ROS1_H_
 
 #include <dynamic_reconfigure/server.h>
-#include <event_array_msgs/EventArray.h>
+#include <event_camera_msgs/EventPacket.h>
 #include <ros/ros.h>
 #include <std_srvs/Trigger.h>
 
@@ -36,7 +36,7 @@ class MetavisionWrapper;  // forward decl
 class DriverROS1 : public CallbackHandler
 {
   using Config = MetaVisionDynConfig;
-  using EventArrayMsg = event_array_msgs::EventArray;
+  using EventPacketMsg = event_camera_msgs::EventPacket;
   using Trigger = std_srvs::Trigger;
 
 public:
@@ -80,7 +80,7 @@ private:
   uint64_t lastMessageTime_{0};
   uint64_t messageThresholdTime_{0};  // threshold time for sending message
   size_t messageThresholdSize_{0};    // threshold size for sending message
-  EventArrayMsg::Ptr msg_;
+  EventPacketMsg::Ptr msg_;
   ros::Publisher eventPub_;
 
   // ------ related to sync

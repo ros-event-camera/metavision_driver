@@ -45,7 +45,7 @@ find_package(ament_cmake_ros REQUIRED)
 set(ROS2_DEPENDENCIES
   "rclcpp"
   "rclcpp_components"
-  "event_array_msgs"
+  "event_camera_msgs"
   "std_srvs"
 )
 
@@ -97,7 +97,7 @@ install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}/)
 
-if (MUST_INSTALL_METAVISION)
+if(MUST_INSTALL_METAVISION)
   install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
     DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif()
@@ -117,6 +117,7 @@ if(BUILD_TESTING)
   ament_cppcheck(LANGUAGE c++)
   ament_cpplint(FILTERS "-build/include,-runtime/indentation_namespace")
   ament_flake8()
+  #ament_lint_cmake(--filter=-readability/wonkycase)
   ament_lint_cmake()
   ament_pep257()
   ament_clang_format(CONFIG_FILE .clang-format)

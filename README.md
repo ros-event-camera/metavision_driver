@@ -12,20 +12,20 @@ have found the right repository. This driver can cope with the large amount of
 data produced by Prophesee's Gen3 and Gen4 sensors because it does
 little more than getting the RAW (currently EVT3 format) events from
 the camera and publishing them in ROS
-[event_array_msg](https://github.com/ros-event-camera/event_array_msgs)
+[event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
 format. 
 
 The events can be decoded and displayed using the following ROS/ROS2 packages:
 
-- [event_array_codecs](https://github.com/ros-event-camera/event_array_codecs)
-  has C++ routines to decode event_array_msgs.
-- [event_array_py](https://github.com/ros-event-camera/event_array_py)
+- [event_camera_codecs](https://github.com/ros-event-camera/event_camera_codecs)
+  has C++ routines to decode event_camera_msgs.
+- [event_camera_py](https://github.com/ros-event-camera/event_camera_py)
   module for fast event decoding in python.
-- [event_array_viewer](https://github.com/ros-event-camera/event_array_viewer)
+- [event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer)
   a node / nodelet that renders and publishes ROS image messages.
-- [event_array_tools](https://github.com/ros-event-camera/event_array_tools)
+- [event_camera_tools](https://github.com/ros-event-camera/event_camera_tools)
   a set of tools to echo, monitor performance and convert
-  ``event_array_msgs`` to legacy formats and into "RAW" format.
+  ``event_camera_msgs`` to legacy formats and into "RAW" format.
 
 ## Supported platforms
 
@@ -46,9 +46,8 @@ Tested on the following hardware:
 
 Prerequisites:
 
-- install Metavision SDK or
- [OpenEB](https://github.com/prophesee-ai/openeb)
-- install ``vcs`` (ubuntu package python3-vcstool).
+- install [OpenEB](https://github.com/prophesee-ai/openeb)
+- install ``vcs`` (ubuntu package ``python3-vcstool``).
 
 Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
 For example for ROS1 noetic:
@@ -95,7 +94,7 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -D
 This driver differs from the Prophesee ROS driver in the following ways:
 
 - publishes
-  [event_array_msg](https://github.com/ros-event-camera/event_array_msgs)
+  [event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
   that store more densely and are faster to access than the older
   message formats.
 - less CPU consumption by avoiding unnecessary memory copies.
@@ -215,9 +214,9 @@ rosrun metavision_driver stop_recording.py
 ```
 
 To visualize the events, run a ``viewer`` node from the
-[event_array_viewer](https://github.com/ros-event-camera/event_array_viewer) package:
+[event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer) package:
 ```
-roslaunch event_array_viewer viewer.launch
+roslaunch event_camera_viewer viewer.launch
 ```
 The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
@@ -244,9 +243,9 @@ ros2 run rosbag2_composable_recorder start_recording.py
 To stop the recording you have to kill (Ctrl-C) the recording driver.
 
 To visualize the events, run a ``viewer`` node from the
-[event_array_viewer](https://github.com/ros-event-camera/event_array_viewer) package:
+[event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer) package:
 ```
-ros2 launch event_array_viewer viewer.launch.py
+ros2 launch event_camera_viewer viewer.launch.py
 ```
 The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 

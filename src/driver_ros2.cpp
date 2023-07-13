@@ -16,7 +16,7 @@
 #include "metavision_driver/driver_ros2.h"
 
 #include <chrono>
-#include <event_array_msgs/msg/event_array.hpp>
+#include <event_camera_msgs/msg/event_packet.hpp>
 #include <map>
 #include <rclcpp/parameter_events_filter.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
@@ -50,7 +50,7 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
 
   int qs;
   this->get_parameter_or("send_queue_size", qs, 1000);
-  eventPub_ = this->create_publisher<EventArrayMsg>(
+  eventPub_ = this->create_publisher<EventPacketMsg>(
     "~/events", rclcpp::QoS(rclcpp::KeepLast(qs)).best_effort().durability_volatile());
 
   if (wrapper_->getSyncMode() == "primary") {
@@ -353,7 +353,7 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
 {
   if (eventPub_->get_subscription_count() > 0) {
     if (!msg_) {
-      msg_.reset(new EventArrayMsg());
+      msg_.reset(new EventPacketMsg());
       msg_->header.frame_id = frameId_;
       msg_->time_base = 0;  // not used here
       msg_->encoding = encoding_;

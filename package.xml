@@ -25,7 +25,7 @@
   -->
 
   <!-- common dependencies -->
-  <depend>event_array_msgs</depend>
+  <depend>event_camera_msgs</depend>
   <depend>std_srvs</depend>
   
   <export>
