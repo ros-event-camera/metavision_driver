@@ -15,7 +15,7 @@
 
 #include "metavision_driver/driver_ros1.h"
 
-#include <event_array_msgs/EventArray.h>
+#include <event_camera_msgs/EventPacket.h>
 
 #include "metavision_driver/check_endian.h"
 #include "metavision_driver/metavision_wrapper.h"
@@ -37,7 +37,7 @@ DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
   messageThresholdSize_ =
     static_cast<size_t>(std::abs(nh_.param<int>("event_message_size_threshold", 1024 * 1024)));
 
-  eventPub_ = nh_.advertise<EventArrayMsg>("events", nh_.param<int>("send_queue_size", 1000));
+  eventPub_ = nh_.advertise<EventPacketMsg>("events", nh_.param<int>("send_queue_size", 1000));
 
   if (wrapper_->getSyncMode() == "primary") {
     // defer starting the primary until the secondary is up
@@ -241,7 +241,7 @@ void DriverROS1::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
 {
   if (eventPub_.getNumSubscribers() != 0) {
     if (!msg_) {
-      msg_.reset(new EventArrayMsg());
+      msg_.reset(new EventPacketMsg());
       msg_->header.frame_id = frameId_;
       msg_->header.seq = seq_++;
       msg_->time_base = 0;  // not used here

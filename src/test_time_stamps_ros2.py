@@ -16,7 +16,7 @@
 #
 #
 """
-Test code for eventarray time stamp debugging.
+Test code for event packet time stamp debugging.
 
 Some code snippets for rosbag reading were taken from
 https://github.com/ros2/rosbag2/blob/master/rosbag2_py/test/test_sequential_reader.py
@@ -104,7 +104,7 @@ def read_bag(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='examine ROS time stamps for eventarray bag.')
+        description='examine ROS time stamps for event packet bag.')
     parser.add_argument('--bag', '-b', action='store', default=None,
                         required=True, help='bag file to read events from')
     parser.add_argument('--topic', help='Event topic to read',

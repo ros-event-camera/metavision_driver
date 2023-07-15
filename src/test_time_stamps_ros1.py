@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 #
-"""test code for eventarray time stamp debugging."""
+"""test code for event packet time stamp debugging."""
 
 import rosbag
 import argparse
@@ -63,7 +63,7 @@ def read_bag(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='examine ROS time stamps for eventarray bag.')
+        description='examine ROS time stamps for event packet bag.')
     parser.add_argument('--bag', '-b', action='store', default=None,
                         required=True, help='bag file to read events from')
     parser.add_argument('--topic', help='Event topic to read',

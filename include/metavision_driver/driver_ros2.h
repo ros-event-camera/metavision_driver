@@ -16,7 +16,7 @@
 #ifndef METAVISION_DRIVER__DRIVER_ROS2_H_
 #define METAVISION_DRIVER__DRIVER_ROS2_H_
 
-#include <event_array_msgs/msg/event_array.hpp>
+#include <event_camera_msgs/msg/event_packet.hpp>
 #include <map>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -34,7 +34,7 @@ class MetavisionWrapper;  // forward decl
 
 class DriverROS2 : public rclcpp::Node, public CallbackHandler
 {
-  using EventArrayMsg = event_array_msgs::msg::EventArray;
+  using EventPacketMsg = event_camera_msgs::msg::EventPacket;
   using Trigger = std_srvs::srv::Trigger;
 
 public:
@@ -78,8 +78,8 @@ private:
   uint64_t lastMessageTime_{0};
   uint64_t messageThresholdTime_{0};  // threshold time for sending message
   size_t messageThresholdSize_{0};    // threshold size for sending message
-  EventArrayMsg::UniquePtr msg_;
-  rclcpp::Publisher<EventArrayMsg>::SharedPtr eventPub_;
+  EventPacketMsg::UniquePtr msg_;
+  rclcpp::Publisher<EventPacketMsg>::SharedPtr eventPub_;
   // ------ related to sync
   rclcpp::Service<Trigger>::SharedPtr secondaryReadyServer_;
   rclcpp::TimerBase::SharedPtr oneOffTimer_;

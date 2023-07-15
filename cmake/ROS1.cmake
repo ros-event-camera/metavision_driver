@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
   dynamic_reconfigure
-  event_array_msgs
+  event_camera_msgs
   std_srvs)
 
 # MetavisionSDK is now found otherwise
@@ -88,7 +88,7 @@ install(DIRECTORY
   config
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
-if (MUST_INSTALL_METAVISION)
+if(MUST_INSTALL_METAVISION)
   install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 endif()
