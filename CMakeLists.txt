@@ -53,17 +53,27 @@ endif()
 
 set(BUILD_TESTING ON CACHE BOOL INTERNAL "Build tests")
 
+#
+# figure out ROS1 vs ROS2
+#
 if(DEFINED ENV{ROS_VERSION})
-  if($ENV{ROS_VERSION} EQUAL "2")
-    # to avoid cmake warning: "Manually-specified variables were not used by the project"
-    unset(CATKIN_INSTALL_INTO_PREFIX_ROOT)
-    unset(CATKIN_SYMLINK_INSTALL)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ROS2.cmake)
-  elseif($ENV{ROS_VERSION} EQUAL "1")
-    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ROS1.cmake)
-  else()
-    message(SEND_ERROR "invalid ROS_VERSION environment variable: $ENV{ROS_VERSION}")
-  endif()
+  set(ROS_VERSION "$ENV{ROS_VERSION}")
+  message(STATUS "using env variable ROS_VERSION: ${ROS_VERSION}")
 else()
-  message(SEND_ERROR "ROS_VERSION environment variable is not set!")
+  find_package(catkin QUIET)
+  if(catkin_FOUND)
+    message(STATUS "found catkin package, must be ROS1!")
+    set(ROS_VERSION "1")
+  else()
+    message(STATUS "catkin package not found, must be ROS2!")
+    set(ROS_VERSION "2")
+  endif()
+endif()
+
+if(ROS_VERSION EQUAL "2")
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ROS2.cmake)
+elseif(ROS_VERSION EQUAL "1")
+  include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ROS1.cmake)
+else()
+  message(SEND_ERROR "invalid ROS_VERSION: ${ROS_VERSION}")
 endif()
