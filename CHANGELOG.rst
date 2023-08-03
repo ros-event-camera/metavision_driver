@@ -2,6 +2,12 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Try to pull in OpenEB dependencies via package.xml and figure out ROS1/ROS2 via cmake
+* updated links in README
+* Contributors: Bernd Pfrommer, Laurent Bristiel
+
 1.0.1 (2023-07-24)
 ------------------
 * Change package name from metavision_ros_driver to metavision_driver, and
