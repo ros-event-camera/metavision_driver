@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2023-08-04)
+------------------
 * changes to build on ROS2 build farm
 * Contributors: Bernd Pfrommer
 
