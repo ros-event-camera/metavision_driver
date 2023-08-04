@@ -2,6 +2,11 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* changes to build on ROS2 build farm
+* Contributors: Bernd Pfrommer
+
 1.0.2 (2023-08-03)
 ------------------
 * Try to pull in OpenEB dependencies via package.xml and figure out ROS1/ROS2 via cmake
