@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.6 (2023-08-07)
+------------------
 * see if add_dependencies() is causing trouble
 * resurrected old ROS_VERSION detection scheme
 * Contributors: Bernd Pfrommer
