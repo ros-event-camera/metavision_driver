@@ -26,7 +26,7 @@ set(MUST_INSTALL_METAVISION FALSE)
 if(NOT MetavisionSDK_FOUND)
   # must set various variables for OpenEB *before* fetching openEB.
   # CMAKE_ARGS seems to not work for FetchContent_Declare()
-  set(COMPILE_3DVIEW OFF CACHE INTERNAL "Build 3d viewer")
+  # set(COMPILE_3DVIEW OFF CACHE INTERNAL "Build 3d viewer")
   set(COMPILE_PLAYER OFF CACHE INTERNAL "Build player")
   set(COMPILE_PYTHON3_BINDINGS OFF CACHE INTERNAL "build python3 bindings")
   set(UDEV_RULES_SYSTEM_INSTALL OFF CACHE INTERNAL "install udev rules")
