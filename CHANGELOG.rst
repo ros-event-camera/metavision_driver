@@ -2,6 +2,10 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* bump minor package number to avoid collisions with rolling
+
 1.0.4 (2023-08-07)
 ------------------
 * added dependency on hal_plugins to cause metavision plugins to be built
