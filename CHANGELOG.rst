@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.5 (2023-08-07)
+------------------
 * bump minor package number to avoid collisions with rolling
 
 1.0.4 (2023-08-07)
