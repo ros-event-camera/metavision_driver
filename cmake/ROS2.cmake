@@ -98,7 +98,7 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/)
 
 if(MUST_INSTALL_METAVISION)
-  add_dependencies(driver_ros2 hal_plugins)
+  # add_dependencies(driver_ros2 hal_plugins)
   install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
     DESTINATION ${CMAKE_INSTALL_PREFIX})
 endif()
