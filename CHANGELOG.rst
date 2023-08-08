@@ -2,6 +2,11 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Prophesee standard plugins should now be coming with the ROS driver
+* Contributors: Bernd Pfrommer
+
 1.1.6 (2023-08-07)
 ------------------
 * see if add_dependencies() is causing trouble
