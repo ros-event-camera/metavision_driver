@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.7 (2023-08-08)
+------------------
 * Prophesee standard plugins should now be coming with the ROS driver
 * Contributors: Bernd Pfrommer
 
