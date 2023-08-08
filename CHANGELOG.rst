@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.6 (2023-08-08)
+------------------
 * Package should now contain Prophesee default plugins
 * Contributors: Bernd Pfrommer
 
