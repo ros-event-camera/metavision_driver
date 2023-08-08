@@ -35,6 +35,7 @@
   <!-- common dependencies -->
   <buildtool_depend>ros_environment</buildtool_depend> <!-- ROS_VERSION + ROS_DISTRO -->
   <depend>event_camera_msgs</depend>
+  <buildtool_depend>ros_environment</buildtool_depend> <!-- ROS_VERSION + ROS_DISTRO -->
   <depend>std_srvs</depend>
 
   <!-- openeb dependencies -->
