@@ -109,6 +109,7 @@ public:
     ercMode_ = mode;
     ercRate_ = rate;
   }
+  void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
 
   bool triggerActive() const
   {
@@ -136,6 +137,7 @@ private:
     const std::string & mode_in, const std::string & mode_out, const int period,
     const double duty_cycle);
   void configureEventRateController(const std::string & mode, const int rate);
+  void configureMIPIFramePeriod(int usec, const std::string & sensorName);
   void printStatistics();
   // ------------ variables
   CallbackHandler * callbackHandler_{0};
@@ -164,6 +166,7 @@ private:
   HardwarePinConfig hardwarePinConfig_;
   std::string ercMode_;
   int ercRate_;
+  int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
   std::string sensorVersion_{"0.0"};

@@ -347,6 +347,9 @@ void DriverROS2::configureWrapper(const std::string & name)
   if (wrapper_->triggerActive()) {
     wrapper_->setHardwarePinConfig(get_hardware_pin_config(this));
   }
+  int mipiFramePeriod{-1};
+  this->get_parameter_or("mipi_frame_period", mipiFramePeriod, -1);
+  wrapper_->setMIPIFramePeriod(mipiFramePeriod);
 }
 
 void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_t * end)
