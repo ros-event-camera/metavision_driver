@@ -21,7 +21,7 @@ The events can be decoded and displayed using the following ROS/ROS2 packages:
   has C++ routines to decode event_camera_msgs.
 - [event_camera_py](https://github.com/ros-event-camera/event_camera_py)
   module for fast event decoding in python.
-- [event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer)
+- [event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer)
   a node / nodelet that renders and publishes ROS image messages.
 - [event_camera_tools](https://github.com/ros-event-camera/event_camera_tools)
   a set of tools to echo, monitor performance and convert
@@ -217,12 +217,12 @@ rosrun metavision_driver start_recording.py
 rosrun metavision_driver stop_recording.py
 ```
 
-To visualize the events, run a ``viewer`` node from the
-[event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer) package:
+To visualize the events, run a ``renderer`` node from the
+[event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer) package:
 ```
-roslaunch event_camera_viewer viewer.launch
+roslaunch event_camera_renderer renderer.launch
 ```
-The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
+The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
 
 # How to use (ROS2):
@@ -246,12 +246,12 @@ ros2 run rosbag2_composable_recorder start_recording.py
 ```
 To stop the recording you have to kill (Ctrl-C) the recording driver.
 
-To visualize the events, run a ``viewer`` node from the
-[event_camera_viewer](https://github.com/ros-event-camera/event_camera_viewer) package:
+To visualize the events, run a ``renderer`` node from the
+[event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer) package:
 ```
-ros2 launch event_camera_viewer viewer.launch.py
+ros2 launch event_camera_renderer renderer.launch.py
 ```
-The viewer node publishes an image that can be visualized with e.g. ``rqt_image_view``
+The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
 ## CPU load
 
