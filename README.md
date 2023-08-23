@@ -120,6 +120,8 @@ Parameters:
   specifying serial number and look at the log files.
 - ``event_message_time_threshold``: (in seconds) minimum time span of
   events to be aggregated in one ROS event message before message is sent. Defaults to 1ms.
+  In its default setting however the SDK provides packets only every 4ms. To increase SDK
+  callback frequency, tune ``mipi_frame_period`` if available for your sensor.
 - ``event_message_size_threshold``: (in bytes) minimum size of events
   (in bytes) to be aggregated in one ROS event message before message is sent. Defaults to 1MB.
 - ``statistics_print_interval``: time in seconds between statistics printouts.
@@ -142,6 +144,8 @@ Parameters:
 - ``erc_mode``: event rate control mode (Gen4 sensor): ``na``,
   ``disabled``, ``enabled``. Default: ``na``.
 - ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
+- ``mipi_frame_period``:: mipi frame period in usec. Only available on some sensors.
+    Tune this to get faster callback rates from the SDK to the ROS driver. For instance 1008 will give a callback every millisecond. Risk of data corruption when set too low! Default: -1 (not set).
 - ``sync_mode``: Used to synchronize the time stamps across multiple
   cameras (tested for only 2). The cameras must be connected via a
   sync cable, and two separate ROS driver nodes are started, see

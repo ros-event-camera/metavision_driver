@@ -231,6 +231,8 @@ void DriverROS1::configureWrapper(const std::string & name)
     nh_.param<std::string>("erc_mode", "na"),  // Event Rate Controller Mode
     nh_.param<int>("erc_rate", 100000000));    // Event Rate Controller Rate
 
+  wrapper_->setMIPIFramePeriod(nh_.param<int>("mipi_frame_period", -1));
+
   // Get information on external pin configuration per hardware setup
   if (wrapper_->triggerActive()) {
     wrapper_->setHardwarePinConfig(get_hardware_pin_config(nh_, ros::this_node::getName()));
