@@ -57,6 +57,11 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
   {"loopback", Metavision::I_TriggerIn::Channel::Loopback}};
 #endif
 
+// Map sensor name to mipi frame period register. This should really be done by the SDK...
+
+static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
+  {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
+
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
@@ -377,15 +382,16 @@ bool MetavisionWrapper::initializeCamera()
 
 void MetavisionWrapper::configureMIPIFramePeriod(int usec, const std::string & sensorName)
 {
-  if (sensorName == "IMX636") {
-    const uint32_t mfpa = 0xB028;  // for imx636
+  const auto it = sensorToMIPIAddress.find(sensorName);
+  if (it == sensorToMIPIAddress.end()) {
+    LOG_WARN_NAMED("cannot configure mipi frame period for sensor " << sensorName);
+  } else {
+    const uint32_t mfpa = it->second;
     auto hwrf = cam_.get_device().get_facility<Metavision::I_HW_Register>();
     const int prev_mfp = hwrf->read_register(mfpa);
     hwrf->write_register(mfpa, usec);
     const int new_mfp = hwrf->read_register(mfpa);
     LOG_INFO_NAMED("mipi frame period changed from " << prev_mfp << " to " << new_mfp << "us");
-  } else {
-    LOG_WARN_NAMED("cannot configure mipi frame period for sensor " << sensorName);
   }
 }
 
