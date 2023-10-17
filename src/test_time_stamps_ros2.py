@@ -26,10 +26,8 @@ import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from rclpy.serialization import deserialize_message
 from rclpy.time import Time
-
 import rosbag2_py
 from rosidl_runtime_py.utilities import get_message
 
