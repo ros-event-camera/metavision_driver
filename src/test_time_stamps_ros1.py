@@ -17,16 +17,17 @@
 #
 """test code for event packet time stamp debugging."""
 
-import rosbag
 import argparse
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import rosbag
 
 
 def read_bag(args):
-    print(f'opening bag {args.bag} ...')
+    print(f"opening bag {args.bag} ...")
     bag = rosbag.Bag(args.bag)
-    print('iterating through messages...')
+    print("iterating through messages...")
     t0_ros, t0_sensor = None, None
     t_last_evt = None
     ros_times, sensor_times, rec_times = [], [], []
@@ -47,37 +48,53 @@ def read_bag(args):
 
         dt_msg = t_ros[0] - t_last_evt
         if dt_msg < 0:
-            print('ERROR: timestamp going backward at time: ', t_ros[0])
+            print("ERROR: timestamp going backward at time: ", t_ros[0])
         if t_ros[-1] > t_rec_nsec:
-            print('WARN: timestamp from the future (can happen): ',
-                  f'{t_ros[0]} diff: {(t_ros[-1] - t_rec_nsec) * 1e-9}')
+            print(
+                "WARN: timestamp from the future (can happen): ",
+                f"{t_ros[0]} diff: {(t_ros[-1] - t_rec_nsec) * 1e-9}",
+            )
         t_last_evt = t_ros[-1]
         ros_times.append(t_ros[0] - t0_ros)
         sensor_times.append(t_sensor[0] - t0_sensor)
         rec_times.append(t_rec_nsec - t0_rec)
 
-    return np.array(ros_times).astype(np.float), \
-        np.array(sensor_times).astype(np.float), \
-        np.array(rec_times).astype(np.float)
+    return (
+        np.array(ros_times).astype(np.float),
+        np.array(sensor_times).astype(np.float),
+        np.array(rec_times).astype(np.float),
+    )
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='examine ROS time stamps for event packet bag.')
-    parser.add_argument('--bag', '-b', action='store', default=None,
-                        required=True, help='bag file to read events from')
-    parser.add_argument('--topic', help='Event topic to read',
-                        default='/event_camera/events', type=str)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="examine ROS time stamps for event packet bag.")
+    parser.add_argument(
+        "--bag",
+        "-b",
+        action="store",
+        default=None,
+        required=True,
+        help="bag file to read events from",
+    )
+    parser.add_argument(
+        "--topic", help="Event topic to read", default="/event_camera/events", type=str
+    )
     ros_times, sensor_times, rec_times = read_bag(parser.parse_args())
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(ros_times * 1e-9, (ros_times - sensor_times) * 1e-9,
-            'g', label='ros stamp - sensor time')
-    ax.plot(ros_times * 1e-9, (rec_times - ros_times) * 1e-9,
-            'r.', label='rec time - ros stamp', markersize=0.2)
-    ax.set_xlabel('time [sec]')
-    ax.set_ylabel('time differences [sec]')
+    ax.plot(
+        ros_times * 1e-9, (ros_times - sensor_times) * 1e-9, "g", label="ros stamp - sensor time"
+    )
+    ax.plot(
+        ros_times * 1e-9,
+        (rec_times - ros_times) * 1e-9,
+        "r.",
+        label="rec time - ros stamp",
+        markersize=0.2,
+    )
+    ax.set_xlabel("time [sec]")
+    ax.set_ylabel("time differences [sec]")
     ax.legend()
     ax.set_ylim([-0.004, 0.005])
-    ax.set_title('time offsets to ROS message header stamps')
+    ax.set_title("time offsets to ROS message header stamps")
     plt.show()

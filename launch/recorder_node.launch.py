@@ -16,26 +16,24 @@
 #
 
 import launch
-from launch_ros.actions import Node
 from launch.actions import OpaqueFunction
+from launch_ros.actions import Node
 
 
 def launch_setup(context, *args, **kwargs):
     """Create simple node."""
-    node = Node(package='metavision_driver',
-                # prefix=['xterm -e gdb -ex run --args'],
-                executable='recorder_node',
-                output='screen',
-                name='recorder_node',
-                parameters=[{'topics': ['/event_camera/events', '/image'],
-                             'base_name': 'events_'}],
-                remappings=[
-                    ('~/events', '/events')])
+    node = Node(
+        package="metavision_driver",
+        # prefix=['xterm -e gdb -ex run --args'],
+        executable="recorder_node",
+        output="screen",
+        name="recorder_node",
+        parameters=[{"topics": ["/event_camera/events", "/image"], "base_name": "events_"}],
+        remappings=[("~/events", "/events")],
+    )
     return [node]
 
 
 def generate_launch_description():
     """Create simple node by calling opaque function."""
-    return launch.LaunchDescription([
-        OpaqueFunction(function=launch_setup)
-        ])
+    return launch.LaunchDescription([OpaqueFunction(function=launch_setup)])
