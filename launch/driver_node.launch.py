@@ -15,57 +15,62 @@
 #
 #
 
+import os
+
+from ament_index_python.packages import get_package_share_directory
 import launch
-from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
-from ament_index_python.packages import get_package_share_directory
-import os
+from launch.substitutions import LaunchConfiguration as LaunchConfig
+from launch_ros.actions import Node
 
 
 def launch_setup(context, *args, **kwargs):
     """Create simple node."""
-    cam_name = LaunchConfig('camera_name')
+    cam_name = LaunchConfig("camera_name")
     cam_str = cam_name.perform(context)
-    pkg_name = 'metavision_driver'
+    pkg_name = "metavision_driver"
     share_dir = get_package_share_directory(pkg_name)
-    trigger_config = os.path.join(share_dir, 'config', 'trigger_pins.yaml')
+    trigger_config = os.path.join(share_dir, "config", "trigger_pins.yaml")
     # bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
-    node = Node(package='metavision_driver',
-                executable='driver_node',
-                output='screen',
-                # prefix=['xterm -e gdb -ex run --args'],
-                name=cam_name,
-                parameters=[
-                    trigger_config,  # loads the whole file
-                    {'use_multithreading': False,
-                     'statistics_print_interval': 2.0,
-                     # 'bias_file': bias_config,
-                     'camerainfo_url': '',
-                     'frame_id': '',
-                     'serial': LaunchConfig('serial'),
-                     'erc_mode': 'enabled',
-                     'erc_rate': 100000000,
-                     # 'roi': [0, 0, 100, 100],
-                     # valid: 'external', 'loopback', 'disabled'
-                     'trigger_in_mode': 'external',
-                     # valid: 'enabled', 'disabled'
-                     'trigger_out_mode': 'enabled',
-                     'trigger_out_period': 100000,  # in usec
-                     'trigger_duty_cycle': 0.5,     # fraction high/low
-                     'event_message_time_threshold': 1.0e-3}],
-                remappings=[
-                    ('~/events', cam_str + '/events')])
+    node = Node(
+        package="metavision_driver",
+        executable="driver_node",
+        output="screen",
+        # prefix=['xterm -e gdb -ex run --args'],
+        name=cam_name,
+        parameters=[
+            trigger_config,  # loads the whole file
+            {
+                "use_multithreading": False,
+                "statistics_print_interval": 2.0,
+                # 'bias_file': bias_config,
+                "camerainfo_url": "",
+                "frame_id": "",
+                "serial": LaunchConfig("serial"),
+                "erc_mode": "enabled",
+                "erc_rate": 100000000,
+                # 'roi': [0, 0, 100, 100],
+                # valid: 'external', 'loopback', 'disabled'
+                "trigger_in_mode": "external",
+                # valid: 'enabled', 'disabled'
+                "trigger_out_mode": "enabled",
+                "trigger_out_period": 100000,  # in usec
+                "trigger_duty_cycle": 0.5,  # fraction high/low
+                "event_message_time_threshold": 1.0e-3,
+            },
+        ],
+        remappings=[("~/events", cam_str + "/events")],
+    )
     return [node]
 
 
 def generate_launch_description():
     """Create simple node by calling opaque function."""
-    return launch.LaunchDescription([
-        LaunchArg('camera_name', default_value=['event_camera'],
-                  description='camera name'),
-        LaunchArg('serial', default_value=[''],
-                  description='serial number of camera'),
-        OpaqueFunction(function=launch_setup)
-        ])
+    return launch.LaunchDescription(
+        [
+            LaunchArg("camera_name", default_value=["event_camera"], description="camera name"),
+            LaunchArg("serial", default_value=[""], description="serial number of camera"),
+            OpaqueFunction(function=launch_setup),
+        ]
+    )

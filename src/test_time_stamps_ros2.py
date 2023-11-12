@@ -22,21 +22,23 @@ Some code snippets for rosbag reading were taken from
 https://github.com/ros2/rosbag2/blob/master/rosbag2_py/test/test_sequential_reader.py
 """
 
-from rclpy.serialization import deserialize_message
-from rosidl_runtime_py.utilities import get_message
-import matplotlib.pyplot as plt
-import rosbag2_py
 import argparse
+
+import matplotlib.pyplot as plt
 import numpy as np
+from rclpy.serialization import deserialize_message
 from rclpy.time import Time
+import rosbag2_py
+from rosidl_runtime_py.utilities import get_message
 
 
-def get_rosbag_options(path, serialization_format='cdr'):
-    storage_options = rosbag2_py.StorageOptions(uri=path, storage_id='sqlite3')
+def get_rosbag_options(path, serialization_format="cdr"):
+    storage_options = rosbag2_py.StorageOptions(uri=path, storage_id="sqlite3")
 
     converter_options = rosbag2_py.ConverterOptions(
         input_serialization_format=serialization_format,
-        output_serialization_format=serialization_format)
+        output_serialization_format=serialization_format,
+    )
 
     return storage_options, converter_options
 
@@ -46,20 +48,19 @@ def read_bag(args):
     storage_options, converter_options = get_rosbag_options(bag_path)
 
     reader = rosbag2_py.SequentialReader()
-    print(f'opening bag {args.bag}')
+    print(f"opening bag {args.bag}")
     reader.open(storage_options, converter_options)
 
     topic_types = reader.get_all_topics_and_types()
 
     # Create a map for quicker lookup
-    type_map = {topic_types[i].name: topic_types[i].type
-                for i in range(len(topic_types))}
+    type_map = {topic_types[i].name: topic_types[i].type for i in range(len(topic_types))}
 
     # Set filter for topic of string type
     storage_filter = rosbag2_py.StorageFilter(topics=[args.topic])
     reader.set_filter(storage_filter)
 
-    print('iterating through messages...')
+    print("iterating through messages...")
     t0_ros, t0_sensor = None, None
     t_last_evt = None
     ros_times, sensor_times, rec_times = [], [], []
@@ -85,7 +86,7 @@ def read_bag(args):
 
         dt_msg = t_ros[0] - t_last_evt
         if dt_msg < 0:
-            print('ERROR: timestamp going backward at time: ', t_ros[0])
+            print("ERROR: timestamp going backward at time: ", t_ros[0])
         if t_ros[-1] > t_rec_nsec:
             num_ts_future += 1
             # print('WARN: timestamp from the future (can happen): ',
@@ -95,29 +96,45 @@ def read_bag(args):
         sensor_times.append(t_sensor[0] - t0_sensor)
         rec_times.append(t_rec_nsec - t0_rec)
 
-    print('fraction of messages with header stamp > recording stamp:',
-          f'{num_ts_future * 100 / len(ros_times)}%')
-    return np.array(ros_times).astype(np.float), \
-        np.array(sensor_times).astype(np.float), \
-        np.array(rec_times).astype(np.float)
+    print(
+        "fraction of messages with header stamp > recording stamp:",
+        f"{num_ts_future * 100 / len(ros_times)}%",
+    )
+    return (
+        np.array(ros_times).astype(np.float),
+        np.array(sensor_times).astype(np.float),
+        np.array(rec_times).astype(np.float),
+    )
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description='examine ROS time stamps for event packet bag.')
-    parser.add_argument('--bag', '-b', action='store', default=None,
-                        required=True, help='bag file to read events from')
-    parser.add_argument('--topic', help='Event topic to read',
-                        default='/event_camera/events', type=str)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="examine ROS time stamps for event packet bag.")
+    parser.add_argument(
+        "--bag",
+        "-b",
+        action="store",
+        default=None,
+        required=True,
+        help="bag file to read events from",
+    )
+    parser.add_argument(
+        "--topic", help="Event topic to read", default="/event_camera/events", type=str
+    )
     ros_times, sensor_times, rec_times = read_bag(parser.parse_args())
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.plot(ros_times * 1e-9, (ros_times - sensor_times) * 1e-9,
-            'g', label='ros stamp - sensor time')
-    ax.plot(ros_times * 1e-9, (rec_times - ros_times) * 1e-9,
-            'r.', label='rec time - ros stamp', markersize=0.2)
-    ax.set_xlabel('time [sec]')
-    ax.set_ylabel('time differences [sec]')
+    ax.plot(
+        ros_times * 1e-9, (ros_times - sensor_times) * 1e-9, "g", label="ros stamp - sensor time"
+    )
+    ax.plot(
+        ros_times * 1e-9,
+        (rec_times - ros_times) * 1e-9,
+        "r.",
+        label="rec time - ros stamp",
+        markersize=0.2,
+    )
+    ax.set_xlabel("time [sec]")
+    ax.set_ylabel("time differences [sec]")
     ax.legend()
-    ax.set_title('time offsets to ROS message header stamps')
+    ax.set_title("time offsets to ROS message header stamps")
     plt.show()

@@ -24,6 +24,7 @@
 #endif
 
 #include <metavision/hal/facilities/i_hw_identification.h>
+#include <metavision/hal/facilities/i_hw_register.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
 
@@ -55,6 +56,11 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
   {"aux", Metavision::I_TriggerIn::Channel::Aux},
   {"loopback", Metavision::I_TriggerIn::Channel::Loopback}};
 #endif
+
+// Map sensor name to mipi frame period register. This should really be done by the SDK...
+
+static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
+  {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
 
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
@@ -321,6 +327,7 @@ bool MetavisionWrapper::initializeCamera()
     sensorVersion_ =
       std::to_string(sinfo.major_version_) + "." + std::to_string(sinfo.minor_version_);
     LOG_INFO_NAMED("sensor version: " << sensorVersion_);
+    LOG_INFO_NAMED("sensor name: " << sinfo.name_);
     if (!biasFile_.empty()) {
       try {
         cam_.biases().set_from_file(biasFile_);
@@ -351,6 +358,9 @@ bool MetavisionWrapper::initializeCamera()
       configureExternalTriggers(
         triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
       configureEventRateController(ercMode_, ercRate_);
+      if (mipiFramePeriod_ > 0) {
+        configureMIPIFramePeriod(mipiFramePeriod_, sinfo.name_);
+      }
     }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
@@ -368,6 +378,21 @@ bool MetavisionWrapper::initializeCamera()
     return (false);
   }
   return (true);
+}
+
+void MetavisionWrapper::configureMIPIFramePeriod(int usec, const std::string & sensorName)
+{
+  const auto it = sensorToMIPIAddress.find(sensorName);
+  if (it == sensorToMIPIAddress.end()) {
+    LOG_WARN_NAMED("cannot configure mipi frame period for sensor " << sensorName);
+  } else {
+    const uint32_t mfpa = it->second;
+    auto hwrf = cam_.get_device().get_facility<Metavision::I_HW_Register>();
+    const int prev_mfp = hwrf->read_register(mfpa);
+    hwrf->write_register(mfpa, usec);
+    const int new_mfp = hwrf->read_register(mfpa);
+    LOG_INFO_NAMED("mipi frame period changed from " << prev_mfp << " to " << new_mfp << "us");
+  }
 }
 
 void MetavisionWrapper::setDecodingEvents(bool decodeEvents)
