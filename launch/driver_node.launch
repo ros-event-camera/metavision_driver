@@ -1,27 +1,37 @@
 <launch>
   <arg name="bias_file" default=""/>
   <arg name="serial" default=""/>
+  <arg name="use_multithreading" default="false"/>
+  <arg name="event_message_time_threshold" default="0.001"/>
+  <arg name="trigger_out_mode" default="enabled"/>
+  <arg name="trigger_out_period" default="1000"/>
+  <arg name="trigger_out_duty_cycle" default="0.5"/>
+  <arg name="trigger_in_mode" default="loopback"/>
+  <arg name="erc_mode" default="na"/>
+  <arg name="erc_rate" default="100000000"/>
+  <arg name="statistics_print_interval" default="1.0"/>
+
   <node pkg="metavision_driver" type="driver_node" name="event_camera" clear_params="true"
 	output="screen">
     <!-- run in multithreaded mode -->
-    <param name="use_multithreading" value="false"/>
+    <param name="use_multithreading" value="$(arg use_multithreading)"/>
     <!-- "message_time_threshold" sets time span for how long events
 	 will be buffered until a new ROS message is generated -->
-    <param name="event_message_time_threshold" value="0.001"/>
+    <param name="event_message_time_threshold" value="$(arg event_message_time_threshold)"/>
     <!--- use a time of zero to force immediate sending of trigger
 	message, else there will always be at least 2 trigger events
 	per message -->
     <param name="serial" value="$(arg serial)"/>
-    <param name="trigger_out_mode" value="enabled"/>
+    <param name="trigger_out_mode" value="$(arg trigger_out_mode)"/>
     <!-- units of trigger_out_period is usec -->
-    <param name="trigger_out_period" value="1000"/>
-    <param name="trigger_out_duty_cycle" value="0.5"/>
-    <param name="trigger_in_mode" value="loopback"/>
+    <param name="trigger_out_period" value="$(arg trigger_out_period)"/>
+    <param name="trigger_out_duty_cycle" value="$(arg trigger_out_duty_cycle)"/>
+    <param name="trigger_in_mode" value="$(arg trigger_in_mode)"/>
     <!-- erc mode: na, enabled, disabled -->
-    <param name="erc_mode" value="na"/>
-    <param name="erc_rate" value="100000000"/>
+    <param name="erc_mode" value="$(arg erc_mode)"/>
+    <param name="erc_rate" value="$(arg erc_rate)"/>
     <!-- time interval between printout of rate statistics -->
-    <param name="statistics_print_interval" value="1.0"/>
+    <param name="statistics_print_interval" value="$(arg statistics_print_interval)"/>
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <!-- define region of interest: top left (x, y) then width, height
