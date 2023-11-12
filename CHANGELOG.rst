@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.1.8 (2023-11-12)
+------------------
 * fix broken build on galactic
 * more fixes to make flake8 happy
 * reformat python code as "black" and fix import order
