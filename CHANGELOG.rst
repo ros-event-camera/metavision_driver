@@ -2,6 +2,18 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fix broken build on galactic
+* more fixes to make flake8 happy
+* reformat python code as "black" and fix import order
+* Modify launch file to accept params as args.
+* support mipi frame period configuration for Gen3.1
+* changed viewer -> renderer
+* ignore python cache files in launch directory
+* ability to set mipi_frame_period
+* Contributors: Bernd Pfrommer, agaidev
+
 1.0.6 (2023-08-08)
 ------------------
 * Package should now contain Prophesee default plugins
