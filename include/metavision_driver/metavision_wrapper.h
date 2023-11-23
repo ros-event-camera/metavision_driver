@@ -89,6 +89,7 @@ public:
   const std::string & getSyncMode() const { return (syncMode_); }
   const std::string & getSensorVersion() const { return (sensorVersion_); }
   const std::string & getFromFile() const { return (fromFile_); }
+  const std::string & getEncodingFormat() const { return (encodingFormat_); }
 
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
   void setFromFile(const std::string & f) { fromFile_ = f; }
@@ -170,6 +171,7 @@ private:
   int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
+  std::string encodingFormat_{"unknown"};
   std::string sensorVersion_{"0.0"};
   // --  related to statistics
   double statsInterval_{2.0};  // time between printouts

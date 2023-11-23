@@ -146,9 +146,16 @@ void DriverROS1::start()
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
     const auto sn = wrapper_->getSerialNumber();
-    frameId_ = sn.substr(sn.size() - 4);
+    frameId_ = (sn.size() > 4) ? sn.substr(sn.size() - 4) : std::string("event_cam");
   }
   ROS_INFO_STREAM("using frame id: " << frameId_);
+
+  if (wrapper_->getEncodingFormat() != encoding_) {
+    ROS_ERROR_STREAM(
+      "encoding mismatch, camera has: " << wrapper_->getEncodingFormat() << ", but expecting "
+                                        << encoding_);
+    throw std::runtime_error("encoding mismatch!");
+  }
 
   // ------ get other parameters from camera
   width_ = wrapper_->getWidth();
