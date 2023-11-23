@@ -23,7 +23,8 @@
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_cpplint</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_flake8</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_lint_cmake</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_pep257</test_depend>
+  <!-- does not work on galactic/foxy
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_pep257</test_depend> -->
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_xmllint</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
 
