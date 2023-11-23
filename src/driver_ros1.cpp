@@ -158,13 +158,15 @@ void DriverROS1::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
-  initializeBiasParameters(wrapper_->getSensorVersion());
-  // hook up dynamic config server *after* the camera has
-  // been initialized so we can read the bias values
-  configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
-  configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
+  if (wrapper_->getFromFile().empty()) {
+    initializeBiasParameters(wrapper_->getSensorVersion());
+    // hook up dynamic config server *after* the camera has
+    // been initialized so we can read the bias values
+    configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
+    configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
 
-  saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
+    saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
+  }
 }
 
 void DriverROS1::initializeBiasParameters(const std::string & sensorVersion)

@@ -88,6 +88,7 @@ public:
   const std::string & getExternalTriggerInMode() const { return (triggerInMode_); }
   const std::string & getSyncMode() const { return (syncMode_); }
   const std::string & getSensorVersion() const { return (sensorVersion_); }
+  const std::string & getFromFile() const { return (fromFile_); }
 
   void setSerialNumber(const std::string & sn) { serialNumber_ = sn; }
   void setFromFile(const std::string & f) { fromFile_ = f; }
