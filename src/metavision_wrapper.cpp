@@ -336,7 +336,7 @@ bool MetavisionWrapper::initializeCamera()
         LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
         LOG_WARN_NAMED("continuing with default biases!");
       }
-    } else {
+    } else if (fromFile_.empty()) {  // only load biases when not playing from file!
       LOG_INFO_NAMED("no bias file provided, using camera defaults:");
       const Metavision::Biases biases = cam_.biases();
       Metavision::I_LL_Biases * hw_biases = biases.get_facility();

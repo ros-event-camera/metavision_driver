@@ -252,16 +252,18 @@ void DriverROS2::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
-  declareBiasParameters(wrapper_->getSensorVersion());
-  callbackHandle_ = this->add_on_set_parameters_callback(
-    std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
-  parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
-    this->get_node_topics_interface(),
-    std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
+  if (wrapper_->getFromFile().empty()) {
+    declareBiasParameters(wrapper_->getSensorVersion());
+    callbackHandle_ = this->add_on_set_parameters_callback(
+      std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
+    parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+      this->get_node_topics_interface(),
+      std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
-  saveBiasesService_ = this->create_service<Trigger>(
-    "save_biases",
-    std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+    saveBiasesService_ = this->create_service<Trigger>(
+      "save_biases",
+      std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+  }
 }
 
 bool DriverROS2::stop()
