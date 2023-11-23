@@ -132,8 +132,10 @@ void DriverROS2::onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::Par
   for (auto it = biasParameters_.begin(); it != biasParameters_.end(); ++it) {
     validEvents.push_back(it->first);
   }
+  // need to make copy to work around Foxy API
+  auto ev = std::make_shared<rcl_interfaces::msg::ParameterEvent>(*event);
   rclcpp::ParameterEventsFilter filter(
-    event, validEvents, {rclcpp::ParameterEventsFilter::EventType::CHANGED});
+    ev, validEvents, {rclcpp::ParameterEventsFilter::EventType::CHANGED});
   for (auto & it : filter.get_events()) {
     const std::string & name = it.second->name;
     const auto bp_it = biasParameters_.find(name);
