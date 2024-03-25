@@ -24,6 +24,7 @@ find_package(MetavisionSDK COMPONENTS driver QUIET)
 set(MUST_INSTALL_METAVISION FALSE)
 
 if(NOT MetavisionSDK_FOUND)
+  message(STATUS "metavision SDK is not installed, must build it")
   # must set various variables for OpenEB *before* fetching openEB.
   # CMAKE_ARGS seems to not work for FetchContent_Declare()
   # set(COMPILE_3DVIEW OFF CACHE INTERNAL "Build 3d viewer")
@@ -39,13 +40,15 @@ if(NOT MetavisionSDK_FOUND)
     GIT_TAG   4.2.0-ros)
 
   FetchContent_MakeAvailable(metavision)
-
+  message(STATUS "metavision SDK fetched and made available")
   # do this to avoid the "install" target being run on the metavision sdk
   if(IS_DIRECTORY "${metavision_SOURCE_DIR}")
     set_property(DIRECTORY ${metavision_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL YES)
   endif()
 
   set(MUST_INSTALL_METAVISION TRUE)
+else()
+  message(STATUS "metavision SDK is installed, not building it")
 endif()
 
 #
