@@ -45,7 +45,7 @@
   <buildtool_depend condition="$ROS_VERSION == 1">git</buildtool_depend>
   <buildtool_depend condition="$ROS_VERSION == 1">cmake</buildtool_depend>
   <buildtool_depend condition="$ROS_VERSION == 1">hdf5-tools</buildtool_depend>
-  <depend condition="$ROS_VERSION == 2">openeb</depend>
+  <depend condition="$ROS_VERSION == 2">openeb_vendor</depend>
   <depend condition="$ROS_VERSION == 1">boost</depend>
   <depend condition="$ROS_VERSION == 1">libusb-1.0-dev</depend>
   <depend condition="$ROS_VERSION == 1">libhdf5-dev</depend>
