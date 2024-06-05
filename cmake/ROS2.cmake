@@ -28,10 +28,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-# find dependencies
-
-# MetavisionSDK is now found otherwise
-# find_package(MetavisionSDK COMPONENTS driver REQUIRED)
+find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
 if(MetavisionSDK_VERSION_MAJOR LESS 4)
   add_definitions(-DUSING_METAVISION_3)
@@ -96,12 +93,6 @@ install(DIRECTORY
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}/)
-
-if(MUST_INSTALL_METAVISION)
-  add_dependencies(driver_ros2 hal_plugins)
-  install(DIRECTORY  "${CMAKE_CURRENT_BINARY_DIR}/_deps/metavision-build/lib"
-    DESTINATION ${CMAKE_INSTALL_PREFIX})
-endif()
 
 if(BUILD_TESTING)
   find_package(ament_cmake REQUIRED)
