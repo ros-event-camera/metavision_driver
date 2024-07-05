@@ -2,6 +2,14 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* depend on openeb_vendor
+* work around foxy API differences
+* fail more gracefully when EVT2 file is fed in
+* fixed bug when playing back from file
+* Contributors: Bernd Pfrommer
+
 1.0.8 (2023-11-12)
 ------------------
 * fix broken build on galactic
