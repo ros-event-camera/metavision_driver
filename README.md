@@ -32,15 +32,19 @@ The events can be decoded and displayed using the following ROS/ROS2 packages:
 Tested on the following platforms:
 
 - ROS Noetic
-- ROS2 Galactic / Humble
+- ROS2 Humble (also compiles on other versions, see CI)
 - Ubuntu 20.04, 22.04 LTS
-- Metavision SDK (OpenEB) 2.2.2 - 4.0.1
+- Metavision SDK (OpenEB) 4.2.0
+
 
 Tested on the following hardware:
 
 - [SilkyEVCam VGA (Gen 3.1 sensor)](https://centuryarks.com/en/silkyevcam-vga/)
 - [SilkyEVCam HD (Gen 4 sensor)](https://centuryarks.com/en/silkyevcam-hd/)
 - [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
+
+Explicitly not supported: any data in the old EVT2 format. The sensor
+must produce data in the EVT3 format or later.
 
 ## How to build
 
@@ -114,7 +118,8 @@ Parameters:
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
 - ``from_file``: path to Metavision raw file. Instead of opening
-  camera, driver plays back data from this file.
+  camera, driver plays back data from this file. This will not be in
+  real time, usually faster.
 - ``serial``: specifies serial number of camera to open (useful for
   stereo). To learn serial number format first start driver without
   specifying serial number and look at the log files.

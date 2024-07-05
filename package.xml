@@ -23,7 +23,8 @@
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_cpplint</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_flake8</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_lint_cmake</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_pep257</test_depend>
+  <!-- does not work on galactic/foxy
+  <test_depend condition="$ROS_VERSION == 2">ament_cmake_pep257</test_depend> -->
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_xmllint</test_depend>
   <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
 
@@ -39,21 +40,22 @@
   <depend>std_srvs</depend>
 
   <!-- openeb dependencies -->
-  <buildtool_depend>wget</buildtool_depend>
-  <buildtool_depend>unzip</buildtool_depend>
-  <buildtool_depend>curl</buildtool_depend>
-  <buildtool_depend>git</buildtool_depend>
-  <buildtool_depend>cmake</buildtool_depend>
-  <buildtool_depend>hdf5-tools</buildtool_depend>
-  <depend>boost</depend>
-  <depend>libusb-1.0-dev</depend>
-  <depend>libhdf5-dev</depend>
-  <depend>libglew-dev</depend>
-  <depend>libglfw3-dev</depend>
-  <depend>ffmpeg</depend>
-  <depend>libopencv-dev</depend>
-  <depend>libopenscenegraph</depend>
-  <test_depend>gtest</test_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">wget</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">unzip</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">curl</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">git</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">cmake</buildtool_depend>
+  <buildtool_depend condition="$ROS_VERSION == 1">hdf5-tools</buildtool_depend>
+  <depend condition="$ROS_VERSION == 2">openeb_vendor</depend>
+  <depend condition="$ROS_VERSION == 1">boost</depend>
+  <depend condition="$ROS_VERSION == 1">libusb-1.0-dev</depend>
+  <depend condition="$ROS_VERSION == 1">libhdf5-dev</depend>
+  <depend condition="$ROS_VERSION == 1">libglew-dev</depend>
+  <depend condition="$ROS_VERSION == 1">libglfw3-dev</depend>
+  <depend condition="$ROS_VERSION == 1">ffmpeg</depend>
+  <depend condition="$ROS_VERSION == 1">libopencv-dev</depend>
+  <depend condition="$ROS_VERSION == 1">libopenscenegraph</depend>
+  <test_depend condition="$ROS_VERSION == 1">gtest</test_depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>

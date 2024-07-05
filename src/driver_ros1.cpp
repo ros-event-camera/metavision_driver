@@ -146,9 +146,16 @@ void DriverROS1::start()
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
     const auto sn = wrapper_->getSerialNumber();
-    frameId_ = sn.substr(sn.size() - 4);
+    frameId_ = (sn.size() > 4) ? sn.substr(sn.size() - 4) : std::string("event_cam");
   }
   ROS_INFO_STREAM("using frame id: " << frameId_);
+
+  if (wrapper_->getEncodingFormat() != encoding_) {
+    ROS_ERROR_STREAM(
+      "encoding mismatch, camera has: " << wrapper_->getEncodingFormat() << ", but expecting "
+                                        << encoding_);
+    throw std::runtime_error("encoding mismatch!");
+  }
 
   // ------ get other parameters from camera
   width_ = wrapper_->getWidth();
@@ -158,13 +165,15 @@ void DriverROS1::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
-  initializeBiasParameters(wrapper_->getSensorVersion());
-  // hook up dynamic config server *after* the camera has
-  // been initialized so we can read the bias values
-  configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
-  configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
+  if (wrapper_->getFromFile().empty()) {
+    initializeBiasParameters(wrapper_->getSensorVersion());
+    // hook up dynamic config server *after* the camera has
+    // been initialized so we can read the bias values
+    configServer_.reset(new dynamic_reconfigure::Server<Config>(nh_));
+    configServer_->setCallback(boost::bind(&DriverROS1::configure, this, _1, _2));
 
-  saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
+    saveBiasService_ = nh_.advertiseService("save_biases", &DriverROS1::saveBiases, this);
+  }
 }
 
 void DriverROS1::initializeBiasParameters(const std::string & sensorVersion)

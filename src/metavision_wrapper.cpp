@@ -62,6 +62,13 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
 static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
   {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
 
+static std::string to_lower(const std::string upper)
+{
+  std::string lower(upper);
+  std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+  return (lower);
+}
+
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
@@ -292,7 +299,8 @@ bool MetavisionWrapper::initializeCamera()
     try {
       if (!fromFile_.empty()) {
         LOG_INFO_NAMED("reading events from file: " << fromFile_);
-        cam_ = Metavision::Camera::from_file(fromFile_);
+        const auto cfg = Metavision::FileConfigHints().real_time_playback(true);
+        cam_ = Metavision::Camera::from_file(fromFile_, cfg);
       } else {
         if (!serialNumber_.empty()) {
           cam_ = Metavision::Camera::from_serial(serialNumber_);
@@ -324,6 +332,8 @@ bool MetavisionWrapper::initializeCamera()
     using HWI = Metavision::I_HW_Identification;
     const HWI * hwi = cam_.get_device().get_facility<HWI>();
     const auto sinfo = hwi->get_sensor_info();
+    encodingFormat_ = to_lower(hwi->get_current_data_encoding_format());
+    LOG_INFO_NAMED("encoding format: " << encodingFormat_);
     sensorVersion_ =
       std::to_string(sinfo.major_version_) + "." + std::to_string(sinfo.minor_version_);
     LOG_INFO_NAMED("sensor version: " << sensorVersion_);
@@ -336,7 +346,7 @@ bool MetavisionWrapper::initializeCamera()
         LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
         LOG_WARN_NAMED("continuing with default biases!");
       }
-    } else {
+    } else if (fromFile_.empty()) {  // only load biases when not playing from file!
       LOG_INFO_NAMED("no bias file provided, using camera defaults:");
       const Metavision::Biases biases = cam_.biases();
       Metavision::I_LL_Biases * hw_biases = biases.get_facility();

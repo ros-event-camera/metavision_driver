@@ -132,8 +132,10 @@ void DriverROS2::onParameterEvent(std::shared_ptr<const rcl_interfaces::msg::Par
   for (auto it = biasParameters_.begin(); it != biasParameters_.end(); ++it) {
     validEvents.push_back(it->first);
   }
+  // need to make copy to work around Foxy API
+  auto ev = std::make_shared<rcl_interfaces::msg::ParameterEvent>(*event);
   rclcpp::ParameterEventsFilter filter(
-    event, validEvents, {rclcpp::ParameterEventsFilter::EventType::CHANGED});
+    ev, validEvents, {rclcpp::ParameterEventsFilter::EventType::CHANGED});
   for (auto & it : filter.get_events()) {
     const std::string & name = it.second->name;
     const auto bp_it = biasParameters_.find(name);
@@ -240,9 +242,16 @@ void DriverROS2::start()
   if (frameId_.empty()) {
     // default frame id to last 4 digits of serial number
     const auto sn = wrapper_->getSerialNumber();
-    frameId_ = sn.substr(sn.size() - 4);
+    frameId_ = (sn.size() > 4) ? sn.substr(sn.size() - 4) : std::string("event_cam");
   }
   LOG_INFO("using frame id: " << frameId_);
+
+  if (wrapper_->getEncodingFormat() != encoding_) {
+    LOG_ERROR(
+      "encoding mismatch, camera has: " << wrapper_->getEncodingFormat() << ", but expecting "
+                                        << encoding_);
+    throw std::runtime_error("encoding mismatch!");
+  }
 
   // ------ get other parameters from camera
   width_ = wrapper_->getWidth();
@@ -252,16 +261,18 @@ void DriverROS2::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
 
-  declareBiasParameters(wrapper_->getSensorVersion());
-  callbackHandle_ = this->add_on_set_parameters_callback(
-    std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
-  parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
-    this->get_node_topics_interface(),
-    std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
+  if (wrapper_->getFromFile().empty()) {
+    declareBiasParameters(wrapper_->getSensorVersion());
+    callbackHandle_ = this->add_on_set_parameters_callback(
+      std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
+    parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+      this->get_node_topics_interface(),
+      std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
-  saveBiasesService_ = this->create_service<Trigger>(
-    "save_biases",
-    std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+    saveBiasesService_ = this->create_service<Trigger>(
+      "save_biases",
+      std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+  }
 }
 
 bool DriverROS2::stop()

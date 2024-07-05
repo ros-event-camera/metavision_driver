@@ -13,40 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(metavision_driver)
-
-include(FetchContent)
-
-find_package(MetavisionSDK COMPONENTS driver QUIET)
-
-# if metavision sdk is not present, download it into the build directory
-set(MUST_INSTALL_METAVISION FALSE)
-
-if(NOT MetavisionSDK_FOUND)
-  # must set various variables for OpenEB *before* fetching openEB.
-  # CMAKE_ARGS seems to not work for FetchContent_Declare()
-  # set(COMPILE_3DVIEW OFF CACHE INTERNAL "Build 3d viewer")
-  set(COMPILE_PLAYER OFF CACHE INTERNAL "Build player")
-  set(COMPILE_PYTHON3_BINDINGS OFF CACHE INTERNAL "build python3 bindings")
-  set(UDEV_RULES_SYSTEM_INSTALL OFF CACHE INTERNAL "install udev rules")
-
-# The following line must have zero indent. It disables the cmake linter
-# lint_cmake: -readability/wonkycase
-  FetchContent_Declare(
-    metavision
-    GIT_REPOSITORY https://github.com/ros-event-camera/openeb.git
-    GIT_TAG   4.2.0-ros)
-
-  FetchContent_MakeAvailable(metavision)
-
-  # do this to avoid the "install" target being run on the metavision sdk
-  if(IS_DIRECTORY "${metavision_SOURCE_DIR}")
-    set_property(DIRECTORY ${metavision_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL YES)
-  endif()
-
-  set(MUST_INSTALL_METAVISION TRUE)
-endif()
 
 #
 # figure out ROS1 vs ROS2
