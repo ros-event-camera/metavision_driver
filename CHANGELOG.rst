@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.0 (2024-07-05)
+------------------
 * depend on openeb_vendor
 * work around foxy API differences
 * fail more gracefully when EVT2 file is fed in
