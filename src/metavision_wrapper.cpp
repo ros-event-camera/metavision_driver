@@ -23,6 +23,7 @@
 #include <metavision/hal/facilities/i_erc_module.h>
 #endif
 
+#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_hw_register.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
@@ -121,6 +122,33 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
   const int now = hw_biases->get(name);  // read back what actually took hold
   LOG_INFO_NAMED("changed  " << name << " from " << prev << " to " << val << " adj to: " << now);
   return (now);
+}
+
+void MetavisionWrapper::setTrailFilter(
+  const TrailFilterType type, const uint32_t threshold, const bool state)
+{
+  Metavision::I_EventTrailFilterModule * i_trail_filter =
+    cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
+
+  Metavision::I_EventTrailFilterModule::Type filter_type;
+
+  if (type == TrailFilterType::TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
+  } else if (type == TrailFilterType::STC_CUT_TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL;
+  } else if (type == TrailFilterType::STC_KEEP_TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
+  }
+
+  // Set filter type
+  if (!i_trail_filter->set_type(filter_type)) {
+    LOG_WARN_NAMED("cannot set type of trail filter!")
+  }
+  if (i_trail_filter->set_threshold(threshold)) {
+    LOG_WARN_NAMED("cannot set threshold of trail filter!")
+  }
+
+  i_trail_filter->enable(state);
 }
 
 bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)

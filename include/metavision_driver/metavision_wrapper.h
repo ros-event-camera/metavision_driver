@@ -60,6 +60,8 @@ public:
     size_t maxQueueSize{0};
   };
 
+  enum TrailFilterType { TRAIL, STC_CUT_TRAIL, STC_KEEP_TRAIL };
+
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
 
   explicit MetavisionWrapper(const std::string & loggerName);
@@ -112,6 +114,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
+  void setTrailFilter(const TrailFilterType type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {
