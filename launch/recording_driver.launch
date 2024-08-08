@@ -1,8 +1,7 @@
 <launch>
   <arg name="bag"/>
-  <arg name="bias_file"/>
+  <arg name="bias_file" default=""/>
   <arg name="serial" default=""/>
-  <arg name="trigger_in_mode" default="disabled"/>
 
   <node pkg="nodelet" type="nodelet" name="recording_driver"
 	args="manager" output="screen"/>
@@ -24,7 +23,5 @@
     <!-- from where to load the bias file (if any)  -->
     <param name="bias_file" value="$(arg bias_file)"/>
     <param name="serial" value="$(arg serial)"/>
-    <param name="trigger_in_mode" value="$(arg trigger_in_mode)"/>
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_nodelet.yaml"/>
   </node>
 </launch>

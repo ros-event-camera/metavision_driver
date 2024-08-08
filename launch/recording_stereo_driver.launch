@@ -1,10 +1,5 @@
 <launch>
   <arg name="bag"/>
-  <arg name="serial_0" default=""/>
-  <arg name="serial_1" default=""/>
-  <arg name="bias_file_0"/>
-  <arg name="bias_file_1"/>
-  <arg name="trigger_in_mode" default="disabled"/>
   <!-- manager node -->
   <node pkg="nodelet" type="nodelet" name="recording_driver"
 	args="manager" output="screen"/>
@@ -20,37 +15,31 @@
     name="event_cam_0" args="load
 				metavision_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
-    <param name="serial" value="$(arg serial_0)"/>
     <param name="frame_id" value="event_cam_0"/>
     <param name="sync_mode" value="primary"/>
-    <param name="trigger_in_mode" value="$(arg trigger_in_mode)"/>
     <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
-    <param name="bias_file" value="$(arg bias_file_0)"/>
+    <param name="bias_file" value="$(arg bias_file)"/>
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
     <!-- listen for ready message from cam 1 -->
     <remap from="~ready" to ="/event_cam_1/ready"/>
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_nodelet.yaml"/>
   </node>
 
   <!-- cam 1 -->
   <node pkg="nodelet" type="nodelet"
     name="event_cam_1" args="load metavision_driver/DriverNodelet recording_driver"
     clear_params="true" output="screen">
-    <param name="serial" value="$(arg serial_1)"/>
     <param name="frame_id" value="event_cam_1"/>
     <param name="sync_mode" value="secondary"/>
-    <param name="trigger_in_mode" value="$(arg trigger_in_mode)"/>
     <param name="event_message_time_threshold" value="0.0001"/>
     <!-- time interval between printout of rate statistics -->
     <param name="statistics_print_interval" value="2.0"/>
     <!-- from where to load the bias file (if any)  -->
-    <param name="bias_file" value="$(arg bias_file_1)"/>
+    <param name="bias_file" value="$(arg bias_file)"/>
     <!-- run in multithreaded mode -->
     <param name="use_multithreading" value="false"/>
-    <rosparam command="load" file="$(find metavision_ros_driver)/config/trigger_pins_nodelet.yaml"/>
   </node>
 </launch>
