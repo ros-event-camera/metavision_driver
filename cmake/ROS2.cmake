@@ -84,6 +84,10 @@ install(TARGETS
   driver_ros2
   DESTINATION lib)
 
+install(PROGRAMS
+  src/stop_recording_ros2.py
+  DESTINATION lib/${PROJECT_NAME}/)
+
 install(DIRECTORY
   launch
   DESTINATION share/${PROJECT_NAME}/
