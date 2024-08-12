@@ -325,13 +325,13 @@ void DriverROS2::configureWrapper(const std::string & name)
   this->get_parameter_or("trail_filter_threshold", trailFilterThreshold, 0);
   if (trailFilter) {
     LOG_INFO("Using tail filter in " << trailFilterType << " mode with threshold " << trailFilterThreshold);
-    metavision_driver::MetavisionWrapper::TrailFilterType filter_type;
+    metavision_driver::MetavisionWrapper::TrailFilter::Type filter_type;
     if (trailFilterType == "trail") {
-      filter_type = metavision_driver::MetavisionWrapper::TrailFilterType::TRAIL;
+      filter_type = metavision_driver::MetavisionWrapper::TrailFilter::Type::TRAIL;
     } else if (trailFilterType == "stc_trail_cut") {
-      filter_type = metavision_driver::MetavisionWrapper::TrailFilterType::STC_CUT_TRAIL;
+      filter_type = metavision_driver::MetavisionWrapper::TrailFilter::Type::STC_CUT_TRAIL;
     } else if (trailFilterType == "stc_keep_cut") {
-      filter_type = metavision_driver::MetavisionWrapper::TrailFilterType::STC_KEEP_TRAIL;
+      filter_type = metavision_driver::MetavisionWrapper::TrailFilter::Type::STC_KEEP_TRAIL;
     }
     wrapper_->setTrailFilter(filter_type, static_cast<uint32_t>(trailFilterThreshold), trailFilter);
   }

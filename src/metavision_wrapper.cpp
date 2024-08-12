@@ -125,7 +125,7 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
 }
 
 void MetavisionWrapper::setTrailFilter(
-  const TrailFilterType type, const uint32_t threshold, const bool state)
+  const TrailFilter::Type type, const uint32_t threshold, const bool state)
 {
   trailFilter_.enabled = state;
   trailFilter_.type = type;
@@ -449,11 +449,11 @@ void MetavisionWrapper::activateTrailFilter()
 
   Metavision::I_EventTrailFilterModule::Type filter_type;
 
-  if (trailFilter_.type == TrailFilterType::TRAIL) {
+  if (trailFilter_.type == TrailFilter::Type::TRAIL) {
     filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
-  } else if (trailFilter_.type == TrailFilterType::STC_CUT_TRAIL) {
+  } else if (trailFilter_.type == TrailFilter::Type::STC_CUT_TRAIL) {
     filter_type = Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL;
-  } else if (trailFilter_.type == TrailFilterType::STC_KEEP_TRAIL) {
+  } else if (trailFilter_.type == TrailFilter::Type::STC_KEEP_TRAIL) {
     filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
   }
 

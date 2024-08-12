@@ -60,11 +60,12 @@ public:
     size_t maxQueueSize{0};
   };
 
-  enum TrailFilterType { TRAIL, STC_CUT_TRAIL, STC_KEEP_TRAIL };
   struct TrailFilter
   {
+    enum Type { TRAIL, STC_CUT_TRAIL, STC_KEEP_TRAIL };
+
     bool enabled;
-    TrailFilterType type;
+    Type type;
     uint32_t threshold;
   };
 
@@ -120,7 +121,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
-  void setTrailFilter(const TrailFilterType type, const uint32_t threshold, const bool state);
+  void setTrailFilter(const TrailFilter::Type type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {
