@@ -85,12 +85,8 @@ int MetavisionWrapper::getBias(const std::string & name)
   const auto pmap = hw_biases->get_all_biases();
   auto it = pmap.find(name);
   if (it == pmap.end()) {
-    if (name == "bias_pr") {
-      LOG_WARN_NAMED("bias_pr is not supported for Gen4.1 and IMX636!");
-    } else {
-      LOG_ERROR_NAMED("unknown bias parameter: " << name);
-      throw(std::runtime_error("bias parameter not found!"));
-    }
+    LOG_ERROR_NAMED("unknown bias parameter: " << name);
+    throw(std::runtime_error("bias parameter not found!"));
   }
   return (it->second);
 }
