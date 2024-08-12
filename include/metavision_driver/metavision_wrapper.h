@@ -16,6 +16,7 @@
 #ifndef METAVISION_DRIVER__METAVISION_WRAPPER_H_
 #define METAVISION_DRIVER__METAVISION_WRAPPER_H_
 
+#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/sdk/driver/camera.h>
 
 #include <chrono>
@@ -62,10 +63,8 @@ public:
 
   struct TrailFilter
   {
-    enum Type { TRAIL, STC_CUT_TRAIL, STC_KEEP_TRAIL };
-
     bool enabled;
-    Type type;
+    std::string type;
     uint32_t threshold;
   };
 
@@ -121,7 +120,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
-  void setTrailFilter(const TrailFilter::Type type, const uint32_t threshold, const bool state);
+  void setTrailFilter(const std::string& type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {

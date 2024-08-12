@@ -23,7 +23,6 @@
 #include <metavision/hal/facilities/i_erc_module.h>
 #endif
 
-#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_hw_register.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
@@ -63,7 +62,13 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
 static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
   {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
 
-static std::string to_lower(const std::string upper)
+const static std::map<std::string, Metavision::I_EventTrailFilterModule::Type> trailFilterMap =
+  {{"trail", Metavision::I_EventTrailFilterModule::Type::TRAIL},
+   {"stc_trail_cut", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
+   {"stc_keep_cut", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
+
+static std::string
+to_lower(const std::string upper)
 {
   std::string lower(upper);
   std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
@@ -121,12 +126,11 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
 }
 
 void MetavisionWrapper::setTrailFilter(
-  const TrailFilter::Type type, const uint32_t threshold, const bool state)
+  const std::string& type, const uint32_t threshold, const bool state)
 {
   trailFilter_.enabled = state;
   trailFilter_.type = type;
   trailFilter_.threshold = threshold;
-
 }
 
 bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
@@ -445,6 +449,7 @@ void MetavisionWrapper::activateTrailFilter()
 
   Metavision::I_EventTrailFilterModule::Type filter_type;
 
+  /*
   if (trailFilter_.type == TrailFilter::Type::TRAIL) {
     filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
   } else if (trailFilter_.type == TrailFilter::Type::STC_CUT_TRAIL) {
@@ -452,9 +457,14 @@ void MetavisionWrapper::activateTrailFilter()
   } else if (trailFilter_.type == TrailFilter::Type::STC_KEEP_TRAIL) {
     filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
   }
+  */
+  const auto it = trailFilterMap.find(trailFilter_.type);
+  if (it == trailFilterMap.end()) {
+    LOG_WARN_NAMED("unknown trail filter type " << trailFilter_.type);
+  }
 
   // Set filter type
-  if (!i_trail_filter->set_type(filter_type)) {
+  if (!i_trail_filter->set_type(it->second)) {
     LOG_WARN_NAMED("cannot set type of trail filter!")
   }
   if (!i_trail_filter->set_threshold(trailFilter_.threshold)) {
