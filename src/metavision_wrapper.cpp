@@ -127,28 +127,10 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
 void MetavisionWrapper::setTrailFilter(
   const TrailFilterType type, const uint32_t threshold, const bool state)
 {
-  Metavision::I_EventTrailFilterModule * i_trail_filter =
-    cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
+  trailFilter_.enabled = state;
+  trailFilter_.type = type;
+  trailFilter_.threshold = threshold;
 
-  Metavision::I_EventTrailFilterModule::Type filter_type;
-
-  if (type == TrailFilterType::TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
-  } else if (type == TrailFilterType::STC_CUT_TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL;
-  } else if (type == TrailFilterType::STC_KEEP_TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
-  }
-
-  // Set filter type
-  if (!i_trail_filter->set_type(filter_type)) {
-    LOG_WARN_NAMED("cannot set type of trail filter!")
-  }
-  if (i_trail_filter->set_threshold(threshold)) {
-    LOG_WARN_NAMED("cannot set threshold of trail filter!")
-  }
-
-  i_trail_filter->enable(state);
 }
 
 bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
@@ -460,8 +442,38 @@ void MetavisionWrapper::setDecodingEvents(bool decodeEvents)
   }
 }
 
+void MetavisionWrapper::activateTrailFilter()
+{
+  Metavision::I_EventTrailFilterModule * i_trail_filter =
+    cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
+
+  Metavision::I_EventTrailFilterModule::Type filter_type;
+
+  if (trailFilter_.type == TrailFilterType::TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
+  } else if (trailFilter_.type == TrailFilterType::STC_CUT_TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL;
+  } else if (trailFilter_.type == TrailFilterType::STC_KEEP_TRAIL) {
+    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
+  }
+
+  // Set filter type
+  if (!i_trail_filter->set_type(filter_type)) {
+    LOG_WARN_NAMED("cannot set type of trail filter!")
+  }
+  if (!i_trail_filter->set_threshold(trailFilter_.threshold)) {
+    LOG_WARN_NAMED("cannot set threshold of trail filter!")
+  }
+
+  i_trail_filter->enable(trailFilter_.enabled);
+}
+
 bool MetavisionWrapper::startCamera(CallbackHandler * h)
 {
+  if (trailFilter_.enabled) {
+    activateTrailFilter();
+  }
+
   try {
     callbackHandler_ = h;
     if (useMultithreading_) {
