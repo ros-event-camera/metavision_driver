@@ -23,6 +23,7 @@
 #include <metavision/hal/facilities/i_erc_module.h>
 #endif
 
+#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_hw_register.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
@@ -447,17 +448,6 @@ void MetavisionWrapper::activateTrailFilter()
   Metavision::I_EventTrailFilterModule * i_trail_filter =
     cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
 
-  Metavision::I_EventTrailFilterModule::Type filter_type;
-
-  /*
-  if (trailFilter_.type == TrailFilter::Type::TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::TRAIL;
-  } else if (trailFilter_.type == TrailFilter::Type::STC_CUT_TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL;
-  } else if (trailFilter_.type == TrailFilter::Type::STC_KEEP_TRAIL) {
-    filter_type = Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL;
-  }
-  */
   const auto it = trailFilterMap.find(trailFilter_.type);
   if (it == trailFilterMap.end()) {
     LOG_WARN_NAMED("unknown trail filter type " << trailFilter_.type);

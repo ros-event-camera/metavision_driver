@@ -16,7 +16,6 @@
 #ifndef METAVISION_DRIVER__METAVISION_WRAPPER_H_
 #define METAVISION_DRIVER__METAVISION_WRAPPER_H_
 
-#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/sdk/driver/camera.h>
 
 #include <chrono>
