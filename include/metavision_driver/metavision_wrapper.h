@@ -60,6 +60,13 @@ public:
     size_t maxQueueSize{0};
   };
 
+  struct TrailFilter
+  {
+    bool enabled;
+    std::string type;
+    uint32_t threshold;
+  };
+
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
 
   explicit MetavisionWrapper(const std::string & loggerName);
@@ -112,6 +119,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
+  void setTrailFilter(const std::string & type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {
@@ -139,6 +147,7 @@ private:
     const std::string & mode_in, const std::string & mode_out, const int period,
     const double duty_cycle);
   void configureEventRateController(const std::string & mode, const int rate);
+  void activateTrailFilter();
   void configureMIPIFramePeriod(int usec, const std::string & sensorName);
   void printStatistics();
   // ------------ variables
@@ -168,6 +177,7 @@ private:
   HardwarePinConfig hardwarePinConfig_;
   std::string ercMode_;
   int ercRate_;
+  TrailFilter trailFilter_;
   int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;

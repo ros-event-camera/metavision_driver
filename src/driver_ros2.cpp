@@ -317,6 +317,19 @@ void DriverROS2::configureWrapper(const std::string & name)
   this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   wrapper_->setSyncMode(syncMode);
   LOG_INFO("sync mode: " << syncMode);
+  bool trailFilter;
+  this->get_parameter_or("trail_filter", trailFilter, false);
+  std::string trailFilterType;
+  this->get_parameter_or("trail_filter_type", trailFilterType, std::string("trail"));
+  int trailFilterThreshold;
+  this->get_parameter_or("trail_filter_threshold", trailFilterThreshold, 0);
+  if (trailFilter) {
+    LOG_INFO(
+      "Using tail filter in " << trailFilterType << " mode with threshold "
+                              << trailFilterThreshold);
+    wrapper_->setTrailFilter(
+      trailFilterType, static_cast<uint32_t>(trailFilterThreshold), trailFilter);
+  }
   std::vector<int64_t> roi_long;
   this->get_parameter_or("roi", roi_long, std::vector<int64_t>());
   std::vector<int> r(roi_long.begin(), roi_long.end());
