@@ -15,6 +15,8 @@
 
 #include "metavision_driver/metavision_wrapper.h"
 
+#include "metavision_driver/logging.h"
+
 #ifdef USING_METAVISION_3
 #include <metavision/hal/facilities/i_device_control.h>
 #include <metavision/hal/facilities/i_erc.h>
@@ -449,7 +451,7 @@ void MetavisionWrapper::activateTrailFilter()
 
   const auto it = trailFilterMap.find(trailFilter_.type);
   if (it == trailFilterMap.end()) {
-    LOG_WARN_NAMED("unknown trail filter type " << trailFilter_.type);
+    BOMB_OUT_CERR("unknown trail filter type " << trailFilter_.type);
   }
 
   // Set filter type
