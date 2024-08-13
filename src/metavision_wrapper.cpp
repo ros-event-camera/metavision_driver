@@ -63,13 +63,12 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
 static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
   {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
 
-const static std::map<std::string, Metavision::I_EventTrailFilterModule::Type> trailFilterMap =
-  {{"trail", Metavision::I_EventTrailFilterModule::Type::TRAIL},
-   {"stc_trail_cut", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
-   {"stc_keep_cut", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
+static const std::map<std::string, Metavision::I_EventTrailFilterModule::Type> trailFilterMap = {
+  {"trail", Metavision::I_EventTrailFilterModule::Type::TRAIL},
+  {"stc_trail_cut", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
+  {"stc_keep_cut", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
 
-static std::string
-to_lower(const std::string upper)
+static std::string to_lower(const std::string upper)
 {
   std::string lower(upper);
   std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
@@ -127,7 +126,7 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
 }
 
 void MetavisionWrapper::setTrailFilter(
-  const std::string& type, const uint32_t threshold, const bool state)
+  const std::string & type, const uint32_t threshold, const bool state)
 {
   trailFilter_.enabled = state;
   trailFilter_.type = type;

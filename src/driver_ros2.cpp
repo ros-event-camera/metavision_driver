@@ -324,8 +324,11 @@ void DriverROS2::configureWrapper(const std::string & name)
   int trailFilterThreshold;
   this->get_parameter_or("trail_filter_threshold", trailFilterThreshold, 0);
   if (trailFilter) {
-    LOG_INFO("Using tail filter in " << trailFilterType << " mode with threshold " << trailFilterThreshold);
-    wrapper_->setTrailFilter(trailFilterType, static_cast<uint32_t>(trailFilterThreshold), trailFilter);
+    LOG_INFO(
+      "Using tail filter in " << trailFilterType << " mode with threshold "
+                              << trailFilterThreshold);
+    wrapper_->setTrailFilter(
+      trailFilterType, static_cast<uint32_t>(trailFilterThreshold), trailFilter);
   }
   std::vector<int64_t> roi_long;
   this->get_parameter_or("roi", roi_long, std::vector<int64_t>());

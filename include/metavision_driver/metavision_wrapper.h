@@ -119,7 +119,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
-  void setTrailFilter(const std::string& type, const uint32_t threshold, const bool state);
+  void setTrailFilter(const std::string & type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {
