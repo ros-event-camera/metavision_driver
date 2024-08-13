@@ -67,8 +67,8 @@ static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
 
 static const std::map<std::string, Metavision::I_EventTrailFilterModule::Type> trailFilterMap = {
   {"trail", Metavision::I_EventTrailFilterModule::Type::TRAIL},
-  {"stc_trail_cut", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
-  {"stc_keep_cut", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
+  {"stc_cut_trail", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
+  {"stc_keep_trail", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
 
 static std::string to_lower(const std::string upper)
 {

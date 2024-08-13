@@ -169,6 +169,10 @@ Parameters:
 - ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
 - ``mipi_frame_period``:: mipi frame period in usec. Only available on some sensors.
     Tune this to get faster callback rates from the SDK to the ROS driver. For instance 1008 will give a callback every millisecond. Risk of data corruption when set too low! Default: -1 (not set).
+- ``trail_filter``: enable/disable event trail filter. Default: False.
+- ``trail_filter_type``: type of trail filter. Allowed values: ``trail``, ``stc_cut_trail``, ``stc_keep_trail``.
+  Default: ``trail``. See Metavision SDK documentation.
+- ``trail_filter_threshold``: Filter threshold, see MetavisionSDK documentation. Default: 5000.
 - ``sync_mode``: Used to synchronize the time stamps across multiple
   cameras (tested for only 2). The cameras must be connected via a
   sync cable, and two separate ROS driver nodes are started, see
