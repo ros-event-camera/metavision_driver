@@ -21,7 +21,7 @@
     <!--- use a time of zero to force immediate sending of trigger
 	message, else there will always be at least 2 trigger events
 	per message -->
-    <param name="serial" value="$(arg serial)"/>
+    <param name="serial" value="$(arg serial)" type="string"/>
     <param name="trigger_out_mode" value="$(arg trigger_out_mode)"/>
     <!-- units of trigger_out_period is usec -->
     <param name="trigger_out_period" value="$(arg trigger_out_period)"/>
