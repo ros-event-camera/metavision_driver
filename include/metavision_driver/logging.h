@@ -168,7 +168,6 @@
 
 #endif  // USING_ROS_1
 
-
 #define BOMB_OUT_CERR(...)                 \
   {                                        \
     std::cerr << __VA_ARGS__ << std::endl; \
@@ -176,6 +175,5 @@
     SS << __VA_ARGS__;                     \
     throw(std::runtime_error(SS.str()));   \
   }
-
 
 #endif  // METAVISION_DRIVER__LOGGING_H_
