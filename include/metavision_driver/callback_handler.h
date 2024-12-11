@@ -16,7 +16,11 @@
 #ifndef METAVISION_DRIVER__CALLBACK_HANDLER_H_
 #define METAVISION_DRIVER__CALLBACK_HANDLER_H_
 
+#if METAVISION_VERSION < 5
 #include <metavision/sdk/driver/camera.h>
+#else
+#include <metavision/sdk/stream/camera.h>
+#endif
 
 namespace metavision_driver
 {

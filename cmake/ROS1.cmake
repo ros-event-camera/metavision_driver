@@ -42,12 +42,12 @@ if(NOT MetavisionSDK_FOUND)
   if(IS_DIRECTORY "${metavision_SOURCE_DIR}")
     set_property(DIRECTORY ${metavision_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL YES)
   endif()
-
+  # Why is this variable not set automatically ???
+  set(MetavisionSDK_VERSION_MAJOR 4)
   set(MUST_INSTALL_METAVISION TRUE)
 else()
   message(STATUS "metavision SDK is installed, not building it")
 endif()
-
 
 #add_compile_options(-Wall -Wextra -pedantic -Werror)
 add_compile_options(-Wall -Wextra -Wpedantic)
@@ -64,9 +64,7 @@ find_package(catkin REQUIRED COMPONENTS
 # MetavisionSDK is now found otherwise
 # find_package(MetavisionSDK COMPONENTS driver REQUIRED)
 
-if(MetavisionSDK_VERSION_MAJOR LESS 4)
-  add_definitions(-DUSING_METAVISION_3)
-endif()
+add_definitions(-DMETAVISION_VERSION=${MetavisionSDK_VERSION_MAJOR})
 
 generate_dynamic_reconfigure_options(
   cfg/MetaVisionDyn.cfg)

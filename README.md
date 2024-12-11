@@ -9,7 +9,7 @@ If you are looking for more speed and features than the [official
 Prophesee ROS
 driver](https://github.com/prophesee-ai/prophesee_ros_wrapper) you
 have found the right repository. This driver can cope with the large amount of
-data produced by Prophesee's Gen3 and Gen4 sensors because it does
+data produced by Prophesee's Gen3 and later sensors because it does
 little more than getting the RAW (currently EVT3 format) events from
 the camera and publishing them in ROS
 [event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
@@ -33,8 +33,8 @@ Tested on the following platforms:
 
 - ROS Noetic (legacy, please transition to ROS2)
 - ROS2 Humble and Rolling (also compiles on other versions, see CI)
-- Ubuntu 20.04, 22.04, 24.04 LTS
-- Metavision SDK (OpenEB) 4.2.0, 4.6.2
+- Ubuntu 22.04, 24.04 LTS
+- Metavision SDK (OpenEB) 4.2.0, 4.6.2, 5.0.0
 
 
 Tested on the following hardware:
@@ -44,7 +44,7 @@ Tested on the following hardware:
 - [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
 
 Explicitly not supported: any data in the old EVT2 format. The sensor
-must produce data in the EVT3 format or later.
+must produce data in the EVT3 format. The new EVT4 format is not yet supported.
 
 
 ## Installation from binaries
