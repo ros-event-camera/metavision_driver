@@ -458,19 +458,24 @@ void MetavisionWrapper::activateTrailFilter()
   Metavision::I_EventTrailFilterModule * i_trail_filter =
     cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
 
-  const auto it = trailFilterMap.find(trailFilter_.type);
-  if (it == trailFilterMap.end()) {
-    BOMB_OUT_CERR("unknown trail filter type " << trailFilter_.type);
+  if (!i_trail_filter) {
+    LOG_WARN_NAMED("this camera does not support trail filtering!");
+    return;
   }
-
-  // Set filter type
-  if (!i_trail_filter->set_type(it->second)) {
-    LOG_WARN_NAMED("cannot set type of trail filter!")
+  if (trailFilter_.enabled) {
+    const auto it = trailFilterMap.find(trailFilter_.type);
+    if (it == trailFilterMap.end()) {
+      LOG_WARN_NAMED("unknown trail filter type: " << trailFilter_.type);
+    } else {
+      // Set filter type
+      if (!i_trail_filter->set_type(it->second)) {
+        LOG_WARN_NAMED("cannot set type of trail filter!")
+      }
+      if (!i_trail_filter->set_threshold(trailFilter_.threshold)) {
+        LOG_WARN_NAMED("cannot set threshold of trail filter!")
+      }
+    }
   }
-  if (!i_trail_filter->set_threshold(trailFilter_.threshold)) {
-    LOG_WARN_NAMED("cannot set threshold of trail filter!")
-  }
-
   i_trail_filter->enable(trailFilter_.enabled);
 }
 

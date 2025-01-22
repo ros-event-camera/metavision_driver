@@ -51,7 +51,7 @@ def launch_setup(context, *args, **kwargs):
                 "erc_mode": "enabled",
                 "erc_rate": 100000000,
                 "trail_filter": False,
-                "trail_filter_type": "stc_trail_cut",
+                "trail_filter_type": "stc_cut_trail",
                 "trail_filter_threshold": 5000,
                 # 'roi': [0, 0, 100, 100],
                 # valid: 'external', 'loopback', 'disabled'

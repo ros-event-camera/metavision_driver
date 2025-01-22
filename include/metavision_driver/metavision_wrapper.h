@@ -66,9 +66,9 @@ public:
 
   struct TrailFilter
   {
-    bool enabled;
-    std::string type;
-    uint32_t threshold;
+    bool enabled{false};
+    std::string type{"INVALID"};
+    uint32_t threshold{5000};
   };
 
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
