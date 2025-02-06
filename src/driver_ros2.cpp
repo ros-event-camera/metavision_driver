@@ -398,9 +398,9 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
 
     if (t - lastMessageTime_ > messageThresholdTime_ || events.size() > messageThresholdSize_) {
       reserveSize_ = std::max(reserveSize_, events.size());
+      wrapper_->updateBytesSent(events.size());
       eventPub_->publish(std::move(msg_));
       lastMessageTime_ = t;
-      wrapper_->updateBytesSent(events.size());
       wrapper_->updateMsgsSent(1);
     }
   } else {
