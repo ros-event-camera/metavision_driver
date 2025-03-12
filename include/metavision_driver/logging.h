@@ -76,13 +76,6 @@
     SS << __VA_ARGS__;                                     \
     throw(std::runtime_error(SS.str()));                   \
   }
-#define BOMB_OUT_CERR(...)                 \
-  {                                        \
-    std::cerr << __VA_ARGS__ << std::endl; \
-    std::stringstream SS;                  \
-    SS << __VA_ARGS__;                     \
-    throw(std::runtime_error(SS.str()));   \
-  }
 #define LOG_INFO_NAMED(...)                                           \
   {                                                                   \
     RCLCPP_INFO_STREAM(rclcpp::get_logger(loggerName_), __VA_ARGS__); \
@@ -174,5 +167,13 @@
   }
 
 #endif  // USING_ROS_1
+
+#define BOMB_OUT_CERR(...)                 \
+  {                                        \
+    std::cerr << __VA_ARGS__ << std::endl; \
+    std::stringstream SS;                  \
+    SS << __VA_ARGS__;                     \
+    throw(std::runtime_error(SS.str()));   \
+  }
 
 #endif  // METAVISION_DRIVER__LOGGING_H_

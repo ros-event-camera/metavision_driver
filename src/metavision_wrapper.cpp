@@ -15,7 +15,9 @@
 
 #include "metavision_driver/metavision_wrapper.h"
 
-#ifdef USING_METAVISION_3
+#include "metavision_driver/logging.h"
+
+#if METAVISION_VERSION < 4
 #include <metavision/hal/facilities/i_device_control.h>
 #include <metavision/hal/facilities/i_erc.h>
 #else
@@ -23,10 +25,14 @@
 #include <metavision/hal/facilities/i_erc_module.h>
 #endif
 
+#include <metavision/hal/facilities/i_event_trail_filter_module.h>
 #include <metavision/hal/facilities/i_hw_identification.h>
 #include <metavision/hal/facilities/i_hw_register.h>
+#include <metavision/hal/facilities/i_ll_biases.h>
 #include <metavision/hal/facilities/i_plugin_software_info.h>
+#include <metavision/hal/facilities/i_roi.h>
 #include <metavision/hal/facilities/i_trigger_in.h>
+#include <metavision/hal/facilities/i_trigger_out.h>
 
 #include <chrono>
 #include <map>
@@ -43,14 +49,15 @@
 
 namespace metavision_driver
 {
-#ifdef USING_METAVISION_3
+#if METAVISION_VERSION < 4
 using CameraSynchronization = Metavision::I_DeviceControl;
 using Window = Metavision::Roi::Rectangle;
 using ErcModule = Metavision::I_Erc;
 #else
 using CameraSynchronization = Metavision::I_CameraSynchronization;
-using Window = Metavision::Roi::Window;
 using ErcModule = Metavision::I_ErcModule;
+using Window = Metavision::I_ROI::Window;
+
 static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap = {
   {"external", Metavision::I_TriggerIn::Channel::Main},
   {"aux", Metavision::I_TriggerIn::Channel::Aux},
@@ -61,6 +68,11 @@ static const std::map<std::string, Metavision::I_TriggerIn::Channel> channelMap 
 
 static const std::map<std::string, uint32_t> sensorToMIPIAddress = {
   {"IMX636", 0xB028}, {"Gen3.1", 0x1508}};
+
+static const std::map<std::string, Metavision::I_EventTrailFilterModule::Type> trailFilterMap = {
+  {"trail", Metavision::I_EventTrailFilterModule::Type::TRAIL},
+  {"stc_cut_trail", Metavision::I_EventTrailFilterModule::Type::STC_CUT_TRAIL},
+  {"stc_keep_trail", Metavision::I_EventTrailFilterModule::Type::STC_KEEP_TRAIL}};
 
 static std::string to_lower(const std::string upper)
 {
@@ -79,9 +91,8 @@ MetavisionWrapper::~MetavisionWrapper() { stop(); }
 
 int MetavisionWrapper::getBias(const std::string & name)
 {
-  const Metavision::Biases biases = cam_.biases();
-  Metavision::I_LL_Biases * hw_biases = biases.get_facility();
-  const auto pmap = hw_biases->get_all_biases();
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const auto pmap = biases->get_all_biases();
   auto it = pmap.find(name);
   if (it == pmap.end()) {
     LOG_ERROR_NAMED("unknown bias parameter: " << name);
@@ -92,9 +103,8 @@ int MetavisionWrapper::getBias(const std::string & name)
 
 bool MetavisionWrapper::hasBias(const std::string & name)
 {
-  Metavision::Biases & biases = cam_.biases();
-  Metavision::I_LL_Biases * hw_biases = biases.get_facility();
-  const auto pmap = hw_biases->get_all_biases();
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const auto pmap = biases->get_all_biases();
   auto it = pmap.find(name);
   return (it != pmap.end());
 }
@@ -106,17 +116,24 @@ int MetavisionWrapper::setBias(const std::string & name, int val)
     LOG_WARN_NAMED("ignoring change to parameter: " << name);
     return (val);
   }
-  Metavision::Biases & biases = cam_.biases();
-  Metavision::I_LL_Biases * hw_biases = biases.get_facility();
-  const int prev = hw_biases->get(name);
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const int prev = biases->get(name);
   if (val != prev) {
-    if (!hw_biases->set(name, val)) {
+    if (!biases->set(name, val)) {
       LOG_WARN_NAMED("cannot set parameter " << name << " to " << val);
     }
   }
-  const int now = hw_biases->get(name);  // read back what actually took hold
+  const int now = biases->get(name);  // read back what actually took hold
   LOG_INFO_NAMED("changed  " << name << " from " << prev << " to " << val << " adj to: " << now);
   return (now);
+}
+
+void MetavisionWrapper::setTrailFilter(
+  const std::string & type, const uint32_t threshold, const bool state)
+{
+  trailFilter_.enabled = state;
+  trailFilter_.type = type;
+  trailFilter_.threshold = threshold;
 }
 
 bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
@@ -198,7 +215,7 @@ void MetavisionWrapper::applyROI(const std::vector<int> & roi)
         y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
 #endif
       }
-      cam_.roi().set(rects);
+      cam_.get_device().get_facility<Metavision::I_ROI>()->set_windows(rects);
     }
   } else {
 #ifdef CHECK_IF_OUTSIDE_ROI
@@ -340,7 +357,11 @@ bool MetavisionWrapper::initializeCamera()
     LOG_INFO_NAMED("sensor name: " << sinfo.name_);
     if (!biasFile_.empty()) {
       try {
+#if METAVISION_VERSION < 5
         cam_.biases().set_from_file(biasFile_);
+#else
+        cam_.get_device().get_facility<Metavision::I_LL_Biases>()->load_from_file(biasFile_);
+#endif
         LOG_INFO_NAMED("using bias file: " << biasFile_);
       } catch (const Metavision::CameraException & e) {
         LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
@@ -348,9 +369,8 @@ bool MetavisionWrapper::initializeCamera()
       }
     } else if (fromFile_.empty()) {  // only load biases when not playing from file!
       LOG_INFO_NAMED("no bias file provided, using camera defaults:");
-      const Metavision::Biases biases = cam_.biases();
-      Metavision::I_LL_Biases * hw_biases = biases.get_facility();
-      const auto pmap = hw_biases->get_all_biases();
+      const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+      const auto pmap = biases->get_all_biases();
       for (const auto & bp : pmap) {
         LOG_INFO_NAMED("found bias param: " << bp.first << " " << bp.second);
       }
@@ -359,8 +379,13 @@ bool MetavisionWrapper::initializeCamera()
     serialNumber_ = cam_.get_camera_configuration().serial_number;
     LOG_INFO_NAMED("camera serial number: " << serialNumber_);
     const auto & g = cam_.geometry();
+#if METAVISION_VERSION < 5
     width_ = g.width();
     height_ = g.height();
+#else
+    width_ = g.get_width();
+    height_ = g.get_height();
+#endif
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
     if (fromFile_.empty()) {
       applySyncMode(syncMode_);
@@ -428,8 +453,38 @@ void MetavisionWrapper::setDecodingEvents(bool decodeEvents)
   }
 }
 
+void MetavisionWrapper::activateTrailFilter()
+{
+  Metavision::I_EventTrailFilterModule * i_trail_filter =
+    cam_.get_device().get_facility<Metavision::I_EventTrailFilterModule>();
+
+  if (!i_trail_filter) {
+    LOG_WARN_NAMED("this camera does not support trail filtering!");
+    return;
+  }
+  if (trailFilter_.enabled) {
+    const auto it = trailFilterMap.find(trailFilter_.type);
+    if (it == trailFilterMap.end()) {
+      LOG_WARN_NAMED("unknown trail filter type: " << trailFilter_.type);
+    } else {
+      // Set filter type
+      if (!i_trail_filter->set_type(it->second)) {
+        LOG_WARN_NAMED("cannot set type of trail filter!")
+      }
+      if (!i_trail_filter->set_threshold(trailFilter_.threshold)) {
+        LOG_WARN_NAMED("cannot set threshold of trail filter!")
+      }
+    }
+  }
+  i_trail_filter->enable(trailFilter_.enabled);
+}
+
 bool MetavisionWrapper::startCamera(CallbackHandler * h)
 {
+  if (trailFilter_.enabled) {
+    activateTrailFilter();
+  }
+
   try {
     callbackHandler_ = h;
     if (useMultithreading_) {
@@ -462,7 +517,11 @@ bool MetavisionWrapper::saveBiases()
     return (false);
   } else {
     try {
+#if METAVISION_VERSION < 5
       cam_.biases().save_to_file(biasFile_);
+#else
+      cam_.get_device().get_facility<Metavision::I_LL_Biases>()->save_to_file(biasFile_);
+#endif
       LOG_INFO_NAMED("biases written to file: " << biasFile_);
     } catch (const Metavision::CameraException & e) {
       LOG_WARN_NAMED("failed to write bias file: " << e.what());

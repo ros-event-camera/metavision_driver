@@ -28,11 +28,19 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-find_package(MetavisionSDK COMPONENTS driver REQUIRED)
+# there is no "driver" component for MV 5.x, but the MV
+# cmake file requires a COMPONENTS argument
+find_package(MetavisionSDK COMPONENTS driver QUIET)
 
-if(MetavisionSDK_VERSION_MAJOR LESS 4)
-  add_definitions(-DUSING_METAVISION_3)
+if(${MetavisionSDK_VERSION_MAJOR} LESS 5)
+  set(MV_COMPONENTS driver)
+else()
+  set(MV_COMPONENTS base core stream)
 endif()
+
+# now that we know the MV version, require the components
+find_package(MetavisionSDK COMPONENTS ${MV_COMPONENTS} REQUIRED)
+add_definitions(-DMETAVISION_VERSION=${MetavisionSDK_VERSION_MAJOR})
 
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_auto REQUIRED)
@@ -60,8 +68,11 @@ ament_auto_add_library(driver_ros2 SHARED
   src/bias_parameter.cpp
   src/driver_ros2.cpp)
 
+set(MV_COMPONENTS_QUAL ${MV_COMPONENTS})
+list(TRANSFORM MV_COMPONENTS_QUAL PREPEND "MetavisionSDK::")
+
 target_include_directories(driver_ros2 PRIVATE include)
-target_link_libraries(driver_ros2 MetavisionSDK::driver)
+target_link_libraries(driver_ros2  ${MV_COMPONENTS_QUAL})
 
 rclcpp_components_register_nodes(driver_ros2 "metavision_driver::DriverROS2")
 
@@ -83,6 +94,10 @@ install(TARGETS
 install(TARGETS
   driver_ros2
   DESTINATION lib)
+
+install(PROGRAMS
+  src/stop_recording_ros2.py
+  DESTINATION lib/${PROJECT_NAME}/)
 
 install(DIRECTORY
   launch

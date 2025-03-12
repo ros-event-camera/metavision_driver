@@ -16,7 +16,11 @@
 #ifndef METAVISION_DRIVER__METAVISION_WRAPPER_H_
 #define METAVISION_DRIVER__METAVISION_WRAPPER_H_
 
+#if METAVISION_VERSION < 5
 #include <metavision/sdk/driver/camera.h>
+#else
+#include <metavision/sdk/stream/camera.h>
+#endif
 
 #include <chrono>
 #include <condition_variable>
@@ -58,6 +62,13 @@ public:
     size_t bytesSent{0};
     size_t bytesRecv{0};
     size_t maxQueueSize{0};
+  };
+
+  struct TrailFilter
+  {
+    bool enabled{false};
+    std::string type{"INVALID"};
+    uint32_t threshold{5000};
   };
 
   typedef std::map<std::string, std::map<std::string, int>> HardwarePinConfig;
@@ -112,6 +123,7 @@ public:
     ercRate_ = rate;
   }
   void setMIPIFramePeriod(int usec) { mipiFramePeriod_ = usec; }
+  void setTrailFilter(const std::string & type, const uint32_t threshold, const bool state);
 
   bool triggerActive() const
   {
@@ -139,6 +151,7 @@ private:
     const std::string & mode_in, const std::string & mode_out, const int period,
     const double duty_cycle);
   void configureEventRateController(const std::string & mode, const int rate);
+  void activateTrailFilter();
   void configureMIPIFramePeriod(int usec, const std::string & sensorName);
   void printStatistics();
   // ------------ variables
@@ -168,6 +181,7 @@ private:
   HardwarePinConfig hardwarePinConfig_;
   std::string ercMode_;
   int ercRate_;
+  TrailFilter trailFilter_;
   int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;

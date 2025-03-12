@@ -9,7 +9,7 @@ If you are looking for more speed and features than the [official
 Prophesee ROS
 driver](https://github.com/prophesee-ai/prophesee_ros_wrapper) you
 have found the right repository. This driver can cope with the large amount of
-data produced by Prophesee's Gen3 and Gen4 sensors because it does
+data produced by Prophesee's Gen3 and later sensors because it does
 little more than getting the RAW (currently EVT3 format) events from
 the camera and publishing them in ROS
 [event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
@@ -31,10 +31,10 @@ The events can be decoded and displayed using the following ROS/ROS2 packages:
 
 Tested on the following platforms:
 
-- ROS Noetic
-- ROS2 Humble (also compiles on other versions, see CI)
-- Ubuntu 20.04, 22.04 LTS
-- Metavision SDK (OpenEB) 4.2.0
+- ROS Noetic (legacy, please transition to ROS2)
+- ROS2 Humble and Rolling (also compiles on other versions, see CI)
+- Ubuntu 22.04, 24.04 LTS
+- Metavision SDK (OpenEB) 4.2.0, 4.6.2, 5.0.0
 
 
 Tested on the following hardware:
@@ -44,9 +44,27 @@ Tested on the following hardware:
 - [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
 
 Explicitly not supported: any data in the old EVT2 format. The sensor
-must produce data in the EVT3 format or later.
+must produce data in the EVT3 format. The new EVT4 format is not yet supported.
 
-## How to build
+
+## Installation from binaries
+
+On ROS2 you can install via
+```bash
+sudo apt install ros-${ROS_DISTRO}-metavision-driver
+```
+This will also install a version of OpenEB under ``/opt/ros/${ROS_DISTRO}``.
+Unless you separately install OpenEB you will still have to install the required udev
+rules from the source tree directory ``udev/rules.d/``, and restart udev,
+see [OpenEB](https://github.com/prophesee-ai/openeb).
+For the SilkyEV cameras make sure that the plugin version matches the version
+of the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
+that is installed (check the ``CMakeLists.txt`` file), or the camera
+will not be recognized! If the driver does not find the camera,
+try building from source (see below).
+
+
+## How to build from source
 
 Prerequisites:
 
@@ -151,6 +169,10 @@ Parameters:
 - ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
 - ``mipi_frame_period``:: mipi frame period in usec. Only available on some sensors.
     Tune this to get faster callback rates from the SDK to the ROS driver. For instance 1008 will give a callback every millisecond. Risk of data corruption when set too low! Default: -1 (not set).
+- ``trail_filter``: enable/disable event trail filter. Default: False.
+- ``trail_filter_type``: type of trail filter. Allowed values: ``trail``, ``stc_cut_trail``, ``stc_keep_trail``.
+  Default: ``trail``. See Metavision SDK documentation.
+- ``trail_filter_threshold``: Filter threshold, see MetavisionSDK documentation. Default: 5000.
 - ``sync_mode``: Used to synchronize the time stamps across multiple
   cameras (tested for only 2). The cameras must be connected via a
   sync cable, and two separate ROS driver nodes are started, see
@@ -196,7 +218,7 @@ Dynamic reconfiguration parameters
 - ``bias_refr``
 
 
-# How to use (ROS1):
+## How to use (ROS1):
 
 ```
 roslaunch metavision_driver driver_node.launch   # (run as node)
@@ -230,33 +252,61 @@ roslaunch event_camera_renderer renderer.launch
 The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
 
-# How to use (ROS2):
+## How to use (ROS2):
 
-For efficient recording of the events you need to run the
-driver and the recorder in the same address space as ROS2 composable
-nodes. For this you will need to install the
-[composable recorder](https://github.com/berndpfrommer/rosbag2_composable_recorder)
-into your workspace as well (see below).
+### Running the driver
 
-```
+You can just start up a ROS2 node:
+
+```bash
 ros2 launch metavision_driver driver_node.launch.py        # (run as node)
+```
+
+but if you want to efficiently record the events (see below), you
+should launch instead as a composable node:
+
+```bash
 ros2 launch metavision_driver driver_composition.launch.py # (run as composable node)
 ```
-The printout should be similar to the one for ROS1.
+Either way, the printout should be similar to the one for ROS1.
 
-To use the combined driver/recorder and start the recording:
-```
-ros2 launch metavision_driver recording_driver.launch.py
-ros2 run rosbag2_composable_recorder start_recording.py
-```
-To stop the recording you have to kill (Ctrl-C) the recording driver.
-
+### Visualizing the events
 To visualize the events, run a ``renderer`` node from the
 [event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer) package:
 ```
 ros2 launch event_camera_renderer renderer.launch.py
 ```
 The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
+
+### Recording on ROS2 versions older than Jazzy
+
+You will need to install the [composable recorder](https://github.com/berndpfrommer/rosbag2_composable_recorder)
+into your workspace as well (see below), and launch the combined driver and recorder:
+```
+ros2 launch metavision_driver recording_driver.launch.py
+ros2 run rosbag2_composable_recorder start_recording.py
+```
+To stop the recording, Ctrl-C the ``recording_driver.launch.py`` script.
+
+### Recording on ROS2 Jazzy or later
+Launch the composable driver:
+
+```bash
+ros2 launch metavision_driver driver_composition.launch.py
+```
+and start the recording like this:
+
+```bash
+ros2 launch metavision_driver start_recording.launch.py
+```
+
+Then stop it like so:
+```bash
+ros2 run metavision_driver stop_recording_ros2.py
+```
+
+Note that the start/stop scripts and launch files need to be adjusted to fit your choice of
+node names and topics, but if you leave everything default it should work out of the box.
 
 ## CPU load
 
@@ -290,7 +340,7 @@ Middleware used was cyclonedds.
 | driver + rosbag record node    | 80%             | 90%            | combined driver + record cpu load    |
 | driver + rosbag record composable | 58%          | 80%            | single process no ipc but disk/io    |
 
-### About ROS time stamps
+## About ROS time stamps
 
 The SDK provides hardware event time stamps directly from the
 camera. For efficiency reasons the packets are not decoded and so the
@@ -298,7 +348,7 @@ sensor time stamps are not available to the driver. Therefore the ROS driver
 simply puts the host wall clock arrival time of the *first* SDK packet
 into the ROS packet's header stamp field.
 
-## About Trigger Pins
+## External triggering
 
 External triggers on prophesee cameras allows for a signal to be injected
 into the event stream. This is useful for synchronizing external
