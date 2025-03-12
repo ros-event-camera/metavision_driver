@@ -2,6 +2,20 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fixed freed memory access bug
+* trail filter: fixed unintialized variable bug and handle gen3 cams
+* support metavision 5.x
+* set serial parameter type to string
+* Support for trail filters (`#50 <https://github.com/ros-event-camera/metavision_driver/issues/50>`_)
+  * Added support for Metavision SDK trail filters (Andreas Ziegler)
+  ---------
+  Co-authored-by: Bernd Pfrommer <bernd.pfrommer@gmail.com>
+* added udev files
+* support for composable recording under jazzy/rolling
+* Contributors: Andreas Ziegler, Bernd Pfrommer
+
 2.0.0 (2024-07-05)
 ------------------
 * depend on openeb_vendor
