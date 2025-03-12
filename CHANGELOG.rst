@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+2.0.1 (2025-03-12)
+------------------
 * fixed freed memory access bug
 * trail filter: fixed unintialized variable bug and handle gen3 cams
 * support metavision 5.x
