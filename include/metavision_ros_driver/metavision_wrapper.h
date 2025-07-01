@@ -16,7 +16,7 @@
 #ifndef METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
 #define METAVISION_ROS_DRIVER__METAVISION_WRAPPER_H_
 
-#include <metavision/sdk/driver/camera.h>
+// #include <metavision/sdk/driver/camera.h>
 
 #include <chrono>
 #include <condition_variable>

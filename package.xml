@@ -15,7 +15,7 @@
   <test_depend>ament_lint_common</test_depend>
 
   <!-- common dependencies -->
-  <depend>event_array_msgs</depend>
+  <depend>event_camera_msgs</depend>
   <depend>std_srvs</depend>
   
   <!-- ROS1 specific dependencies -->

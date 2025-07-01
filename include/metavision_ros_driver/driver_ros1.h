@@ -17,7 +17,7 @@
 #define METAVISION_ROS_DRIVER__DRIVER_ROS1_H_
 
 #include <dynamic_reconfigure/server.h>
-#include <event_array_msgs/EventArray.h>
+#include <event_camera_msgs/EventPacket.h>
 #include <ros/ros.h>
 #include <std_srvs/Trigger.h>
 
@@ -36,7 +36,7 @@ class MetavisionWrapper;  // forward decl
 class DriverROS1 : public CallbackHandler
 {
   using Config = MetaVisionDynConfig;
-  using EventArrayMsg = event_array_msgs::EventArray;
+  using EventArrayMsg = event_camera_msgs::EventPacket;
   using Trigger = std_srvs::Trigger;
 
 public:

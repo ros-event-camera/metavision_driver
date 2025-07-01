@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   nodelet
   dynamic_reconfigure
-  event_array_msgs
+  event_camera_msgs
   std_srvs
   )
 

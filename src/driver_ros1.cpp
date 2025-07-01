@@ -15,8 +15,6 @@
 
 #include "metavision_ros_driver/driver_ros1.h"
 
-#include <event_array_msgs/EventArray.h>
-
 #include "metavision_ros_driver/check_endian.h"
 #include "metavision_ros_driver/metavision_wrapper.h"
 

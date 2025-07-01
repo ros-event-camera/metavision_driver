@@ -16,7 +16,10 @@
 #ifndef METAVISION_ROS_DRIVER__CALLBACK_HANDLER_H_
 #define METAVISION_ROS_DRIVER__CALLBACK_HANDLER_H_
 
-#include <metavision/sdk/driver/camera.h>
+namespace Metavision
+{
+class EventCD;
+};
 
 namespace metavision_ros_driver
 {
