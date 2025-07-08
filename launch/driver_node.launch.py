@@ -50,6 +50,7 @@ def launch_setup(context, *args, **kwargs):
                 "serial": LaunchConfig("serial"),
                 "erc_mode": "enabled",
                 "erc_rate": 100000000,
+                "encoding": "evt21",
                 "trail_filter": False,
                 "trail_filter_type": "stc_cut_trail",
                 "trail_filter_threshold": 5000,
@@ -72,8 +73,12 @@ def generate_launch_description():
     """Create simple node by calling opaque function."""
     return launch.LaunchDescription(
         [
-            LaunchArg("camera_name", default_value=["event_camera"], description="camera name"),
-            LaunchArg("serial", default_value=[""], description="serial number of camera"),
+            LaunchArg(
+                "camera_name", default_value=["event_camera"], description="camera name"
+            ),
+            LaunchArg(
+                "serial", default_value=[""], description="serial number of camera"
+            ),
             OpaqueFunction(function=launch_setup),
         ]
     )

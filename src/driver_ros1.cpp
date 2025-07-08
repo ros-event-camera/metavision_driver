@@ -38,7 +38,7 @@ DriverROS1::DriverROS1(ros::NodeHandle & nh) : nh_(nh)
     static_cast<size_t>(std::abs(nh_.param<int>("event_message_size_threshold", 1024 * 1024)));
 
   eventPub_ = nh_.advertise<EventPacketMsg>("events", nh_.param<int>("send_queue_size", 1000));
-
+  wrapper_->setEncodingFormat(encoding_);
   if (wrapper_->getSyncMode() == "primary") {
     // defer starting the primary until the secondary is up
     ros::ServiceClient client = nh_.serviceClient<Trigger>("ready");

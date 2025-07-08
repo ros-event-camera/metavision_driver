@@ -37,8 +37,8 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   configureWrapper(get_name());
 
   this->get_parameter_or("encoding", encoding_, std::string("evt3"));
-  if (encoding_ != "evt3") {
-    LOG_ERROR("invalid encoding: " << encoding_);
+  if (encoding_ != "evt3") {  // Other encodings have no support yet from event_camera_codecs.
+    LOG_ERROR("unsupported encoding: " << encoding_);
     throw std::runtime_error("invalid encoding!");
   }
   double mtt;
@@ -226,6 +226,7 @@ void DriverROS2::start()
   wrapper_->setStatisticsInterval(printInterval);
   std::string biasFile;
   this->get_parameter_or("bias_file", biasFile, std::string(""));
+  wrapper_->setEncodingFormat(encoding_);
   if (!wrapper_->initialize(useMT, biasFile)) {
     LOG_ERROR("driver initialization failed!");
     throw std::runtime_error("driver initialization failed!");

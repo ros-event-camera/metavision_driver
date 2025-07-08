@@ -108,6 +108,7 @@ public:
   bool startCamera(CallbackHandler * h);
   void setLoggerName(const std::string & s) { loggerName_ = s; }
   void setStatisticsInterval(double sec) { statsInterval_ = sec; }
+  void setEncodingFormat(const std::string & f) { encodingFormat_ = f; }
 
   // ROI is a double vector with length multiple of 4:
   // (x_top_1, y_top_1, width_1, height_1,
@@ -185,7 +186,7 @@ private:
   int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
-  std::string encodingFormat_{"unknown"};
+  std::string encodingFormat_{"EVT3"};
   std::string sensorVersion_{"0.0"};
   // --  related to statistics
   double statsInterval_{2.0};  // time between printouts
