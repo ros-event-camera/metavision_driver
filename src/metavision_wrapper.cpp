@@ -81,6 +81,13 @@ static std::string to_lower(const std::string upper)
   return (lower);
 }
 
+static std::string to_upper(const std::string lower)
+{
+  std::string upper(lower);
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  return (upper);
+}
+
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
@@ -311,6 +318,9 @@ void MetavisionWrapper::configureEventRateController(
 
 bool MetavisionWrapper::initializeCamera()
 {
+  Metavision::DeviceConfig deviceConfig;
+  LOG_INFO_NAMED("setting encoding format: " << encodingFormat_);
+  deviceConfig.set_format(to_upper(encodingFormat_));
   const int num_tries = 5;
   for (int i = 0; i < num_tries; i++) {
     try {
@@ -320,9 +330,9 @@ bool MetavisionWrapper::initializeCamera()
         cam_ = Metavision::Camera::from_file(fromFile_, cfg);
       } else {
         if (!serialNumber_.empty()) {
-          cam_ = Metavision::Camera::from_serial(serialNumber_);
+          cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
         } else {
-          cam_ = Metavision::Camera::from_first_available();
+          cam_ = Metavision::Camera::from_first_available(deviceConfig);
         }
       }
       break;  // were able to open the camera, exit the for loop

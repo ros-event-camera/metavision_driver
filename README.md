@@ -141,6 +141,10 @@ Parameters:
 - ``serial``: specifies serial number of camera to open (useful for
   stereo). To learn serial number format first start driver without
   specifying serial number and look at the log files.
+- ``encoding``: event data format (ROS2 only). This will configure the event data
+  format of the camera. Default: ``evt3`` (Note: lower case!).
+  Valid is only ``evt3`` at the moment because there is no decoder for ``evt2`` and ``evt21``
+  implemented in the event\_camera\_codecs package.
 - ``event_message_time_threshold``: (in seconds) minimum time span of
   events to be aggregated in one ROS event message before message is sent. Defaults to 1ms.
   In its default setting however the SDK provides packets only every 4ms. To increase SDK
