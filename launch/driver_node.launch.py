@@ -50,7 +50,6 @@ def launch_setup(context, *args, **kwargs):
                 "serial": LaunchConfig("serial"),
                 "erc_mode": "enabled",
                 "erc_rate": 100000000,
-                "encoding": "evt21",
                 "trail_filter": False,
                 "trail_filter_type": "stc_cut_trail",
                 "trail_filter_threshold": 5000,
