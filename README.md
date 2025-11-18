@@ -13,7 +13,7 @@ data produced by Prophesee's Gen3 and later sensors because it does
 little more than getting the RAW (currently EVT3 format) events from
 the camera and publishing them in ROS
 [event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
-format. 
+format.
 
 The events can be decoded and displayed using the following ROS/ROS2 packages:
 
@@ -29,16 +29,15 @@ The events can be decoded and displayed using the following ROS/ROS2 packages:
 
 ## Supported platforms
 
-Tested on the following platforms:
+Tested on ROS2 humble and later with Metavision SDK (OpenEB) 5.0.0
+Notes:
 
-- ROS Noetic (legacy, please transition to ROS2)
-- ROS2 Humble and Rolling (also compiles on other versions, see CI)
-- Ubuntu 22.04, 24.04 LTS
-- Metavision SDK (OpenEB) 4.2.0, 4.6.2, 5.0.0
-
+- Metavision 4.2.0 and 4.6.2 worked in previous versions but are no longer tested
+- ROS1 is EOL and no longer supported
 
 Tested on the following hardware:
 
+- [IDS ueye XCP-E](https://www.ids-imaging.us/ueye-evs-cameras.html)
 - [SilkyEVCam VGA (Gen 3.1 sensor)](https://centuryarks.com/en/silkyevcam-vga/)
 - [SilkyEVCam HD (Gen 4 sensor)](https://centuryarks.com/en/silkyevcam-hd/)
 - [Prophesee EVK4 (Gen 4 sensor)](https://www.prophesee.ai/event-camera-evk4/)
@@ -50,37 +49,64 @@ must produce data in the EVT3 format. The new EVT4 format is not yet supported.
 ## Installation from binaries
 
 On ROS2 you can install via
+
 ```bash
 sudo apt install ros-${ROS_DISTRO}-metavision-driver
 ```
-This will also install a version of OpenEB under ``/opt/ros/${ROS_DISTRO}``.
-Unless you separately install OpenEB you will still have to install the required udev
-rules from the source tree directory ``udev/rules.d/``, and restart udev,
-see [OpenEB](https://github.com/prophesee-ai/openeb).
-For the SilkyEV cameras make sure that the plugin version matches the version
-of the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
-that is installed (check the ``CMakeLists.txt`` file), or the camera
-will not be recognized! If the driver does not find the camera,
-try building from source (see below).
 
+This will also install a version of OpenEB under ``/opt/ros/${ROS_DISTRO}``, and
+the driver will preference those libraries over OpenEB/MetavisionSDK libraries installed
+elsewhere. But beware that paths are set up correctly for other applications such
+that they pick up the libraries they have been built against.
+
+On top of installing the driver binaries, you will have to install the right udev files and,
+(for non-Prophesee cameras) also the camera-specific plugins.
+
+- For Prophesee EVK cameras: Unless you also install OpenEB, install the required udev
+  rules from the source tree directory ``udev/rules.d/``, and restart udev,
+  see [OpenEB](https://github.com/prophesee-ai/openeb).
+
+- For the SilkyEV cameras, install the [plugin](https://centuryarks.com/en/download/) that
+  matches the OpenEB version that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
+  is currently using (see the ``CMakeLists.txt`` file). The required udev files should be automatically installed by the
+  plugin installer. Make
+- For the IDS cameras, download the plugin (a debian package) from the "Downloads" tab of the respective camera page,
+  for instance for the [XCP-E camera](https://www.ids-imaging.us/store_us/products/cameras/ue-39b0xcp-e.html). Get the
+  version that matches the one that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
+  is currently using (see the ``CMakeLists.txt`` file). The debian package however depends on the metavision-sdk-bin package.
+  To avoid installing said package, extract the files from the plugin package, run the install scripts for the
+  udev files and plugins, and copy the plugins into the right location:
+
+  ```bash
+  dpkg-deb -x ./ueye-evs_5.0.0.3_amd64.deb  ./ids  # extract all files in deb package into "ids" directory
+  sudo ./ids/usr/lib/ids/ueye_evs/scripts/add_udev_rules.sh
+  sudo ./ids/usr/lib/ids/ueye_evs/scripts/add_ueye_evs_users_group.sh
+  sudo mkdir -p /usr/lib/ids/ueye_evs/hal/plugins
+  sudo cp ./ids/usr/lib/ids/ueye_evs/hal/plugins/lib*.so /usr/lib/ids/ueye_evs/hal/plugins/
+  ```
+
+Finally, make sure that the ``MV_HAL_PLUGIN_PATH`` is pointing to the plugins:
+
+```bash
+export MV_HAL_PLUGIN_PATH=/usr/lib/CenturyArks/hal/plugins:/usr/lib/ids/ueye_evs/hal/plugins
+```
+
+If you can't get the binary installation working, install OpenEB and the plugins, and build the ROS driver from source, without
+using the openeb_vendor package. The ROS metavision driver should recognize that OpenEB is installed, and compile against
+those header files and libraries.
 
 ## How to build from source
 
 Prerequisites:
 
 - install [OpenEB](https://github.com/prophesee-ai/openeb)
-- install ``vcs`` (ubuntu package ``python3-vcstool``).
+- install ``vcs`` (Ubuntu package ``python3-vcstool``).
 
-Make sure you have your ROS1 or ROS2 environment sourced such that ROS_VERSION is set.
-For example for ROS1 noetic:
-```
-source /opt/ros/noetic/setup.bash
-```
-
+Make sure you have your ROS2 environment sourced such that ROS_VERSION is set.
 Create a workspace (``metavision_driver_ws``), clone this repo, and use ``vcs``
 to pull in the remaining dependencies:
 
-```
+```bash
 pkg=metavision_driver
 mkdir -p ~/${pkg}_ws/src
 cd ~/${pkg}_ws
@@ -90,23 +116,9 @@ vcs import < ${pkg}/${pkg}.repos
 cd ..
 ```
 
-Optional (ROS1): to use the efficient recording nodelet clone the
-[nodelet_rosbag](https://github.com/berndpfrommer/nodelet_rosbag) repository into our src tree:
-```
-git clone -b open_bag_later git@github.com:berndpfrommer/nodelet_rosbag.git src/nodelet_rosbag
-```
-
 Now configure and build:
 
-ROS1:
-```
-catkin config -DCMAKE_BUILD_TYPE=RelWithDebInfo  # (optionally add -DCMAKE_EXPORT_COMPILE_COMMANDS=1)
-catkin build
-. devel/setup.bash
-```
-
-ROS2:
-```
+```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 . install/setup.bash
 ```
@@ -160,7 +172,7 @@ Parameters:
   the queue size and no way to determine if messages are dropped. Use multithreading to
   minimize the risk of dropping messages. However, be aware that this incurs an
   extra memory copy and threading overhead, raising the maximum CPU
-  load by about 50% of a CPU. 
+  load by about 50% of a CPU.
 - ``frame_id``: the frame id to use in the ROS message header
 - ``roi``: sets hardware region of interest (ROI). You can set
   multiple ROI rectangles with this parameter by concatenation:
@@ -183,23 +195,23 @@ Parameters:
   example launch files. The ``primary`` node's ``ready`` topic must be
   remapped so it receives the ``secondary`` node's ``ready`` messages.
   Allowed values:
-   - ``standalone`` (default): freerunning camera, no sync.
-   - ``primary``: camera that drives the sync clock. Will not start
+  - ``standalone`` (default): freerunning camera, no sync.
+  - ``primary``: camera that drives the sync clock. Will not start
      publishing data until it receives a ``ready`` message from the secondary.
-   - ``secondary``: camera receiving the sync clock. Will send
+  - ``secondary``: camera receiving the sync clock. Will send
      ``ready`` messages until it receives a sync signal from the primary.
 - ``trigger_in_mode``: Controls the mode of the trigger input hardware.
   Allowed values:
-   - ``disabled`` (default): Does not enable this functionality within the hardware
-   - ``external``: Enables the external hardware pin to route to the trigger input hardware.
+  - ``disabled`` (default): Does not enable this functionality within the hardware
+  - ``external``: Enables the external hardware pin to route to the trigger input hardware.
      This will be the pin on the camera's connector.
-   - ``loopback``: Connects the trigger out pin to the trigger input hardware. Only available
+  - ``loopback``: Connects the trigger out pin to the trigger input hardware. Only available
      on Gen3 sensors (SilkyEVCam VGA).
 - ``trigger_out_mode``: Controls the mode of the trigger output
   hardware. NOTE: 4-th gen sensors no longer support trigger out!
   Allowed values:
-   - ``disabled`` (default): Does not enable this functionality within the hardware
-   - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
+  - ``disabled`` (default): Does not enable this functionality within the hardware
+  - ``enabled``: Enables the external hardware pin to route to the trigger in hardware.
 - ``trigger_out_period``: Controls the period in microseconds of the trigger out pulse.
 - ``trigger_out_duty_cycle``: Controls the duty cycle of the trigger
   out pulse. This is the period ratio.
@@ -208,7 +220,6 @@ Services:
 
 - ``save_biases``: write out current bias settings to bias file. For
   this to work the ``bias_file`` parameter must be set to a non-empty value.
-
 
 Dynamic reconfiguration parameters
 (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
@@ -221,42 +232,7 @@ Dynamic reconfiguration parameters
 - ``bias_pr``
 - ``bias_refr``
 
-
-## How to use (ROS1):
-
-```
-roslaunch metavision_driver driver_node.launch   # (run as node)
-roslaunch metavision_driver driver_nodelet.launch   # (run as nodelet)
-```
-
-The driver should print out message rate statistics like this:
-```
-[ INFO] [1663845360.494651335]: /event_camera: bw in: 106.08359 MB/s, msgs/s in:   51930, out:       0
-```
-Prints out the incoming (from the SDK) bandwidth and incoming and
-published message rate. In multithreaded mode there will also be shown
-the maximum queue size observed during
-``statistics_print_interval``.
-
-To use the combined driver/recording facility:
-```
-roslaunch metavision_driver recording_driver.launch bag:=`pwd`/test.bag
-```
-Then start/stop recording like this:
-```
-rosrun metavision_driver start_recording.py
-rosrun metavision_driver stop_recording.py
-```
-
-To visualize the events, run a ``renderer`` node from the
-[event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer) package:
-```
-roslaunch event_camera_renderer renderer.launch
-```
-The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
-
-
-## How to use (ROS2):
+## How to use
 
 ### Running the driver
 
@@ -272,32 +248,40 @@ should launch instead as a composable node:
 ```bash
 ros2 launch metavision_driver driver_composition.launch.py # (run as composable node)
 ```
+
 Either way, the printout should be similar to the one for ROS1.
 
 ### Visualizing the events
+
 To visualize the events, run a ``renderer`` node from the
 [event_camera_renderer](https://github.com/ros-event-camera/event_camera_renderer) package:
-```
+
+```bash
 ros2 launch event_camera_renderer renderer.launch.py
 ```
+
 The renderer node publishes an image that can be visualized with e.g. ``rqt_image_view``
 
 ### Recording on ROS2 versions older than Jazzy
 
 You will need to install the [composable recorder](https://github.com/berndpfrommer/rosbag2_composable_recorder)
 into your workspace as well (see below), and launch the combined driver and recorder:
-```
+
+```bash
 ros2 launch metavision_driver recording_driver.launch.py
 ros2 run rosbag2_composable_recorder start_recording.py
 ```
+
 To stop the recording, Ctrl-C the ``recording_driver.launch.py`` script.
 
 ### Recording on ROS2 Jazzy or later
+
 Launch the composable driver:
 
 ```bash
 ros2 launch metavision_driver driver_composition.launch.py
 ```
+
 and start the recording like this:
 
 ```bash
@@ -305,6 +289,7 @@ ros2 launch metavision_driver start_recording.launch.py
 ```
 
 Then stop it like so:
+
 ```bash
 ros2 run metavision_driver stop_recording_ros2.py
 ```
@@ -317,22 +302,6 @@ node names and topics, but if you leave everything default it should work out of
 Here are some approximate performance numbers on a 16 thread (8-core) AMD
 Ryzen 7480h laptop with max clock speed of 2.9GHz. All numbers were obtained
 by producing maximum event rates about (48Mevs) with a SilkyEVCam:
-
-### ROS1 
-
-All CPU loads below are with sensor saturating at close to 50Mevs.
-
-| settings                       | single threaded | multi threaded | note                                 |
-|--------------------------------|-----------------|----------------|--------------------------------------|
-| driver no subscriber           | 22%             | 59%            | no pub, extra copy for multithreaded |
-| driver with subscriber         | 37%             | 61%            | does interprocess communication      |
-| driver + rosbag record node    | 70%             | 96%            | combined driver + record cpu load    |
-| driver + rosbag record nodelet | 52%             | 74%            | single process no ipc but disk/io    |
-
-
-  
-
-### ROS2
 
 All CPU loads below are with sensor saturating at close to 50Mevs.
 Middleware used was cyclonedds.
@@ -354,7 +323,7 @@ into the ROS packet's header stamp field.
 
 ## External triggering
 
-External triggers on prophesee cameras allows for a signal to be injected
+External triggers on Prophesee cameras allows for a signal to be injected
 into the event stream. This is useful for synchronizing external
 devices. The event stream contained in the packages will now contain
 trigger events that can be recovered with the decoder.
@@ -367,7 +336,7 @@ level
 functionality is exposed through ``trigger_out_mode``,
 ``trigger_out_period``, and ``trigger_out_duty_cycle``. These
 variables follow the same meaning as laid out in the internal
-documentation. 
+documentation.
 
 - ``trigger_out_mode`` can be ``enabled`` or ``disabled``
 - ``trigger_out_period`` can be from 2us to 1h (units are us)
@@ -377,15 +346,15 @@ documentation.
 [Trigger in](https://docs.prophesee.ai/stable/hw/manuals/timing_interfaces.html#trigger-in)
 functionality is abstracted away from pins to just ``loopback`` or
 ``external`` as the pin mappings are constant for a given camera
-configuration. 
+configuration.
 
 - ``trigger_in_mode`` allows the user to specify for each camera
   ``loopback`` or ``external`` and lookup which pins are associated
-  with that camera. 
+  with that camera.
 
 **WARNING** Running synchronization and triggers at the same time is
 possible, but requires understanding of your camera's underlying
-hardware (as most share trigger out and sync out pins). 
+hardware (as most share trigger out and sync out pins).
 
 ### Hardware configuration
 
@@ -395,17 +364,17 @@ mappings for ``hal_plugin_gen*`` come from
 documentation](https://docs.prophesee.ai/3.1.2/metavision_sdk/modules/hal/samples/hal_viewer.html#configuring-trigger-in-and-trigger-out).
 The mapping for ``evc3a_plugin_gen31`` has been validated on the
 SilkyEvCam (March 2022). The mapping goes from the HAL Software Info
-to pin numbers. 
+to pin numbers.
 
 If your camera is not yet supported, the software info is printed out
-on driver startup. Look for a line that contains: 
+on driver startup. Look for a line that contains:
 
-```
+```text
 Plugin Software Name:
 ```
 
 This will be the key to place under ``prophesee_pin_config`` which can
-then be populated based on your camera's documentation. 
+then be populated based on your camera's documentation.
 
 **WARNING** If this file is not loaded (or your camera is not yet
 supported), the default pin loaded will be 0. This may work in some
@@ -415,13 +384,13 @@ cases, but not all.
 
 Documentation on the SilkyEvCam pinout can be found
 [here on page 6](https://www.centuryarks.com/images/product/sensor/silkyevcam/SilkyEvCam-USB_Spec_Rev102.pdf).
-This system uses 3.3V logic for both trigger in as well as trigger out. 
+This system uses 3.3V logic for both trigger in as well as trigger out.
 
 While the loopback configuration is internal to the chip, the trigger
 out line will still pulse externally. This is useful if using an event
 camera to trigger an external system as you will maintain the timing
 relative to the internal clock (after association between the trigger
-event and the external system). 
+event and the external system).
 
 ### Other cameras
 
