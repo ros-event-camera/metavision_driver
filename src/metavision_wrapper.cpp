@@ -195,35 +195,46 @@ bool MetavisionWrapper::stop()
   return (status);
 }
 
-void MetavisionWrapper::applyROI(const std::vector<int> & roi)
+void MetavisionWrapper::applyROI(const std::vector<int> & roi, bool roni)
 {
   if (!roi.empty()) {
     if (roi.size() % 4 != 0) {
       LOG_ERROR_NAMED("ROI vec must be multiple of 4, but is: " << roi.size());
-    } else {
-#ifdef CHECK_IF_OUTSIDE_ROI
-      x_min_ = std::numeric_limits<uint16_t>::max();
-      x_max_ = std::numeric_limits<uint16_t>::min();
-      y_min_ = std::numeric_limits<uint16_t>::max();
-      y_max_ = std::numeric_limits<uint16_t>::min();
-#endif
-      std::vector<Window> rects;
-      for (size_t i = 0; i < roi.size(); i += 4) {
-        decltype(rects)::value_type rect;
-        rect.x = roi[i];
-        rect.y = roi[i + 1];
-        rect.width = roi[i + 2];
-        rect.height = roi[i + 3];
-        rects.push_back(rect);
-#ifdef CHECK_IF_OUTSIDE_ROI
-        x_min_ = std::min(static_cast<uint16_t>(rect.x), x_min_);
-        x_max_ = std::max(static_cast<uint16_t>(rect.x + rect.width), x_max_);
-        y_min_ = std::min(static_cast<uint16_t>(rect.y), y_min_);
-        y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
-#endif
-      }
-      cam_.get_device().get_facility<Metavision::I_ROI>()->set_windows(rects);
+      return;
     }
+    auto i_roi = cam_.get_device().get_facility<Metavision::I_ROI>();
+    if (roi.size() / 4 > i_roi->get_max_supported_windows_count()) {
+      LOG_ERROR_NAMED(
+        "number of ROI windows exceeds maximum supported: "
+        << roi.size() / 4 << " > " << i_roi->get_max_supported_windows_count());
+    }
+#ifdef CHECK_IF_OUTSIDE_ROI
+    x_min_ = std::numeric_limits<uint16_t>::max();
+    x_max_ = std::numeric_limits<uint16_t>::min();
+    y_min_ = std::numeric_limits<uint16_t>::max();
+    y_max_ = std::numeric_limits<uint16_t>::min();
+#endif
+    std::vector<Window> rects;
+    for (size_t i = 0; i < roi.size(); i += 4) {
+      decltype(rects)::value_type rect;
+      rect.x = roi[i];
+      rect.y = roi[i + 1];
+      rect.width = roi[i + 2];
+      rect.height = roi[i + 3];
+      rects.push_back(rect);
+#ifdef CHECK_IF_OUTSIDE_ROI
+      x_min_ = std::min(static_cast<uint16_t>(rect.x), x_min_);
+      x_max_ = std::max(static_cast<uint16_t>(rect.x + rect.width), x_max_);
+      y_min_ = std::min(static_cast<uint16_t>(rect.y), y_min_);
+      y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
+#endif
+    }
+    LOG_INFO_NAMED(
+      "setting ROI with " << rects.size() << " rectangles, mode: " << (roni ? "RONI" : "ROI"));
+    using I_ROI = Metavision::I_ROI;
+    i_roi->set_mode(roni ? I_ROI::Mode::RONI : I_ROI::Mode::ROI);
+    i_roi->set_windows(rects);
+    i_roi->enable(true);
   } else {
 #ifdef CHECK_IF_OUTSIDE_ROI
     x_min_ = 0;
@@ -399,7 +410,7 @@ bool MetavisionWrapper::initializeCamera()
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
     if (fromFile_.empty()) {
       applySyncMode(syncMode_);
-      applyROI(roi_);
+      applyROI(roi_, useRONI_);
       configureExternalTriggers(
         triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
       configureEventRateController(ercMode_, ercRate_);

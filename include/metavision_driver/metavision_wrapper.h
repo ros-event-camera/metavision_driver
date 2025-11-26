@@ -114,6 +114,7 @@ public:
   // (x_top_1, y_top_1, width_1, height_1,
   //  x_top_2, y_top_2, width_2, height_2, .....)
   void setROI(const std::vector<int> & roi) { roi_ = roi; }
+  void setRONI(bool useRONI) { useRONI_ = useRONI; }
   void setExternalTriggerInMode(const std::string & mode) { triggerInMode_ = mode; }
   void setExternalTriggerOutMode(
     const std::string & mode, const int period, const double duty_cycle);
@@ -146,7 +147,7 @@ private:
 
   void processingThread();
   void statsThread();
-  void applyROI(const std::vector<int> & roi);
+  void applyROI(const std::vector<int> & roi, bool roni);
   void applySyncMode(const std::string & mode);
   void configureExternalTriggers(
     const std::string & mode_in, const std::string & mode_out, const int period,
@@ -186,6 +187,7 @@ private:
   int mipiFramePeriod_{-1};
   std::string loggerName_{"driver"};
   std::vector<int> roi_;
+  bool useRONI_{false};
   std::string encodingFormat_{"EVT3"};
   std::string sensorVersion_{"0.0"};
   // --  related to statistics

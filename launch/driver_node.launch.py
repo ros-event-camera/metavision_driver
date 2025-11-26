@@ -53,13 +53,14 @@ def launch_setup(context, *args, **kwargs):
                 "trail_filter": False,
                 "trail_filter_type": "stc_cut_trail",
                 "trail_filter_threshold": 5000,
-                # 'roi': [0, 0, 100, 100],
+                # "roi": [0, 0, 320, 320],
+                # "roni": False,
                 # valid: 'external', 'loopback', 'disabled'
                 "trigger_in_mode": "external",
                 # valid: 'enabled', 'disabled'
-                "trigger_out_mode": "enabled",
-                "trigger_out_period": 100000,  # in usec
-                "trigger_duty_cycle": 0.5,  # fraction high/low
+                # "trigger_out_mode": "enabled",
+                # "trigger_out_period": 100000,  # in usec
+                # "trigger_duty_cycle": 0.5,  # fraction high/low
                 "event_message_time_threshold": 1.0e-3,
             },
         ],

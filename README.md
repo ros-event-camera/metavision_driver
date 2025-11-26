@@ -29,11 +29,11 @@ The events can be decoded and displayed using the following ROS/ROS2 packages:
 
 ## Supported platforms
 
-Tested on ROS2 humble and later with Metavision SDK (OpenEB) 5.0.0
+Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.0.0
 Notes:
 
 - Metavision 4.2.0 and 4.6.2 worked in previous versions but are no longer tested
-- ROS1 is EOL and no longer supported
+- ROS1 is EOL and no longer supported.
 
 Tested on the following hardware:
 
@@ -44,7 +44,6 @@ Tested on the following hardware:
 
 Explicitly not supported: any data in the old EVT2 format. The sensor
 must produce data in the EVT3 format. The new EVT4 format is not yet supported.
-
 
 ## Installation from binaries
 
@@ -180,6 +179,7 @@ Parameters:
   The length of the ``roi`` parameter vector must therefore be a multiple
   of 4. Beware that when using multiple ROIs, per Metavision SDK  documentation:
   ["Any line or column enabled by a single ROI is also enabled for all the other"](https://docs.prophesee.ai/stable/api/cpp/driver/features.html#_CPPv4N10Metavision3RoiE).
+- ``roni``: if ``true``, inverts the meaning of the ROI to become region of non-interest. Default: ``false``.
 - ``erc_mode``: event rate control mode (Gen4 sensor): ``na``,
   ``disabled``, ``enabled``. Default: ``na``.
 - ``erc_rate``: event rate control rate (Gen4 sensor) events/sec. Default: 100000000.
