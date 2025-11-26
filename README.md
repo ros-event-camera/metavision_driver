@@ -33,7 +33,8 @@ Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.0.0
 Notes:
 
 - Metavision 4.2.0 and 4.6.2 worked in previous versions but are no longer tested
-- ROS1 is EOL and no longer supported.
+- ROS1 is EOL and no longer supported. There is however an
+  unmaintained [ROS1 branch](https://github.com/ros-event-camera/metavision_driver/tree/ros1).
 
 Tested on the following hardware:
 
