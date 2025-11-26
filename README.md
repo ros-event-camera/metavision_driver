@@ -1,6 +1,6 @@
 # metavision_driver
 
-A combined ROS/ROS2 driver for event based cameras using Prophesee's Metavision SDK.
+A ROS2 driver for event based cameras using Prophesee's Metavision SDK.
 This driver is not written or supported by Prophesee.
 
 ![banner image](images/silkyev_cam.png)
@@ -15,7 +15,7 @@ the camera and publishing them in ROS
 [event_camera_msgs](https://github.com/ros-event-camera/event_camera_msgs)
 format.
 
-The events can be decoded and displayed using the following ROS/ROS2 packages:
+The events can be decoded and displayed using the following ROS packages:
 
 - [event_camera_codecs](https://github.com/ros-event-camera/event_camera_codecs)
   has C++ routines to decode event_camera_msgs.
@@ -47,7 +47,7 @@ must produce data in the EVT3 format. The new EVT4 format is not yet supported.
 
 ## Installation from binaries
 
-On ROS2 you can install via
+Install apt packages via
 
 ```bash
 sudo apt install ros-${ROS_DISTRO}-metavision-driver
@@ -152,7 +152,7 @@ Parameters:
 - ``serial``: specifies serial number of camera to open (useful for
   stereo). To learn serial number format first start driver without
   specifying serial number and look at the log files.
-- ``encoding``: event data format (ROS2 only). This will configure the event data
+- ``encoding``: event data format. This will configure the event data
   format of the camera. Default: ``evt3`` (Note: lower case!).
   Valid is only ``evt3`` at the moment because there is no decoder for ``evt2`` and ``evt21``
   implemented in the event\_camera\_codecs package.
@@ -236,7 +236,7 @@ Dynamic reconfiguration parameters
 
 ### Running the driver
 
-You can just start up a ROS2 node:
+You can just start up a ROS node:
 
 ```bash
 ros2 launch metavision_driver driver_node.launch.py        # (run as node)
