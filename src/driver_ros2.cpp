@@ -341,6 +341,9 @@ void DriverROS2::configureWrapper(const std::string & name)
     }
   }
   wrapper_->setROI(r);
+  bool roni;
+  this->get_parameter_or<bool>("roni", roni, false);
+  wrapper_->setRONI(roni);
   std::string tInMode;
   this->get_parameter_or("trigger_in_mode", tInMode, std::string("disabled"));
   if (tInMode != "disabled") {
