@@ -207,6 +207,14 @@ void DriverROS2::declareBiasParameters(const std::string & sensorVersion)
         LOG_INFO_FMT("%-20s value: %4d", name.c_str(), defBias);
       } catch (rclcpp::exceptions::InvalidParameterTypeException & e) {
         LOG_WARN("cannot declare parameter " << name << ": " << e.what());
+      } catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException & e) {
+        const rclcpp::Parameter val = this->get_node_parameters_interface()->get_parameter(name);
+        if (val.as_int() != defBias) {
+          LOG_INFO_FMT("setting bias %-20s to %4ld", name.c_str(), val.as_int());
+          wrapper_->setBias(name, val.as_int());
+        } else {
+          LOG_INFO_FMT("%-20s value: %4d", name.c_str(), defBias);
+        }
       } catch (const std::exception & e) {
         LOG_WARN("error thrown " << e.what());
       }
