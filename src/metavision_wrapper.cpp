@@ -143,9 +143,8 @@ void MetavisionWrapper::setTrailFilter(
   trailFilter_.threshold = threshold;
 }
 
-bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
+bool MetavisionWrapper::initialize(bool useMultithreading)
 {
-  biasFile_ = biasFile;
   useMultithreading_ = useMultithreading;
 
   if (!initializeCamera()) {
@@ -327,7 +326,7 @@ void MetavisionWrapper::configureEventRateController(
   }
 }
 
-bool MetavisionWrapper::initializeCamera()
+bool MetavisionWrapper::openCamera()
 {
   Metavision::DeviceConfig deviceConfig;
   LOG_INFO_NAMED("setting encoding format: " << encodingFormat_);
@@ -357,10 +356,67 @@ bool MetavisionWrapper::initializeCamera()
         std::this_thread::sleep_for(std::chrono::seconds(1));
       } else {
         LOG_ERROR_NAMED("cannot open " << src << ", giving up!");
+        return (false);
       }
     }
   }
+  return (true);
+}
 
+bool MetavisionWrapper::loadBiases()
+{
+  if (!biasFile_.empty()) {
+    try {
+#if METAVISION_VERSION < 5
+      cam_.biases().set_from_file(biasFile_);
+#else
+      cam_.get_device().get_facility<Metavision::I_LL_Biases>()->load_from_file(biasFile_);
+#endif
+      LOG_INFO_NAMED("using bias file: " << biasFile_);
+    } catch (const Metavision::CameraException & e) {
+      LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
+      LOG_WARN_NAMED("continuing with default biases!");
+      return (false);
+    }
+  } else if (fromFile_.empty()) {  // only load biases when not playing from file!
+    LOG_INFO_NAMED("no bias file provided, using camera defaults.");
+  }
+  return (true);
+}
+
+void MetavisionWrapper::printBiases()
+{
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const auto pmap = biases->get_all_biases();
+  for (const auto & bp : pmap) {
+    LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
+  }
+}
+
+bool MetavisionWrapper::loadSettings()
+{
+  try {
+    if (!settingsFile_.empty()) {
+      if (!cam_.load(settingsFile_)) {
+        LOG_WARN_NAMED("could not load settings from file: " << settingsFile_);
+        return (false);
+      } else {
+        LOG_INFO_NAMED("loaded camera settings from file: " << settingsFile_);
+      }
+    }
+  } catch (const Metavision::CameraException & e) {
+    LOG_WARN_NAMED(
+      "loading settings from file " << settingsFile_ << " failed with error: " << e.what());
+    LOG_WARN_NAMED("continuing with current settings!");
+  }
+  return (true);
+}
+
+bool MetavisionWrapper::initializeCamera()
+{
+  if (!openCamera()) {
+    return (false);
+  }
   try {
     // Record the plugin software information about the camera.
     using PSI = Metavision::I_PluginSoftwareInfo;
@@ -376,26 +432,9 @@ bool MetavisionWrapper::initializeCamera()
       std::to_string(sinfo.major_version_) + "." + std::to_string(sinfo.minor_version_);
     LOG_INFO_NAMED("sensor version: " << sensorVersion_);
     LOG_INFO_NAMED("sensor name: " << sinfo.name_);
-    if (!biasFile_.empty()) {
-      try {
-#if METAVISION_VERSION < 5
-        cam_.biases().set_from_file(biasFile_);
-#else
-        cam_.get_device().get_facility<Metavision::I_LL_Biases>()->load_from_file(biasFile_);
-#endif
-        LOG_INFO_NAMED("using bias file: " << biasFile_);
-      } catch (const Metavision::CameraException & e) {
-        LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
-        LOG_WARN_NAMED("continuing with default biases!");
-      }
-    } else if (fromFile_.empty()) {  // only load biases when not playing from file!
-      LOG_INFO_NAMED("no bias file provided, using camera defaults:");
-      const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-      const auto pmap = biases->get_all_biases();
-      for (const auto & bp : pmap) {
-        LOG_INFO_NAMED("found bias param: " << bp.first << " " << bp.second);
-      }
-    }
+    loadBiases();
+    loadSettings();
+    printBiases();
     // overwrite serial in case it was not set
     serialNumber_ = cam_.get_camera_configuration().serial_number;
     LOG_INFO_NAMED("camera serial number: " << serialNumber_);
@@ -546,6 +585,23 @@ bool MetavisionWrapper::saveBiases()
       LOG_INFO_NAMED("biases written to file: " << biasFile_);
     } catch (const Metavision::CameraException & e) {
       LOG_WARN_NAMED("failed to write bias file: " << e.what());
+      return (false);
+    }
+  }
+  return (true);
+}
+
+bool MetavisionWrapper::saveSettings()
+{
+  if (settingsFile_.empty()) {
+    LOG_WARN_NAMED("no settings file specified at startup, no settings saved!");
+    return (false);
+  } else {
+    try {
+      cam_.save(settingsFile_);
+      LOG_INFO_NAMED("settings written to file: " << settingsFile_);
+    } catch (const Metavision::CameraException & e) {
+      LOG_WARN_NAMED("failed to write settings to " << settingsFile_ << " : " << e.what());
       return (false);
     }
   }

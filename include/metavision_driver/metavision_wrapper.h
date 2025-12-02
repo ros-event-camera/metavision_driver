@@ -79,8 +79,9 @@ public:
   int getBias(const std::string & name);
   bool hasBias(const std::string & name);
   int setBias(const std::string & name, int val);
-  bool initialize(bool useMultithreading, const std::string & biasFile);
+  bool initialize(bool useMultithreading);
   bool saveBiases();
+  bool saveSettings();
   inline void updateMsgsSent(int inc)
   {
     std::unique_lock<std::mutex> lock(statsMutex_);
@@ -109,6 +110,8 @@ public:
   void setLoggerName(const std::string & s) { loggerName_ = s; }
   void setStatisticsInterval(double sec) { statsInterval_ = sec; }
   void setEncodingFormat(const std::string & f) { encodingFormat_ = f; }
+  void setBiasFile(const std::string & bf) { biasFile_ = bf; }
+  void setSettingsFile(const std::string & s) { settingsFile_ = s; }
 
   // ROI is a double vector with length multiple of 4:
   // (x_top_1, y_top_1, width_1, height_1,
@@ -136,6 +139,11 @@ public:
 
 private:
   bool initializeCamera();
+  bool openCamera();
+  bool loadSettings();
+  bool loadBiases();
+  void printBiases();
+
   void runtimeErrorCallback(const Metavision::CameraException & e);
   void statusChangeCallback(const Metavision::CameraStatus & s);
 
@@ -172,6 +180,7 @@ private:
   int width_{0};   // image width
   int height_{0};  // image height
   std::string biasFile_;
+  std::string settingsFile_;
   std::string serialNumber_;
   std::string fromFile_;
   std::string softwareInfo_;
