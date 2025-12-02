@@ -48,8 +48,11 @@ public:
   // ---------------- end of inherited  -----------
 
 private:
-  // service call to dump biases
+  // service calls
   void saveBiases(
+    const std::shared_ptr<Trigger::Request> request,
+    const std::shared_ptr<Trigger::Response> response);
+  void saveSettings(
     const std::shared_ptr<Trigger::Request> request,
     const std::shared_ptr<Trigger::Response> response);
 
@@ -65,6 +68,7 @@ private:
   void start();
   bool stop();
   void configureWrapper(const std::string & name);
+  bool saveStuff(const std::string & fname, const std::shared_ptr<Trigger::Response> response);
 
   // ------------------------  variables ------------------------------
   std::shared_ptr<MetavisionWrapper> wrapper_;
@@ -90,6 +94,7 @@ private:
     parameterSubscription_;
   ParameterMap biasParameters_;
   rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
+  rclcpp::Service<Trigger>::SharedPtr saveSettingsService_;
 };
 }  // namespace metavision_driver
 #endif  // METAVISION_DRIVER__DRIVER_ROS2_H_
