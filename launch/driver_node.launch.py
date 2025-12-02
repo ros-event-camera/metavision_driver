@@ -15,12 +15,10 @@
 #
 #
 
-import os
-
-from ament_index_python.packages import get_package_share_directory
 import launch
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
+from launch.actions import SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch_ros.actions import Node
 
@@ -29,10 +27,9 @@ def launch_setup(context, *args, **kwargs):
     """Create simple node."""
     cam_name = LaunchConfig("camera_name")
     cam_str = cam_name.perform(context)
-    pkg_name = "metavision_driver"
-    share_dir = get_package_share_directory(pkg_name)
-    trigger_config = os.path.join(share_dir, "config", "trigger_pins.yaml")
-    # bias_config = os.path.join(share_dir, 'config', 'silky_ev_cam.bias')
+    # share_dir = get_package_share_directory(pkg_name)
+    # trigger_config = os.path.join(share_dir, "config", "trigger_pins.yaml")
+    # bias_config = os.path.join(share_dir, "config", "ids_xcpe.bias")
     node = Node(
         package="metavision_driver",
         executable="driver_node",
@@ -40,11 +37,12 @@ def launch_setup(context, *args, **kwargs):
         # prefix=['xterm -e gdb -ex run --args'],
         name=cam_name,
         parameters=[
-            trigger_config,  # loads the whole file
+            # trigger_config,  # loads the whole file
             {
                 "use_multithreading": False,
+                "send_queue_size": 1,
                 "statistics_print_interval": 2.0,
-                # 'bias_file': bias_config,
+                "bias_file": "",  # bias_config,
                 "camerainfo_url": "",
                 "frame_id": "",
                 "serial": LaunchConfig("serial"),
@@ -62,11 +60,22 @@ def launch_setup(context, *args, **kwargs):
                 # "trigger_out_period": 100000,  # in usec
                 # "trigger_duty_cycle": 0.5,  # fraction high/low
                 "event_message_time_threshold": 1.0e-3,
+                # "bias_diff_off": 0,
+                # "bias_diff_on": 0,
+                # "bias_hpf": 0,
+                # "bias_fo": 0,
+                # "bias_refr": 0,
             },
         ],
         remappings=[("~/events", cam_str + "/events")],
     )
-    return [node]
+    preload = SetEnvironmentVariable(
+        name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
+    )
+    asan_options = SetEnvironmentVariable(
+        name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
+    )
+    return [preload, asan_options, node]
 
 
 def generate_launch_description():
