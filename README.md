@@ -147,6 +147,7 @@ Parameters:
 
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
+- ``settings``: path to json file with camera settings such as pixel masks.
 - ``from_file``: path to Metavision raw file. Instead of opening
   camera, driver plays back data from this file. This will not be in
   real time, usually faster.
@@ -221,6 +222,8 @@ Services:
 
 - ``save_biases``: write out current bias settings to bias file. For
   this to work the ``bias_file`` parameter must be set to a non-empty value.
+- ``save_settings``: write out current camera settings to settings file. For
+  this to work the ``settings`` parameter must be set to a non-empty value.
 
 Dynamic reconfiguration parameters
 (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
