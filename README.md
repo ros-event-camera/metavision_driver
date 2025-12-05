@@ -3,7 +3,7 @@
 A ROS2 driver for event based cameras using Prophesee's Metavision SDK.
 This driver is not written or supported by Prophesee.
 
-![banner image](images/silkyev_cam.png)
+![banner image](images/ros_event_camera.png)
 
 If you are looking for more speed and features than the [official
 Prophesee ROS
@@ -253,7 +253,6 @@ should launch instead as a composable node:
 ros2 launch metavision_driver driver_composition.launch.py # (run as composable node)
 ```
 
-Either way, the printout should be similar to the one for ROS1.
 
 ### Visualizing the events
 
