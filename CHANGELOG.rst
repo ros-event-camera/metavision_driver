@@ -2,6 +2,23 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* updated license string in package.xml
+* improved launch files
+* updated banner image
+* documented settings param and save_settings service call
+* add options to invoke renderer and fibar for stereo cam
+* updated launch file for ids cameras, not loading triggers
+* support init of bias params, loading/saving of camera settings
+* added commented-out lines for libasan compilation
+* added bias file for ids xcpe camera
+* fix broken ROI feature and support RONI
+* added instructions for IDS camera, removed ROS1 documentation
+* remove bad format parameter in driver_node launch script
+* set camera encoding format
+* Contributors: Bernd Pfrommer
+
 2.0.1 (2025-03-12)
 ------------------
 * fixed freed memory access bug
