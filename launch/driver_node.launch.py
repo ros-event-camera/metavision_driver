@@ -26,10 +26,6 @@ from launch_ros.actions import Node
 def launch_setup(context, *args, **kwargs):
     """Create simple node."""
     cam_name = LaunchConfig("camera_name")
-    cam_str = cam_name.perform(context)
-    # share_dir = get_package_share_directory(pkg_name)
-    # trigger_config = os.path.join(share_dir, "config", "trigger_pins.yaml")
-    # bias_config = os.path.join(share_dir, "config", "ids_xcpe.bias")
     node = Node(
         package="metavision_driver",
         executable="driver_node",
@@ -46,8 +42,8 @@ def launch_setup(context, *args, **kwargs):
                 "camerainfo_url": "",
                 "frame_id": "",
                 "serial": LaunchConfig("serial"),
-                "erc_mode": "enabled",
-                "erc_rate": 100000000,
+                "erc_mode": "disabled",
+                # "erc_rate": 100000000,
                 "trail_filter": False,
                 "trail_filter_type": "stc_cut_trail",
                 "trail_filter_threshold": 5000,
@@ -67,7 +63,7 @@ def launch_setup(context, *args, **kwargs):
                 # "bias_refr": 0,
             },
         ],
-        remappings=[("~/events", cam_str + "/events")],
+        remappings=[],
     )
     preload = SetEnvironmentVariable(
         name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
