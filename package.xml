@@ -5,7 +5,7 @@
   <version>2.0.1</version>
   <description>ROS1 and ROS2 drivers for metavision based event cameras</description>
   <maintainer email="bernd.pfrommer@gmail.com">Bernd Pfrommer</maintainer>
-  <license>Apache-2</license>
+  <license>Apache License 2.0</license>
 
   <!-- ROS1 specific dependencies -->
   <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>

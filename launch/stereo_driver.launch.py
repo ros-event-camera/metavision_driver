@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Copyright 2021 Bernd Pfrommer <bernd.pfrommer@gmail.com>
+# Copyright 2025 Bernd Pfrommer <bernd.pfrommer@gmail.com>
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,80 +15,120 @@
 #
 #
 
-import os
-
-from ament_index_python.packages import get_package_share_directory
 import launch
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
+from launch.actions import SetEnvironmentVariable
+from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
 
+common_params = {
+    "use_multithreading": False,
+    "bias_file": "",
+    "camerainfo_url": "",
+    "event_message_time_threshold": 1.0e-3,
+}
+
+
+def make_renderers(cameras):
+    nodes = [
+        ComposableNode(
+            package="event_camera_renderer",
+            plugin="event_camera_renderer::Renderer",
+            name=cam + "_renderer",
+            parameters=[{"fps": 25.0}],
+            remappings=[("~/events", cam + "/events")],
+            extra_arguments=[{"use_intra_process_comms": True}],
+        )
+        for cam in cameras
+    ]
+    return nodes
+
+
+def make_fibars(cameras):
+    nodes = [
+        ComposableNode(
+            package="event_image_reconstruction_fibar",
+            plugin="event_image_reconstruction_fibar::Fibar",
+            name=cam + "_fibar",
+            parameters=[{"fps": 25.0}],
+            remappings=[("~/events", cam + "/events")],
+            extra_arguments=[{"use_intra_process_comms": True}],
+        )
+        for cam in cameras
+    ]
+    return nodes
+
+
+def make_cameras(cameras, params):
+    nodes = [
+        ComposableNode(
+            package="metavision_driver",
+            plugin="metavision_driver::DriverROS2",
+            name=cam,
+            parameters=[
+                common_params,
+                {"serial": params[cam]["serial"]},
+                {"settings": params[cam]["settings"]},
+                {"sync_mode": params[cam]["sync_mode"]},
+            ],
+            remappings=params[cam]["remappings"],
+            extra_arguments=[{"use_intra_process_comms": True}],
+        )
+        for cam in cameras
+    ]
+    return nodes
+
+
 def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_0_name = LaunchConfig("camera_0_name")
-    cam_0_str = cam_0_name.perform(context)
+    cam_0 = cam_0_name.perform(context)
     cam_1_name = LaunchConfig("camera_1_name")
-    cam_1_str = cam_1_name.perform(context)
-    pkg_name = "metavision_driver"
-    share_dir = get_package_share_directory(pkg_name)
-    bias_config = os.path.join(share_dir, "config", "silky_ev_cam.bias")
-    #
-    # camera 0
-    #
-    cam_0 = ComposableNode(
-        package="metavision_driver",
-        plugin="metavision_driver::DriverROS2",
-        name=cam_0_name,
-        parameters=[
-            {
-                "use_multithreading": False,
-                "bias_file": bias_config,
-                "camerainfo_url": "",
-                "frame_id": "cam_0",
-                "serial": "CenturyArks:evc3a_plugin_gen31:00000198",
-                "sync_mode": "primary",
-                "event_message_time_threshold": 1.0e-3,
-            }
-        ],
-        remappings=[
-            ("~/events", cam_0_str + "/events"),
-            # must remap so primary listens to secondary's ready message
-            ("~/ready", cam_1_str + "/ready"),
-        ],
-        extra_arguments=[{"use_intra_process_comms": True}],
-    )
-    #
-    # camera 1
-    #
-    cam_1 = ComposableNode(
-        package="metavision_driver",
-        plugin="metavision_driver::DriverROS2",
-        name=cam_1_name,
-        parameters=[
-            {
-                "use_multithreading": False,
-                "bias_file": bias_config,
-                "camerainfo_url": "",
-                "frame_id": "cam_1",
-                "serial": "CenturyArks:evc3a_plugin_gen31:00000293",
-                "sync_mode": "secondary",
-                "event_message_time_threshold": 1.0e-3,
-            }
-        ],
-        remappings=[("~/events", cam_1_str + "/events")],
-        extra_arguments=[{"use_intra_process_comms": True}],
-    )
+    cam_1 = cam_1_name.perform(context)
+    cameras = (cam_0, cam_1)
+    specific_params = {
+        cam_0: {
+            "serial": LaunchConfig("camera_0_serial").perform(context),
+            "settings": LaunchConfig("camera_0_settings").perform(context),
+            "sync_mode": "primary",
+            "remappings": [
+                ("~/events", cam_0 + "/events"),
+                ("~/ready", cam_1 + "/ready"),
+            ],
+        },
+        cam_1: {
+            "serial": LaunchConfig("camera_1_serial").perform(context),
+            "settings": LaunchConfig("camera_1_settings").perform(context),
+            "sync_mode": "secondary",
+            "remappings": [("~/events", cam_1 + "/events")],
+        },
+    }
+    nodes = make_cameras(cameras, specific_params)
+    if IfCondition(LaunchConfig("with_renderer")).evaluate(context):
+        nodes += make_renderers(cameras)
+    if IfCondition(LaunchConfig("with_fibar")).evaluate(context):
+        nodes += make_fibars(cameras)
     container = ComposableNodeContainer(
         name="metavision_driver_container",
         namespace="",
         package="rclcpp_components",
-        executable="component_container",
-        composable_node_descriptions=[cam_0, cam_1],
+        executable="component_container_isolated",
+        composable_node_descriptions=nodes,
         output="screen",
     )
+    debug_with_libasan = False
+    if debug_with_libasan:
+        preload = SetEnvironmentVariable(
+            name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
+        )
+        asan_options = SetEnvironmentVariable(
+            name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
+        )
+        return [preload, asan_options, container]
     return [container]
 
 
@@ -105,6 +145,41 @@ def generate_launch_description():
                 "camera_1_name",
                 default_value=["event_cam_1"],
                 description="camera name of camera 1",
+            ),
+            LaunchArg(
+                "camera_0_serial",
+                default_value=["4110030785"],
+                description="serial number of camera 0",
+            ),
+            LaunchArg(
+                "camera_1_serial",
+                default_value=["4110030791"],
+                description="serial number of camera 1",
+            ),
+            LaunchArg(
+                "camera_0_settings",
+                default_value=[""],
+                description="settings file for camera 0",
+            ),
+            LaunchArg(
+                "camera_1_settings",
+                default_value=[""],
+                description="settings file for camera 1",
+            ),
+            LaunchArg(
+                "fps",
+                default_value=["fps"],
+                description="renderer frame rate in Hz",
+            ),
+            LaunchArg(
+                "with_renderer",
+                default_value="false",
+                description="if renderers should be started as well",
+            ),
+            LaunchArg(
+                "with_fibar",
+                default_value="false",
+                description="if fibar reconstruction should be started as well",
             ),
             OpaqueFunction(function=launch_setup),
         ]

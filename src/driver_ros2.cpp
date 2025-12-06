@@ -37,8 +37,8 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   configureWrapper(get_name());
 
   this->get_parameter_or("encoding", encoding_, std::string("evt3"));
-  if (encoding_ != "evt3") {
-    LOG_ERROR("invalid encoding: " << encoding_);
+  if (encoding_ != "evt3") {  // Other encodings have no support yet from event_camera_codecs.
+    LOG_ERROR("unsupported encoding: " << encoding_);
     throw std::runtime_error("invalid encoding!");
   }
   double mtt;
@@ -89,14 +89,23 @@ DriverROS2::~DriverROS2()
 }
 
 void DriverROS2::saveBiases(
-  const std::shared_ptr<Trigger::Request> request,
-  const std::shared_ptr<Trigger::Response> response)
+  const std::shared_ptr<Trigger::Request>, const std::shared_ptr<Trigger::Response> response)
 {
-  (void)request;
   response->success = false;
   response->message = "bias file write ";
   if (wrapper_) {
     response->success = wrapper_->saveBiases();
+  }
+  response->message += (response->success ? "succeeded" : "failed");
+}
+
+void DriverROS2::saveSettings(
+  const std::shared_ptr<Trigger::Request>, const std::shared_ptr<Trigger::Response> response)
+{
+  response->success = false;
+  response->message = "settings file write ";
+  if (wrapper_) {
+    response->success = wrapper_->saveSettings();
   }
   response->message += (response->success ? "succeeded" : "failed");
 }
@@ -207,6 +216,14 @@ void DriverROS2::declareBiasParameters(const std::string & sensorVersion)
         LOG_INFO_FMT("%-20s value: %4d", name.c_str(), defBias);
       } catch (rclcpp::exceptions::InvalidParameterTypeException & e) {
         LOG_WARN("cannot declare parameter " << name << ": " << e.what());
+      } catch (const rclcpp::exceptions::ParameterAlreadyDeclaredException & e) {
+        const rclcpp::Parameter val = this->get_node_parameters_interface()->get_parameter(name);
+        if (val.as_int() != defBias) {
+          LOG_INFO_FMT("setting bias %-20s to %4ld", name.c_str(), val.as_int());
+          wrapper_->setBias(name, val.as_int());
+        } else {
+          LOG_INFO_FMT("%-20s value: %4d", name.c_str(), defBias);
+        }
       } catch (const std::exception & e) {
         LOG_WARN("error thrown " << e.what());
       }
@@ -219,6 +236,7 @@ void DriverROS2::declareBiasParameters(const std::string & sensorVersion)
 void DriverROS2::start()
 {
   // must wait with initialize() until all trigger params have been set
+  wrapper_->setEncodingFormat(encoding_);
   bool useMT;
   this->get_parameter_or("use_multithreading", useMT, true);
   double printInterval;
@@ -226,7 +244,12 @@ void DriverROS2::start()
   wrapper_->setStatisticsInterval(printInterval);
   std::string biasFile;
   this->get_parameter_or("bias_file", biasFile, std::string(""));
-  if (!wrapper_->initialize(useMT, biasFile)) {
+  wrapper_->setBiasFile(biasFile);
+  std::string settingsFile;
+  this->get_parameter_or<std::string>("settings", settingsFile, "");
+  wrapper_->setSettingsFile(settingsFile);
+
+  if (!wrapper_->initialize(useMT)) {
     LOG_ERROR("driver initialization failed!");
     throw std::runtime_error("driver initialization failed!");
   }
@@ -270,8 +293,11 @@ void DriverROS2::start()
       std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
     saveBiasesService_ = this->create_service<Trigger>(
-      "save_biases",
+      "~/save_biases",
       std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+    saveSettingsService_ = this->create_service<Trigger>(
+      "~/save_settings",
+      std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
   }
 }
 
@@ -340,6 +366,9 @@ void DriverROS2::configureWrapper(const std::string & name)
     }
   }
   wrapper_->setROI(r);
+  bool roni;
+  this->get_parameter_or<bool>("roni", roni, false);
+  wrapper_->setRONI(roni);
   std::string tInMode;
   this->get_parameter_or("trigger_in_mode", tInMode, std::string("disabled"));
   if (tInMode != "disabled") {

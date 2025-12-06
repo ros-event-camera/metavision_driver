@@ -81,6 +81,13 @@ static std::string to_lower(const std::string upper)
   return (lower);
 }
 
+static std::string to_upper(const std::string lower)
+{
+  std::string upper(lower);
+  std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+  return (upper);
+}
+
 MetavisionWrapper::MetavisionWrapper(const std::string & loggerName)
 {
   setLoggerName(loggerName);
@@ -136,9 +143,8 @@ void MetavisionWrapper::setTrailFilter(
   trailFilter_.threshold = threshold;
 }
 
-bool MetavisionWrapper::initialize(bool useMultithreading, const std::string & biasFile)
+bool MetavisionWrapper::initialize(bool useMultithreading)
 {
-  biasFile_ = biasFile;
   useMultithreading_ = useMultithreading;
 
   if (!initializeCamera()) {
@@ -188,35 +194,46 @@ bool MetavisionWrapper::stop()
   return (status);
 }
 
-void MetavisionWrapper::applyROI(const std::vector<int> & roi)
+void MetavisionWrapper::applyROI(const std::vector<int> & roi, bool roni)
 {
   if (!roi.empty()) {
     if (roi.size() % 4 != 0) {
       LOG_ERROR_NAMED("ROI vec must be multiple of 4, but is: " << roi.size());
-    } else {
-#ifdef CHECK_IF_OUTSIDE_ROI
-      x_min_ = std::numeric_limits<uint16_t>::max();
-      x_max_ = std::numeric_limits<uint16_t>::min();
-      y_min_ = std::numeric_limits<uint16_t>::max();
-      y_max_ = std::numeric_limits<uint16_t>::min();
-#endif
-      std::vector<Window> rects;
-      for (size_t i = 0; i < roi.size(); i += 4) {
-        decltype(rects)::value_type rect;
-        rect.x = roi[i];
-        rect.y = roi[i + 1];
-        rect.width = roi[i + 2];
-        rect.height = roi[i + 3];
-        rects.push_back(rect);
-#ifdef CHECK_IF_OUTSIDE_ROI
-        x_min_ = std::min(static_cast<uint16_t>(rect.x), x_min_);
-        x_max_ = std::max(static_cast<uint16_t>(rect.x + rect.width), x_max_);
-        y_min_ = std::min(static_cast<uint16_t>(rect.y), y_min_);
-        y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
-#endif
-      }
-      cam_.get_device().get_facility<Metavision::I_ROI>()->set_windows(rects);
+      return;
     }
+    auto i_roi = cam_.get_device().get_facility<Metavision::I_ROI>();
+    if (roi.size() / 4 > i_roi->get_max_supported_windows_count()) {
+      LOG_ERROR_NAMED(
+        "number of ROI windows exceeds maximum supported: "
+        << roi.size() / 4 << " > " << i_roi->get_max_supported_windows_count());
+    }
+#ifdef CHECK_IF_OUTSIDE_ROI
+    x_min_ = std::numeric_limits<uint16_t>::max();
+    x_max_ = std::numeric_limits<uint16_t>::min();
+    y_min_ = std::numeric_limits<uint16_t>::max();
+    y_max_ = std::numeric_limits<uint16_t>::min();
+#endif
+    std::vector<Window> rects;
+    for (size_t i = 0; i < roi.size(); i += 4) {
+      decltype(rects)::value_type rect;
+      rect.x = roi[i];
+      rect.y = roi[i + 1];
+      rect.width = roi[i + 2];
+      rect.height = roi[i + 3];
+      rects.push_back(rect);
+#ifdef CHECK_IF_OUTSIDE_ROI
+      x_min_ = std::min(static_cast<uint16_t>(rect.x), x_min_);
+      x_max_ = std::max(static_cast<uint16_t>(rect.x + rect.width), x_max_);
+      y_min_ = std::min(static_cast<uint16_t>(rect.y), y_min_);
+      y_max_ = std::max(static_cast<uint16_t>(rect.y + rect.height), y_max_);
+#endif
+    }
+    LOG_INFO_NAMED(
+      "setting ROI with " << rects.size() << " rectangles, mode: " << (roni ? "RONI" : "ROI"));
+    using I_ROI = Metavision::I_ROI;
+    i_roi->set_mode(roni ? I_ROI::Mode::RONI : I_ROI::Mode::ROI);
+    i_roi->set_windows(rects);
+    i_roi->enable(true);
   } else {
 #ifdef CHECK_IF_OUTSIDE_ROI
     x_min_ = 0;
@@ -309,8 +326,11 @@ void MetavisionWrapper::configureEventRateController(
   }
 }
 
-bool MetavisionWrapper::initializeCamera()
+bool MetavisionWrapper::openCamera()
 {
+  Metavision::DeviceConfig deviceConfig;
+  LOG_INFO_NAMED("setting encoding format: " << encodingFormat_);
+  deviceConfig.set_format(to_upper(encodingFormat_));
   const int num_tries = 5;
   for (int i = 0; i < num_tries; i++) {
     try {
@@ -320,9 +340,9 @@ bool MetavisionWrapper::initializeCamera()
         cam_ = Metavision::Camera::from_file(fromFile_, cfg);
       } else {
         if (!serialNumber_.empty()) {
-          cam_ = Metavision::Camera::from_serial(serialNumber_);
+          cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
         } else {
-          cam_ = Metavision::Camera::from_first_available();
+          cam_ = Metavision::Camera::from_first_available(deviceConfig);
         }
       }
       break;  // were able to open the camera, exit the for loop
@@ -336,10 +356,67 @@ bool MetavisionWrapper::initializeCamera()
         std::this_thread::sleep_for(std::chrono::seconds(1));
       } else {
         LOG_ERROR_NAMED("cannot open " << src << ", giving up!");
+        return (false);
       }
     }
   }
+  return (true);
+}
 
+bool MetavisionWrapper::loadBiases()
+{
+  if (!biasFile_.empty()) {
+    try {
+#if METAVISION_VERSION < 5
+      cam_.biases().set_from_file(biasFile_);
+#else
+      cam_.get_device().get_facility<Metavision::I_LL_Biases>()->load_from_file(biasFile_);
+#endif
+      LOG_INFO_NAMED("using bias file: " << biasFile_);
+    } catch (const Metavision::CameraException & e) {
+      LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
+      LOG_WARN_NAMED("continuing with default biases!");
+      return (false);
+    }
+  } else if (fromFile_.empty()) {  // only load biases when not playing from file!
+    LOG_INFO_NAMED("no bias file provided, using camera defaults.");
+  }
+  return (true);
+}
+
+void MetavisionWrapper::printBiases()
+{
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const auto pmap = biases->get_all_biases();
+  for (const auto & bp : pmap) {
+    LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
+  }
+}
+
+bool MetavisionWrapper::loadSettings()
+{
+  try {
+    if (!settingsFile_.empty()) {
+      if (!cam_.load(settingsFile_)) {
+        LOG_WARN_NAMED("could not load settings from file: " << settingsFile_);
+        return (false);
+      } else {
+        LOG_INFO_NAMED("loaded camera settings from file: " << settingsFile_);
+      }
+    }
+  } catch (const Metavision::CameraException & e) {
+    LOG_WARN_NAMED(
+      "loading settings from file " << settingsFile_ << " failed with error: " << e.what());
+    LOG_WARN_NAMED("continuing with current settings!");
+  }
+  return (true);
+}
+
+bool MetavisionWrapper::initializeCamera()
+{
+  if (!openCamera()) {
+    return (false);
+  }
   try {
     // Record the plugin software information about the camera.
     using PSI = Metavision::I_PluginSoftwareInfo;
@@ -355,26 +432,9 @@ bool MetavisionWrapper::initializeCamera()
       std::to_string(sinfo.major_version_) + "." + std::to_string(sinfo.minor_version_);
     LOG_INFO_NAMED("sensor version: " << sensorVersion_);
     LOG_INFO_NAMED("sensor name: " << sinfo.name_);
-    if (!biasFile_.empty()) {
-      try {
-#if METAVISION_VERSION < 5
-        cam_.biases().set_from_file(biasFile_);
-#else
-        cam_.get_device().get_facility<Metavision::I_LL_Biases>()->load_from_file(biasFile_);
-#endif
-        LOG_INFO_NAMED("using bias file: " << biasFile_);
-      } catch (const Metavision::CameraException & e) {
-        LOG_WARN_NAMED("reading bias file failed with error: " << e.what());
-        LOG_WARN_NAMED("continuing with default biases!");
-      }
-    } else if (fromFile_.empty()) {  // only load biases when not playing from file!
-      LOG_INFO_NAMED("no bias file provided, using camera defaults:");
-      const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-      const auto pmap = biases->get_all_biases();
-      for (const auto & bp : pmap) {
-        LOG_INFO_NAMED("found bias param: " << bp.first << " " << bp.second);
-      }
-    }
+    loadBiases();
+    loadSettings();
+    printBiases();
     // overwrite serial in case it was not set
     serialNumber_ = cam_.get_camera_configuration().serial_number;
     LOG_INFO_NAMED("camera serial number: " << serialNumber_);
@@ -389,7 +449,7 @@ bool MetavisionWrapper::initializeCamera()
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
     if (fromFile_.empty()) {
       applySyncMode(syncMode_);
-      applyROI(roi_);
+      applyROI(roi_, useRONI_);
       configureExternalTriggers(
         triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
       configureEventRateController(ercMode_, ercRate_);
@@ -525,6 +585,23 @@ bool MetavisionWrapper::saveBiases()
       LOG_INFO_NAMED("biases written to file: " << biasFile_);
     } catch (const Metavision::CameraException & e) {
       LOG_WARN_NAMED("failed to write bias file: " << e.what());
+      return (false);
+    }
+  }
+  return (true);
+}
+
+bool MetavisionWrapper::saveSettings()
+{
+  if (settingsFile_.empty()) {
+    LOG_WARN_NAMED("no settings file specified at startup, no settings saved!");
+    return (false);
+  } else {
+    try {
+      cam_.save(settingsFile_);
+      LOG_INFO_NAMED("settings written to file: " << settingsFile_);
+    } catch (const Metavision::CameraException & e) {
+      LOG_WARN_NAMED("failed to write settings to " << settingsFile_ << " : " << e.what());
       return (false);
     }
   }
