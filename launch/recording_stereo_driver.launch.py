@@ -15,15 +15,14 @@
 #
 #
 
-import os
-
-from ament_index_python.packages import get_package_share_directory
 import launch
 from launch.actions import DeclareLaunchArgument as LaunchArg
 from launch.actions import OpaqueFunction
 from launch.substitutions import LaunchConfiguration as LaunchConfig
+from launch.substitutions import PathJoinSubstitution as Join
 from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
+from launch_ros.substitutions import FindPackageShare
 
 
 def launch_setup(context, *args, **kwargs):
@@ -32,9 +31,9 @@ def launch_setup(context, *args, **kwargs):
     cam_0_str = cam_0_name.perform(context)
     cam_1_name = LaunchConfig("camera_1_name")
     cam_1_str = cam_1_name.perform(context)
-    pkg_name = "metavision_driver"
-    share_dir = get_package_share_directory(pkg_name)
-    bias_config = os.path.join(share_dir, "config", "silky_ev_cam.bias")  # noqa F841
+    bias_config = Join(
+        [FindPackageShare("metavision_driver"), "config", "silky_eve_cam_.bias"]
+    )
     #
     # camera 0
     #
@@ -45,7 +44,7 @@ def launch_setup(context, *args, **kwargs):
         parameters=[
             {
                 "use_multithreading": False,
-                # 'bias_file': bias_config,
+                "bias_file": bias_config,
                 "camerainfo_url": "",
                 "frame_id": "cam_0",
                 "serial": "CenturyArks:evc3a_plugin_gen31:00000198",
@@ -70,7 +69,7 @@ def launch_setup(context, *args, **kwargs):
         parameters=[
             {
                 "use_multithreading": False,
-                # 'bias_file': bias_config,
+                "bias_file": bias_config,
                 "camerainfo_url": "",
                 "frame_id": "cam_1",
                 "serial": "CenturyArks:evc3a_plugin_gen31:00000293",
@@ -127,7 +126,11 @@ def generate_launch_description():
                 description="camera name of camera 1",
             ),
             LaunchArg("bag", default_value=[""], description="name of output bag"),
-            LaunchArg("bag_prefix", default_value=["events_"], description="prefix of output bag"),
+            LaunchArg(
+                "bag_prefix",
+                default_value=["events_"],
+                description="prefix of output bag",
+            ),
             OpaqueFunction(function=launch_setup),
         ]
     )
