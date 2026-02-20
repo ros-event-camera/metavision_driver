@@ -25,6 +25,9 @@ from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 
 
+use_bias_config = False
+
+
 def launch_setup(context, *args, **kwargs):
     """Create composable node."""
     cam_0_name = LaunchConfig("camera_0_name")
@@ -32,8 +35,8 @@ def launch_setup(context, *args, **kwargs):
     cam_1_name = LaunchConfig("camera_1_name")
     cam_1_str = cam_1_name.perform(context)
     bias_config = Join(
-        [FindPackageShare("metavision_driver"), "config", "silky_eve_cam_.bias"]
-    )
+            [FindPackageShare("metavision_driver"), "config", "silky_eve_cam_.bias"]
+    ) if use_bias_config else ""
     #
     # camera 0
     #
@@ -47,7 +50,7 @@ def launch_setup(context, *args, **kwargs):
                 "bias_file": bias_config,
                 "camerainfo_url": "",
                 "frame_id": "cam_0",
-                "serial": "CenturyArks:evc3a_plugin_gen31:00000198",
+                "serial": "00000198",
                 "sync_mode": "primary",
                 "event_message_time_threshold": 1.0e-3,
             }
@@ -72,7 +75,7 @@ def launch_setup(context, *args, **kwargs):
                 "bias_file": bias_config,
                 "camerainfo_url": "",
                 "frame_id": "cam_1",
-                "serial": "CenturyArks:evc3a_plugin_gen31:00000293",
+                "serial": "00000293",
                 "sync_mode": "secondary",
                 "event_message_time_threshold": 1.0e-3,
             }
