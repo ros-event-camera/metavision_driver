@@ -248,6 +248,7 @@ void DriverROS2::start()
   std::string settingsFile;
   this->get_parameter_or<std::string>("settings", settingsFile, "");
   wrapper_->setSettingsFile(settingsFile);
+  this->get_parameter_or<std::string>("frame_id", frameId_, "");
 
   if (!wrapper_->initialize(useMT)) {
     LOG_ERROR("driver initialization failed!");
