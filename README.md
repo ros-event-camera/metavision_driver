@@ -70,6 +70,7 @@ On top of installing the driver binaries, you will have to install the right ude
   matches the OpenEB version that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
   is currently using (see the ``CMakeLists.txt`` file). The required udev files should be automatically installed by the
   plugin installer. Make
+
 - For the IDS cameras, download the plugin (a debian package) from the "Downloads" tab of the respective camera page,
   for instance for the [XCP-E camera](https://www.ids-imaging.us/store_us/products/cameras/ue-39b0xcp-e.html). Get the
   version that matches the one that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
@@ -100,25 +101,15 @@ those header files and libraries.
 Prerequisites:
 
 - install [OpenEB](https://github.com/prophesee-ai/openeb)
-- install ``vcs`` (Ubuntu package ``python3-vcstool``).
 
 Make sure you have your ROS2 environment sourced such that ROS_VERSION is set.
-Create a workspace (``metavision_driver_ws``), clone this repo, and use ``vcs``
-to pull in the remaining dependencies:
+Create a workspace (``metavision_driver_ws``), clone this repo, and build:
 
 ```bash
 pkg=metavision_driver
 mkdir -p ~/${pkg}_ws/src
 cd ~/${pkg}_ws
 git clone https://github.com/ros-event-camera/metavision_driver.git src/${pkg}
-cd src
-vcs import < ${pkg}/${pkg}.repos
-cd ..
-```
-
-Now configure and build:
-
-```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 . install/setup.bash
 ```
