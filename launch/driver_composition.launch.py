@@ -117,7 +117,7 @@ def generate_launch_description():
             ),
             LaunchArg(
                 "serial",
-                default_value=["4110030785"],
+                default_value=[""],
                 description="serial number of camera",
             ),
             LaunchArg(
