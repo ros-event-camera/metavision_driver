@@ -186,7 +186,7 @@ bool MetavisionWrapper::stop()
   if (statsThread_) {
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      cv_.notify_all();
+      statsCV_.notify_all();
     }
     statsThread_->join();
     statsThread_.reset();
@@ -703,26 +703,26 @@ void MetavisionWrapper::setExternalTriggerOutMode(
 
 void MetavisionWrapper::statsThread()
 {
+  std::unique_lock<std::mutex> lock(statsMutex_);
+  const auto wait_time = std::chrono::milliseconds(static_cast<int>(statsInterval_ * 1000));
   while (GENERIC_ROS_OK() && keepRunning_) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(statsInterval_ * 1000)));
-    printStatistics();
+    statsCV_.wait_for(lock, wait_time);
+    if (GENERIC_ROS_OK() && keepRunning_) {
+      printStatistics();
+    }
   }
   LOG_INFO_NAMED("statistics thread exited!");
 }
 
 void MetavisionWrapper::printStatistics()
 {
-  Stats stats;
-  {
-    std::unique_lock<std::mutex> lock(statsMutex_);
-    stats = stats_;
-    stats_ = Stats();  // reset statistics
-  }
+  Stats stats = stats_;  // shorthand
   std::chrono::time_point<std::chrono::system_clock> t_now = std::chrono::system_clock::now();
   const double dt = std::chrono::duration<double>(t_now - lastPrintTime_).count();
   lastPrintTime_ = t_now;
   const double invT = dt > 0 ? 1.0 / dt : 0;
-  const double recvByteRate = 1e-6 * stats.bytesRecv * invT;
+  constexpr double bytesToMB = 1.0 / (1024.0 * 1024.0);
+  const double recvByteRate = stats.bytesRecv * invT * bytesToMB;
 
   const int recvMsgRate = static_cast<int>(stats.msgsRecv * invT);
   const int sendMsgRate = static_cast<int>(stats.msgsSent * invT);
@@ -750,6 +750,7 @@ void MetavisionWrapper::printStatistics()
       recvMsgRate, sendMsgRate);
   }
 #endif
+  stats_ = Stats();  // reset statistics
 }
 
 }  // namespace metavision_driver
