@@ -26,15 +26,6 @@ from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 
 
-fixed_params = {
-    "use_multithreading": False,
-    "bias_file": "",
-    "camerainfo_url": "",
-    "frame_id": "",
-    "event_message_time_threshold": 1.0e-3,
-}
-
-
 def make_renderer(camera):
     return ComposableNode(
         package="event_camera_renderer",
@@ -75,6 +66,7 @@ def launch_setup(context, *args, **kwargs):
         {
             "serial": LaunchConfig("serial").perform(context),
             "settings": LaunchConfig("settings").perform(context),
+            "statistics_print_interval": float(LaunchConfig("statistics_print_interval").perform(context)),
         }
     ]
     remappings = []
@@ -129,6 +121,11 @@ def generate_launch_description():
                 "fps",
                 default_value=["fps"],
                 description="renderer and fibar frame rate in Hz",
+            ),
+            LaunchArg(
+                "statistics_print_interval",
+                default_value=["2.0"],
+                description="time in seconds between statistics printing",
             ),
             LaunchArg(
                 "with_renderer",
