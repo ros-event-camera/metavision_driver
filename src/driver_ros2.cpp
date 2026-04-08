@@ -110,6 +110,28 @@ void DriverROS2::saveSettings(
   response->message += (response->success ? "succeeded" : "failed");
 }
 
+void DriverROS2::dumpStatistics(
+  const std::shared_ptr<Trigger::Request>, const std::shared_ptr<Trigger::Response> response)
+{
+  response->success = false;
+  response->message = "dumping statistics succeeded";
+  const auto endTime = std::chrono::steady_clock::now();
+  const auto dt =
+    std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startStatisticsTime_)
+      .count();
+  const auto dt_inv = (dt > 0) ? (1.0 / dt) : 0.0;
+  const double inputBandwidth = numInputBytes_ * dt_inv;
+  const double inputMsgRate = numInputPackets_ * dt_inv;
+  const double avgMsgSize =
+    (numInputPackets_ > 0) ? (static_cast<double>(numInputBytes_) / numInputPackets_) : 0.0;
+  LOG_INFO_FMT(
+    "input bw: %.4f MB/s, msg rate: %.2f msgs/s, avg msg size: %.0f bytes",
+    inputBandwidth / (1024.0 * 1024.0), inputMsgRate, avgMsgSize);
+  numInputBytes_ = 0;
+  numInputPackets_ = 0;
+  startStatisticsTime_ = endTime;
+}
+
 rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
   const std::vector<rclcpp::Parameter> & params)
 {
@@ -284,7 +306,7 @@ void DriverROS2::start()
 
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
-
+  startStatisticsTime_ = std::chrono::steady_clock::now();
   if (wrapper_->getFromFile().empty()) {
     declareBiasParameters(wrapper_->getSensorVersion());
     callbackHandle_ = this->add_on_set_parameters_callback(
@@ -299,6 +321,9 @@ void DriverROS2::start()
     saveSettingsService_ = this->create_service<Trigger>(
       "~/save_settings",
       std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
+    dumpStatisticsService_ = this->create_service<Trigger>(
+      "~/dump_statistics",
+      std::bind(&DriverROS2::dumpStatistics, this, std::placeholders::_1, std::placeholders::_2));
   }
 }
 
@@ -438,6 +463,8 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
       msg_.reset();
     }
   }
+  numInputPackets_++;
+  numInputBytes_ += (end - start);
 }
 
 void DriverROS2::eventCDCallback(
