@@ -215,6 +215,7 @@ Services:
   this to work the ``bias_file`` parameter must be set to a non-empty value.
 - ``save_settings``: write out current camera settings to settings file. For
   this to work the ``settings`` parameter must be set to a non-empty value.
+- ``dump_statistics``: print extra statistics like the average size of SDK packets.
 
 Dynamic reconfiguration parameters
 (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
