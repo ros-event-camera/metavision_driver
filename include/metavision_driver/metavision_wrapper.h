@@ -204,6 +204,7 @@ private:
   std::chrono::time_point<std::chrono::system_clock> lastPrintTime_;
   Stats stats_;
   std::mutex statsMutex_;
+  std::condition_variable statsCV_;
   std::shared_ptr<std::thread> statsThread_;
 
   // -----------
