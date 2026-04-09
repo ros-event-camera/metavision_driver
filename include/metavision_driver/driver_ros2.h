@@ -88,6 +88,7 @@ private:
   size_t messageThresholdSize_{0};    // threshold size for sending message
   size_t numInputPackets_{0};
   size_t numInputBytes_{0};
+  size_t numEvents_{0};
   std::chrono::steady_clock::time_point startStatisticsTime_;
   EventPacketMsg::UniquePtr msg_;
   rclcpp::Publisher<EventPacketMsg>::SharedPtr eventPub_;
@@ -103,6 +104,10 @@ private:
   rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
   rclcpp::Service<Trigger>::SharedPtr saveSettingsService_;
   rclcpp::Service<Trigger>::SharedPtr dumpStatisticsService_;
+  uint64_t sum_t{0};
+  uint64_t sum_x{0};
+  uint64_t sum_y{0};
+  uint64_t sum_p{0};
 };
 }  // namespace metavision_driver
 #endif  // METAVISION_DRIVER__DRIVER_ROS2_H_

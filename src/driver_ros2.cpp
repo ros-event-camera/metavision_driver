@@ -125,10 +125,11 @@ void DriverROS2::dumpStatistics(
   const double avgMsgSize =
     (numInputPackets_ > 0) ? (static_cast<double>(numInputBytes_) / numInputPackets_) : 0.0;
   LOG_INFO_FMT(
-    "input bw: %.4f MB/s, msg rate: %.2f msgs/s, avg msg size: %.0f bytes",
-    inputBandwidth / (1024.0 * 1024.0), inputMsgRate, avgMsgSize);
+    "input bw: %.4f MB/s, msg rate: %.2f msgs/s, avg msg size: %.0f bytes, event rate: %.2f Mev/s",
+    inputBandwidth / (1024.0 * 1024.0), inputMsgRate, avgMsgSize, numEvents_ * dt_inv / 1e6);
   numInputBytes_ = 0;
   numInputPackets_ = 0;
+  numEvents_ = 0;
   startStatisticsTime_ = endTime;
 }
 
@@ -276,6 +277,7 @@ void DriverROS2::start()
     LOG_ERROR("driver initialization failed!");
     throw std::runtime_error("driver initialization failed!");
   }
+  wrapper_->setDecodingEvents(true);  // XXX
   if (wrapper_->getSyncMode() == "secondary") {
     // For Gen3 the secondary will produce data with time stamps == 0
     // until it sees a clock signal. To filter out those events we
@@ -473,6 +475,19 @@ void DriverROS2::eventCDCallback(
   // This callback will only be exercised during startup on the
   // secondary until good data is available. The moment good time stamps
   // are available we disable decoding and use the raw interface.
+  numInputBytes_ += (end - start) * sizeof(Metavision::EventCD);
+  numInputPackets_++;
+  numEvents_ += (end - start);
+#if 0
+  for (auto e = start; e != end; e++) {
+    sum_t += e->t;
+    sum_x += e->x;
+    sum_y += e->y;
+    sum_p += e->p;
+  }
+#endif
+  return;
+
   bool hasZeroTime(false);
   for (auto e = start; e != end; e++) {
     if (e->t == 0) {
