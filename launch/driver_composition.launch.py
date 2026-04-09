@@ -66,7 +66,9 @@ def launch_setup(context, *args, **kwargs):
         {
             "serial": LaunchConfig("serial").perform(context),
             "settings": LaunchConfig("settings").perform(context),
-            "statistics_print_interval": float(LaunchConfig("statistics_print_interval").perform(context)),
+            "statistics_print_interval": float(
+                LaunchConfig("statistics_print_interval").perform(context)
+            ),
         }
     ]
     remappings = []
