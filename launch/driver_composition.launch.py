@@ -66,6 +66,7 @@ def launch_setup(context, *args, **kwargs):
         {
             "serial": LaunchConfig("serial").perform(context),
             "settings": LaunchConfig("settings").perform(context),
+            "event_buffer_size": LaunchConfig("event_buffer_size"),
             "statistics_print_interval": float(
                 LaunchConfig("statistics_print_interval").perform(context)
             ),
@@ -127,6 +128,11 @@ def generate_launch_description():
             LaunchArg(
                 "statistics_print_interval",
                 default_value=["2.0"],
+                description="time in seconds between statistics printing",
+            ),
+            LaunchArg(
+                "event_buffer_size",
+                default_value=["1048576"],
                 description="time in seconds between statistics printing",
             ),
             LaunchArg(

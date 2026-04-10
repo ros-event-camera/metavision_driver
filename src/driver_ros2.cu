@@ -15,6 +15,8 @@
 
 #include "metavision_driver/driver_ros2.h"
 
+#include <cuda_runtime.h>
+
 #include <chrono>
 #include <event_camera_msgs/msg/event_packet.hpp>
 #include <map>
@@ -47,7 +49,9 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   int64_t mts;
   this->get_parameter_or("event_message_size_threshold", mts, int64_t(1000000000));
   messageThresholdSize_ = static_cast<size_t>(std::abs(mts));
-
+  this->get_parameter_or("event_buffer_size", eventBufferSize_, 1024*1024);
+  eventBuffer_.reserve(eventBufferSize_);
+  cudaMalloc(&dev_event_buffer_, eventBufferSize_);
   int qs;
   this->get_parameter_or("send_queue_size", qs, 1000);
   eventPub_ = this->create_publisher<EventPacketMsg>(
@@ -86,6 +90,9 @@ DriverROS2::~DriverROS2()
 {
   stop();
   wrapper_.reset();  // invoke destructor
+  if (dev_event_buffer_) {
+    cudaFree(&dev_event_buffer_);
+  }
 }
 
 void DriverROS2::saveBiases(
@@ -124,12 +131,25 @@ void DriverROS2::dumpStatistics(
   const double inputMsgRate = numInputPackets_ * dt_inv;
   const double avgMsgSize =
     (numInputPackets_ > 0) ? (static_cast<double>(numInputBytes_) / numInputPackets_) : 0.0;
+  
+  // Compute copy latency statistics
+  const double avgCopyLatency =
+    (numCopyCalls_ > 0) ? (sumCopyLatency_ / numCopyCalls_) : 0.0;
+  
   LOG_INFO_FMT(
     "input bw: %.4f MB/s, msg rate: %.2f msgs/s, avg msg size: %.0f bytes, event rate: %.2f Mev/s",
     inputBandwidth / (1024.0 * 1024.0), inputMsgRate, avgMsgSize, numEvents_ * dt_inv / 1e6);
+  LOG_INFO_FMT(
+    "gpu copy latency min: %.4fus max: %.4fus avg: %.4fus", minCopyLatency_, maxCopyLatency_, avgCopyLatency);
+  
+  // Reset statistics
   numInputBytes_ = 0;
   numInputPackets_ = 0;
   numEvents_ = 0;
+  minCopyLatency_ = std::numeric_limits<int64_t>::max();
+  maxCopyLatency_ = 0;
+  sumCopyLatency_ = 0;
+  numCopyCalls_ = 0;
   startStatisticsTime_ = endTime;
 }
 
@@ -469,15 +489,41 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
   numInputBytes_ += (end - start);
 }
 
+// #define MEASURE_TIMING
+
 void DriverROS2::eventCDCallback(
   uint64_t, const Metavision::EventCD * start, const Metavision::EventCD * end)
 {
   // This callback will only be exercised during startup on the
   // secondary until good data is available. The moment good time stamps
   // are available we disable decoding and use the raw interface.
-  numInputBytes_ += (end - start) * sizeof(Metavision::EventCD);
+  const size_t numBytes = (end - start) * sizeof(Metavision::EventCD);
+  numInputBytes_ += numBytes;
   numInputPackets_++;
   numEvents_ += (end - start);
+#ifdef MEASURE_TIMING
+  const auto start_time = std::chrono::high_resolution_clock::now();
+#endif  
+  if (eventBuffer_.size() + numBytes > eventBufferSize_) {
+    cudaMemcpy(dev_event_buffer_, eventBuffer_.data(), eventBuffer_.size(), cudaMemcpyDefault);
+    eventBuffer_.resize(0);
+  }
+  if (numBytes > eventBufferSize_) {
+    LOG_ERROR("numBytes too big: " << numBytes << " vs " << eventBufferSize_);
+    return;
+  }
+  const uint8_t *data = reinterpret_cast<const uint8_t *>(start);
+  eventBuffer_.insert(eventBuffer_.end(), data, data + numBytes);
+#ifdef MEASURE_TIMING
+  const auto end_time = std::chrono::high_resolution_clock::now();
+  const int64_t dt = std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+  // Update latency statistics
+  minCopyLatency_ = std::min(minCopyLatency_, dt);
+  maxCopyLatency_ = std::max(maxCopyLatency_, dt);
+  sumCopyLatency_ += dt;
+  numCopyCalls_++;
+#endif 
+  
 #if 0
   for (auto e = start; e != end; e++) {
     sum_t += e->t;

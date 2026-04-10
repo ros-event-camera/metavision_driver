@@ -18,13 +18,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# cuda compiler options
+set(cxx_options -Wall -Wextra -Werror -Wfatal-errors -ffast-math
+  -fsee -fno-signed-zeros -fno-math-errno -funroll-loops -fno-finite-math-only -march=native -O3 -DNDEBUG)
+set(nvcc_options
+  --default-stream=per-thread)
+
+
 # add_compile_options(-fsanitize=address)
 # add_link_options(-fsanitize=address)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # metavision SDK header files produce warnings, switch off for now
   #add_compile_options(-Wall -Wextra -Wpedantic -Werror)
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wall>)
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wextra>)
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wpedantic>)
 endif()
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -61,29 +70,46 @@ foreach(pkg ${ROS2_DEPENDENCIES})
   find_package(${pkg} REQUIRED)
 endforeach()
 
-ament_auto_find_build_dependencies(REQUIRED ${ROS2_DEPENDENCIES})
+# ament_auto_find_build_dependencies(REQUIRED ${ROS2_DEPENDENCIES})
 
 #
 # --------- driver (composable component) -------------
 
-ament_auto_add_library(driver_ros2 SHARED
-  src/metavision_wrapper.cpp
-  src/bias_parameter.cpp
-  src/driver_ros2.cpp)
+add_library(driver_ros2 SHARED
+  src/metavision_wrapper.cu
+  src/bias_parameter.cu
+  src/driver_ros2.cu)
 
 set(MV_COMPONENTS_QUAL ${MV_COMPONENTS})
 list(TRANSFORM MV_COMPONENTS_QUAL PREPEND "MetavisionSDK::")
+target_include_directories(driver_ros2
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+target_compile_options(driver_ros2
+  PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${cxx_options}>
+  $<$<COMPILE_LANGUAGE:CUDA>:${nvcc_options}>)
 
-target_include_directories(driver_ros2 PRIVATE include)
-target_link_libraries(driver_ros2  ${MV_COMPONENTS_QUAL})
+#target_include_directories(driver_ros2 PRIVATE include)
+
+target_link_libraries(driver_ros2
+  ${MV_COMPONENTS_QUAL}
+  rclcpp::rclcpp
+  rclcpp_components::component
+  ${event_camera_msgs_TARGETS}
+  ${std_srvs_TARGETS}
+  )
+set_target_properties(driver_ros2 PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 
 rclcpp_components_register_nodes(driver_ros2 "metavision_driver::DriverROS2")
 
 # --------- driver (plain old node) -------------
 
-ament_auto_add_executable(driver_node
-  src/driver_node_ros2.cpp)
-
+add_executable(driver_node
+  src/driver_node_ros2.cu)
+target_compile_options(driver_node
+  PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:${nvcc_options}>)
+target_link_libraries(driver_node driver_ros2)
 
 # the node must go into the project specific lib directory or else
 # the launch file will not find it

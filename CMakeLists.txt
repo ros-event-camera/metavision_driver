@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.16)
-project(metavision_driver)
+cmake_minimum_required(VERSION 3.27)
+project(metavision_driver LANGUAGES CXX CUDA)
 
 #
 # figure out ROS1 vs ROS2

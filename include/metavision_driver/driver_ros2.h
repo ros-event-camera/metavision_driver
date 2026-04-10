@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <event_camera_msgs/msg/event_packet.hpp>
+#include <limits>
 #include <map>
 #include <memory>
 #include <rclcpp/rclcpp.hpp>
@@ -104,10 +105,18 @@ private:
   rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
   rclcpp::Service<Trigger>::SharedPtr saveSettingsService_;
   rclcpp::Service<Trigger>::SharedPtr dumpStatisticsService_;
+  uint8_t * dev_event_buffer_{nullptr};
   uint64_t sum_t{0};
   uint64_t sum_x{0};
   uint64_t sum_y{0};
   uint64_t sum_p{0};
+  // copy latency tracking
+  int64_t minCopyLatency_{std::numeric_limits<int64_t>::max()};
+  int64_t maxCopyLatency_{0};
+  int64_t sumCopyLatency_{0};
+  size_t numCopyCalls_{0};
+  std::vector<uint8_t> eventBuffer_;
+  int eventBufferSize_{0};
 };
 }  // namespace metavision_driver
 #endif  // METAVISION_DRIVER__DRIVER_ROS2_H_
