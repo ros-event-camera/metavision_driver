@@ -386,10 +386,12 @@ bool MetavisionWrapper::loadBiases()
 
 void MetavisionWrapper::printBiases()
 {
-  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-  const auto pmap = biases->get_all_biases();
-  for (const auto & bp : pmap) {
-    LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
+  if (fromFile_.empty()) {
+    const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+    const auto pmap = biases->get_all_biases();
+    for (const auto & bp : pmap) {
+      LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
+    }
   }
 }
 
