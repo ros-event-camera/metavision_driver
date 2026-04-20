@@ -334,21 +334,14 @@ bool MetavisionWrapper::openCamera()
   const int num_tries = 5;
   for (int i = 0; i < num_tries; i++) {
     try {
-      if (!fromFile_.empty()) {
-        LOG_INFO_NAMED("reading events from file: " << fromFile_);
-        const auto cfg = Metavision::FileConfigHints().real_time_playback(true);
-        cam_ = Metavision::Camera::from_file(fromFile_, cfg);
+      if (!serialNumber_.empty()) {
+        cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
       } else {
-        if (!serialNumber_.empty()) {
-          cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
-        } else {
-          cam_ = Metavision::Camera::from_first_available(deviceConfig);
-        }
+        cam_ = Metavision::Camera::from_first_available(deviceConfig);
       }
       break;  // were able to open the camera, exit the for loop
     } catch (const Metavision::CameraException & e) {
-      const std::string src =
-        fromFile_.empty() ? (serialNumber_.empty() ? "default" : serialNumber_) : fromFile_;
+      const std::string src = serialNumber_.empty() ? "default camera" : serialNumber_;
       if (i < num_tries - 1) {
         LOG_WARN_NAMED(
           "cannot open " << src << " on attempt " << i + 1 << ", retrying " << num_tries - i - 1
@@ -378,7 +371,7 @@ bool MetavisionWrapper::loadBiases()
       LOG_WARN_NAMED("continuing with default biases!");
       return (false);
     }
-  } else if (fromFile_.empty()) {  // only load biases when not playing from file!
+  } else {
     LOG_INFO_NAMED("no bias file provided, using camera defaults.");
   }
   return (true);
@@ -386,12 +379,10 @@ bool MetavisionWrapper::loadBiases()
 
 void MetavisionWrapper::printBiases()
 {
-  if (fromFile_.empty()) {
-    const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
-    const auto pmap = biases->get_all_biases();
-    for (const auto & bp : pmap) {
-      LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
-    }
+  const auto biases = cam_.get_device().get_facility<Metavision::I_LL_Biases>();
+  const auto pmap = biases->get_all_biases();
+  for (const auto & bp : pmap) {
+    LOG_INFO_NAMED("using bias param: " << bp.first << " " << bp.second);
   }
 }
 
@@ -449,15 +440,13 @@ bool MetavisionWrapper::initializeCamera()
     height_ = g.get_height();
 #endif
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
-    if (fromFile_.empty()) {
-      applySyncMode(syncMode_);
-      applyROI(roi_, useRONI_);
-      configureExternalTriggers(
-        triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
-      configureEventRateController(ercMode_, ercRate_);
-      if (mipiFramePeriod_ > 0) {
-        configureMIPIFramePeriod(mipiFramePeriod_, sinfo.name_);
-      }
+    applySyncMode(syncMode_);
+    applyROI(roi_, useRONI_);
+    configureExternalTriggers(
+      triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    configureEventRateController(ercMode_, ercRate_);
+    if (mipiFramePeriod_ > 0) {
+      configureMIPIFramePeriod(mipiFramePeriod_, sinfo.name_);
     }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
