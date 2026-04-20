@@ -307,24 +307,22 @@ void DriverROS2::start()
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
   startStatisticsTime_ = std::chrono::steady_clock::now();
-  if (wrapper_->getFromFile().empty()) {
-    declareBiasParameters(wrapper_->getSensorVersion());
-    callbackHandle_ = this->add_on_set_parameters_callback(
-      std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
-    parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
-      this->get_node_topics_interface(),
-      std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
+  declareBiasParameters(wrapper_->getSensorVersion());
+  callbackHandle_ = this->add_on_set_parameters_callback(
+    std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
+  parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+    this->get_node_topics_interface(),
+    std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
-    saveBiasesService_ = this->create_service<Trigger>(
-      "~/save_biases",
-      std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
-    saveSettingsService_ = this->create_service<Trigger>(
-      "~/save_settings",
-      std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
-    dumpStatisticsService_ = this->create_service<Trigger>(
-      "~/dump_statistics",
-      std::bind(&DriverROS2::dumpStatistics, this, std::placeholders::_1, std::placeholders::_2));
-  }
+  saveBiasesService_ = this->create_service<Trigger>(
+    "~/save_biases",
+    std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+  saveSettingsService_ = this->create_service<Trigger>(
+    "~/save_settings",
+    std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
+  dumpStatisticsService_ = this->create_service<Trigger>(
+    "~/dump_statistics",
+    std::bind(&DriverROS2::dumpStatistics, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 bool DriverROS2::stop()
@@ -362,9 +360,6 @@ void DriverROS2::configureWrapper(const std::string & name)
   std::string sn;
   this->get_parameter_or("serial", sn, std::string(""));
   wrapper_->setSerialNumber(sn);
-  std::string fromFile;
-  this->get_parameter_or("from_file", fromFile, std::string(""));
-  wrapper_->setFromFile(fromFile);
   std::string syncMode;
   this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   wrapper_->setSyncMode(syncMode);

@@ -139,9 +139,6 @@ Parameters:
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
 - ``settings``: path to json file with camera settings such as pixel masks.
-- ``from_file``: path to Metavision raw file. Instead of opening
-  camera, driver plays back data from this file. This will not be in
-  real time, usually faster.
 - ``serial``: specifies serial number of camera to open (useful for
   stereo). To learn serial number format first start driver without
   specifying serial number and look at the log files.
