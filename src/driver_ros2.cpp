@@ -56,7 +56,7 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   if (wrapper_->getSyncMode() == "primary") {
     // delay primary until secondary is up and running
     // need to delay this to finish the constructor and release the thread
-    oneOffTimer_ = this->create_wall_timer(std::chrono::seconds(1), [=]() {
+    oneOffTimer_ = this->create_wall_timer(std::chrono::seconds(1), [this]() {
       oneOffTimer_->cancel();
       auto client = this->create_client<Trigger>("~/ready");
       while (!client->wait_for_service(std::chrono::seconds(1))) {
@@ -443,7 +443,7 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
     const size_t n = end - start;
     auto & events = msg_->events;
     const size_t oldSize = events.size();
-    resize_hack(events, oldSize + n);
+    events.resize(oldSize + n);
     memcpy(reinterpret_cast<void *>(events.data() + oldSize), start, n);
 
     if (t - lastMessageTime_ > messageThresholdTime_ || events.size() > messageThresholdSize_) {
