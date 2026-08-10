@@ -29,7 +29,7 @@ The events can be decoded and displayed using the following ROS packages:
 
 ## Supported platforms
 
-Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.0.0
+Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.2.0
 Notes:
 
 - Metavision 4.2.0 and 4.6.2 worked in previous versions but are no longer tested
