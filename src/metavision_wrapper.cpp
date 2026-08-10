@@ -454,10 +454,9 @@ bool MetavisionWrapper::initializeCamera()
     runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
       std::bind(&MetavisionWrapper::runtimeErrorCallback, this, ph::_1));
     runtimeErrorCallbackActive_ = true;
-    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(
-      useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
-                         : &MetavisionWrapper::rawDataCallback,
-      this, ph::_1, ph::_2));
+    auto cb_handler = useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
+                                         : &MetavisionWrapper::rawDataCallback;
+    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(cb_handler, this, ph::_1, ph::_2));
     rawDataCallbackActive_ = true;
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
