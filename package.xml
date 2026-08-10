@@ -3,35 +3,31 @@
 <package format="3">
   <name>metavision_driver</name>
   <version>1.0.0</version>
-  <description>ROS1 and ROS2 drivers for metavision based event cameras</description>
+  <description>ROS2 driver for metavision based event cameras</description>
   <maintainer email="bernd.pfrommer@gmail.com">Bernd Pfrommer</maintainer>
   <license>Apache License 2.0</license>
 
-  <!-- ROS1 specific dependencies -->
-  <buildtool_depend condition="$ROS_VERSION == 1">catkin</buildtool_depend>
-  <depend condition="$ROS_VERSION == 1">dynamic_reconfigure</depend>
-  <depend condition="$ROS_VERSION == 1">nodelet</depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <buildtool_depend>ament_cmake_ros</buildtool_depend>
+  <!-- to work around Humble problems -->
+  <buildtool_depend>rosidl_default_generator</buildtool_depend>
 
-  <!-- ROS2 specific dependencies -->
-  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_auto</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 2">ament_cmake_ros</buildtool_depend>
-  <depend condition="$ROS_VERSION == 2">rclcpp</depend>
-  <depend condition="$ROS_VERSION == 2">rclcpp_components</depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_copyright</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_cppcheck</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_cpplint</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_flake8</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_lint_cmake</test_depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+
+  <!-- to work around Humble problems -->
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <test_depend>ament_cmake_copyright</test_depend>
+  <test_depend>ament_cmake_cppcheck</test_depend>
+  <test_depend>ament_cmake_cpplint</test_depend>
+  <test_depend>ament_cmake_flake8</test_depend>
+  <test_depend>ament_cmake_lint_cmake</test_depend>
   <!-- does not work on galactic/foxy
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_pep257</test_depend> -->
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_xmllint</test_depend>
-  <test_depend condition="$ROS_VERSION == 2">ament_cmake_clang_format</test_depend>
-
-  <!--
-   for some reason the build fails if rosbag2_composable_recorder is not present
-   <exec_depend condition="$ROS_VERSION == 2">rosbag2_composable_recorder</exec_depend>
-  -->
+  <test_depend>ament_cmake_pep257</test_depend> -->
+  <test_depend>ament_cmake_xmllint</test_depend>
+  <test_depend>ament_cmake_clang_format</test_depend>
 
   <!-- common dependencies -->
   <depend>event_camera_msgs</depend>
@@ -39,27 +35,11 @@
   <depend>std_srvs</depend>
 
   <!-- openeb dependencies -->
-  <buildtool_depend condition="$ROS_VERSION == 1">wget</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">unzip</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">curl</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">git</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">cmake</buildtool_depend>
-  <buildtool_depend condition="$ROS_VERSION == 1">hdf5-tools</buildtool_depend>
-  <depend condition="$ROS_VERSION == 2">openeb_vendor</depend>
-  <depend condition="$ROS_VERSION == 1">boost</depend>
-  <depend condition="$ROS_VERSION == 1">libusb-1.0-dev</depend>
-  <depend condition="$ROS_VERSION == 1">libhdf5-dev</depend>
-  <depend condition="$ROS_VERSION == 1">libglew-dev</depend>
-  <depend condition="$ROS_VERSION == 1">libglfw3-dev</depend>
-  <depend condition="$ROS_VERSION == 1">ffmpeg</depend>
-  <depend condition="$ROS_VERSION == 1">libopencv-dev</depend>
-  <depend condition="$ROS_VERSION == 1">libopenscenegraph</depend>
-  <test_depend condition="$ROS_VERSION == 1">gtest</test_depend>
+  <depend>openeb_vendor</depend>
 
   <export>
     <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
     <!-- this is crucial else the package will not be registered! -->
-    <build_type condition="$ROS_VERSION == 1">catkin</build_type>
-    <build_type condition="$ROS_VERSION == 2">ament_cmake</build_type>
+    <build_type>ament_cmake</build_type>
   </export>
 </package>
