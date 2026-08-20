@@ -16,6 +16,7 @@
 #ifndef METAVISION_DRIVER__DRIVER_ROS2_H_
 #define METAVISION_DRIVER__DRIVER_ROS2_H_
 
+#include <chrono>
 #include <event_camera_msgs/msg/event_packet.hpp>
 #include <map>
 #include <memory>
@@ -55,6 +56,9 @@ private:
   void saveSettings(
     const std::shared_ptr<Trigger::Request> request,
     const std::shared_ptr<Trigger::Response> response);
+  void dumpStatistics(
+    const std::shared_ptr<Trigger::Request> request,
+    const std::shared_ptr<Trigger::Response> response);
 
   // related to dynanmic config (runtime parameter update)
   rcl_interfaces::msg::SetParametersResult parameterChanged(
@@ -82,6 +86,9 @@ private:
   uint64_t lastMessageTime_{0};
   uint64_t messageThresholdTime_{0};  // threshold time for sending message
   size_t messageThresholdSize_{0};    // threshold size for sending message
+  size_t numInputPackets_{0};
+  size_t numInputBytes_{0};
+  std::chrono::steady_clock::time_point startStatisticsTime_;
   EventPacketMsg::UniquePtr msg_;
   rclcpp::Publisher<EventPacketMsg>::SharedPtr eventPub_;
   // ------ related to sync
@@ -95,6 +102,7 @@ private:
   ParameterMap biasParameters_;
   rclcpp::Service<Trigger>::SharedPtr saveBiasesService_;
   rclcpp::Service<Trigger>::SharedPtr saveSettingsService_;
+  rclcpp::Service<Trigger>::SharedPtr dumpStatisticsService_;
 };
 }  // namespace metavision_driver
 #endif  // METAVISION_DRIVER__DRIVER_ROS2_H_

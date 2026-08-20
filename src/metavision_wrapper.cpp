@@ -186,7 +186,7 @@ bool MetavisionWrapper::stop()
   if (statsThread_) {
     {
       std::unique_lock<std::mutex> lock(mutex_);
-      cv_.notify_all();
+      statsCV_.notify_all();
     }
     statsThread_->join();
     statsThread_.reset();
@@ -334,21 +334,14 @@ bool MetavisionWrapper::openCamera()
   const int num_tries = 5;
   for (int i = 0; i < num_tries; i++) {
     try {
-      if (!fromFile_.empty()) {
-        LOG_INFO_NAMED("reading events from file: " << fromFile_);
-        const auto cfg = Metavision::FileConfigHints().real_time_playback(true);
-        cam_ = Metavision::Camera::from_file(fromFile_, cfg);
+      if (!serialNumber_.empty()) {
+        cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
       } else {
-        if (!serialNumber_.empty()) {
-          cam_ = Metavision::Camera::from_serial(serialNumber_, deviceConfig);
-        } else {
-          cam_ = Metavision::Camera::from_first_available(deviceConfig);
-        }
+        cam_ = Metavision::Camera::from_first_available(deviceConfig);
       }
       break;  // were able to open the camera, exit the for loop
     } catch (const Metavision::CameraException & e) {
-      const std::string src =
-        fromFile_.empty() ? (serialNumber_.empty() ? "default" : serialNumber_) : fromFile_;
+      const std::string src = serialNumber_.empty() ? "default camera" : serialNumber_;
       if (i < num_tries - 1) {
         LOG_WARN_NAMED(
           "cannot open " << src << " on attempt " << i + 1 << ", retrying " << num_tries - i - 1
@@ -378,7 +371,7 @@ bool MetavisionWrapper::loadBiases()
       LOG_WARN_NAMED("continuing with default biases!");
       return (false);
     }
-  } else if (fromFile_.empty()) {  // only load biases when not playing from file!
+  } else {
     LOG_INFO_NAMED("no bias file provided, using camera defaults.");
   }
   return (true);
@@ -447,15 +440,13 @@ bool MetavisionWrapper::initializeCamera()
     height_ = g.get_height();
 #endif
     LOG_INFO_NAMED("sensor geometry: " << width_ << " x " << height_);
-    if (fromFile_.empty()) {
-      applySyncMode(syncMode_);
-      applyROI(roi_, useRONI_);
-      configureExternalTriggers(
-        triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
-      configureEventRateController(ercMode_, ercRate_);
-      if (mipiFramePeriod_ > 0) {
-        configureMIPIFramePeriod(mipiFramePeriod_, sinfo.name_);
-      }
+    applySyncMode(syncMode_);
+    applyROI(roi_, useRONI_);
+    configureExternalTriggers(
+      triggerInMode_, triggerOutMode_, triggerOutPeriod_, triggerOutDutyCycle_);
+    configureEventRateController(ercMode_, ercRate_);
+    if (mipiFramePeriod_ > 0) {
+      configureMIPIFramePeriod(mipiFramePeriod_, sinfo.name_);
     }
     statusChangeCallbackId_ = cam_.add_status_change_callback(
       std::bind(&MetavisionWrapper::statusChangeCallback, this, ph::_1));
@@ -463,10 +454,9 @@ bool MetavisionWrapper::initializeCamera()
     runtimeErrorCallbackId_ = cam_.add_runtime_error_callback(
       std::bind(&MetavisionWrapper::runtimeErrorCallback, this, ph::_1));
     runtimeErrorCallbackActive_ = true;
-    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(
-      useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
-                         : &MetavisionWrapper::rawDataCallback,
-      this, ph::_1, ph::_2));
+    auto cb_handler = useMultithreading_ ? &MetavisionWrapper::rawDataCallbackMultithreaded
+                                         : &MetavisionWrapper::rawDataCallback;
+    rawDataCallbackId_ = cam_.raw_data().add_callback(std::bind(cb_handler, this, ph::_1, ph::_2));
     rawDataCallbackActive_ = true;
   } catch (const Metavision::CameraException & e) {
     LOG_ERROR_NAMED("unexpected sdk error: " << e.what());
@@ -703,26 +693,26 @@ void MetavisionWrapper::setExternalTriggerOutMode(
 
 void MetavisionWrapper::statsThread()
 {
+  std::unique_lock<std::mutex> lock(statsMutex_);
+  const auto wait_time = std::chrono::milliseconds(static_cast<int>(statsInterval_ * 1000));
   while (GENERIC_ROS_OK() && keepRunning_) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int>(statsInterval_ * 1000)));
-    printStatistics();
+    statsCV_.wait_for(lock, wait_time);
+    if (GENERIC_ROS_OK() && keepRunning_) {
+      printStatistics();
+    }
   }
   LOG_INFO_NAMED("statistics thread exited!");
 }
 
 void MetavisionWrapper::printStatistics()
 {
-  Stats stats;
-  {
-    std::unique_lock<std::mutex> lock(statsMutex_);
-    stats = stats_;
-    stats_ = Stats();  // reset statistics
-  }
+  Stats stats = stats_;  // shorthand
   std::chrono::time_point<std::chrono::system_clock> t_now = std::chrono::system_clock::now();
   const double dt = std::chrono::duration<double>(t_now - lastPrintTime_).count();
   lastPrintTime_ = t_now;
   const double invT = dt > 0 ? 1.0 / dt : 0;
-  const double recvByteRate = 1e-6 * stats.bytesRecv * invT;
+  constexpr double bytesToMB = 1.0 / (1024.0 * 1024.0);
+  const double recvByteRate = stats.bytesRecv * invT * bytesToMB;
 
   const int recvMsgRate = static_cast<int>(stats.msgsRecv * invT);
   const int sendMsgRate = static_cast<int>(stats.msgsSent * invT);
@@ -750,6 +740,7 @@ void MetavisionWrapper::printStatistics()
       recvMsgRate, sendMsgRate);
   }
 #endif
+  stats_ = Stats();  // reset statistics
 }
 
 }  // namespace metavision_driver

@@ -40,7 +40,7 @@ def launch_setup(context, *args, **kwargs):
                 "statistics_print_interval": 2.0,
                 "bias_file": "",  # bias_config,
                 "camerainfo_url": "",
-                "frame_id": "",
+                "frame_id": LaunchConfig("camera_name"),
                 "serial": LaunchConfig("serial"),
                 "erc_mode": "disabled",
                 # "erc_rate": 100000000,
@@ -65,13 +65,17 @@ def launch_setup(context, *args, **kwargs):
         ],
         remappings=[],
     )
-    preload = SetEnvironmentVariable(
-        name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
-    )
-    asan_options = SetEnvironmentVariable(
-        name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
-    )
-    return [preload, asan_options, node]
+    use_libasan = False
+    if use_libasan:
+        preload = SetEnvironmentVariable(
+            name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
+        )
+        asan_options = SetEnvironmentVariable(
+            name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
+        )
+        return [preload, asan_options, node]
+
+    return [node]
 
 
 def generate_launch_description():

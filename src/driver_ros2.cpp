@@ -56,7 +56,7 @@ DriverROS2::DriverROS2(const rclcpp::NodeOptions & options)
   if (wrapper_->getSyncMode() == "primary") {
     // delay primary until secondary is up and running
     // need to delay this to finish the constructor and release the thread
-    oneOffTimer_ = this->create_wall_timer(std::chrono::seconds(1), [=]() {
+    oneOffTimer_ = this->create_wall_timer(std::chrono::seconds(1), [this]() {
       oneOffTimer_->cancel();
       auto client = this->create_client<Trigger>("~/ready");
       while (!client->wait_for_service(std::chrono::seconds(1))) {
@@ -108,6 +108,28 @@ void DriverROS2::saveSettings(
     response->success = wrapper_->saveSettings();
   }
   response->message += (response->success ? "succeeded" : "failed");
+}
+
+void DriverROS2::dumpStatistics(
+  const std::shared_ptr<Trigger::Request>, const std::shared_ptr<Trigger::Response> response)
+{
+  response->success = false;
+  response->message = "dumping statistics succeeded";
+  const auto endTime = std::chrono::steady_clock::now();
+  const auto dt =
+    std::chrono::duration_cast<std::chrono::duration<double>>(endTime - startStatisticsTime_)
+      .count();
+  const auto dt_inv = (dt > 0) ? (1.0 / dt) : 0.0;
+  const double inputBandwidth = numInputBytes_ * dt_inv;
+  const double inputMsgRate = numInputPackets_ * dt_inv;
+  const double avgMsgSize =
+    (numInputPackets_ > 0) ? (static_cast<double>(numInputBytes_) / numInputPackets_) : 0.0;
+  LOG_INFO_FMT(
+    "input bw: %.4f MB/s, msg rate: %.2f msgs/s, avg msg size: %.0f bytes",
+    inputBandwidth / (1024.0 * 1024.0), inputMsgRate, avgMsgSize);
+  numInputBytes_ = 0;
+  numInputPackets_ = 0;
+  startStatisticsTime_ = endTime;
 }
 
 rcl_interfaces::msg::SetParametersResult DriverROS2::parameterChanged(
@@ -248,6 +270,7 @@ void DriverROS2::start()
   std::string settingsFile;
   this->get_parameter_or<std::string>("settings", settingsFile, "");
   wrapper_->setSettingsFile(settingsFile);
+  this->get_parameter_or<std::string>("frame_id", frameId_, "");
 
   if (!wrapper_->initialize(useMT)) {
     LOG_ERROR("driver initialization failed!");
@@ -283,22 +306,23 @@ void DriverROS2::start()
 
   // ------ start camera, may get callbacks from then on
   wrapper_->startCamera(this);
+  startStatisticsTime_ = std::chrono::steady_clock::now();
+  declareBiasParameters(wrapper_->getSensorVersion());
+  callbackHandle_ = this->add_on_set_parameters_callback(
+    std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
+  parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
+    this->get_node_topics_interface(),
+    std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
 
-  if (wrapper_->getFromFile().empty()) {
-    declareBiasParameters(wrapper_->getSensorVersion());
-    callbackHandle_ = this->add_on_set_parameters_callback(
-      std::bind(&DriverROS2::parameterChanged, this, std::placeholders::_1));
-    parameterSubscription_ = rclcpp::AsyncParametersClient::on_parameter_event(
-      this->get_node_topics_interface(),
-      std::bind(&DriverROS2::onParameterEvent, this, std::placeholders::_1));
-
-    saveBiasesService_ = this->create_service<Trigger>(
-      "~/save_biases",
-      std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
-    saveSettingsService_ = this->create_service<Trigger>(
-      "~/save_settings",
-      std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
-  }
+  saveBiasesService_ = this->create_service<Trigger>(
+    "~/save_biases",
+    std::bind(&DriverROS2::saveBiases, this, std::placeholders::_1, std::placeholders::_2));
+  saveSettingsService_ = this->create_service<Trigger>(
+    "~/save_settings",
+    std::bind(&DriverROS2::saveSettings, this, std::placeholders::_1, std::placeholders::_2));
+  dumpStatisticsService_ = this->create_service<Trigger>(
+    "~/dump_statistics",
+    std::bind(&DriverROS2::dumpStatistics, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 bool DriverROS2::stop()
@@ -336,9 +360,6 @@ void DriverROS2::configureWrapper(const std::string & name)
   std::string sn;
   this->get_parameter_or("serial", sn, std::string(""));
   wrapper_->setSerialNumber(sn);
-  std::string fromFile;
-  this->get_parameter_or("from_file", fromFile, std::string(""));
-  wrapper_->setFromFile(fromFile);
   std::string syncMode;
   this->get_parameter_or("sync_mode", syncMode, std::string("standalone"));
   wrapper_->setSyncMode(syncMode);
@@ -422,7 +443,7 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
     const size_t n = end - start;
     auto & events = msg_->events;
     const size_t oldSize = events.size();
-    resize_hack(events, oldSize + n);
+    events.resize(oldSize + n);
     memcpy(reinterpret_cast<void *>(events.data() + oldSize), start, n);
 
     if (t - lastMessageTime_ > messageThresholdTime_ || events.size() > messageThresholdSize_) {
@@ -437,6 +458,8 @@ void DriverROS2::rawDataCallback(uint64_t t, const uint8_t * start, const uint8_
       msg_.reset();
     }
   }
+  numInputPackets_++;
+  numInputBytes_ += (end - start);
 }
 
 void DriverROS2::eventCDCallback(

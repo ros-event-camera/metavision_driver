@@ -29,7 +29,7 @@ The events can be decoded and displayed using the following ROS packages:
 
 ## Supported platforms
 
-Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.0.0
+Tested on ROS2 Humble and later with Metavision SDK (OpenEB) 5.2.0
 Notes:
 
 - Metavision 4.2.0 and 4.6.2 worked in previous versions but are no longer tested
@@ -70,6 +70,7 @@ On top of installing the driver binaries, you will have to install the right ude
   matches the OpenEB version that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
   is currently using (see the ``CMakeLists.txt`` file). The required udev files should be automatically installed by the
   plugin installer. Make
+
 - For the IDS cameras, download the plugin (a debian package) from the "Downloads" tab of the respective camera page,
   for instance for the [XCP-E camera](https://www.ids-imaging.us/store_us/products/cameras/ue-39b0xcp-e.html). Get the
   version that matches the one that the [ROS OpenEB vendor package](https://github.com/ros-event-camera/openeb_vendor/)
@@ -100,25 +101,15 @@ those header files and libraries.
 Prerequisites:
 
 - install [OpenEB](https://github.com/prophesee-ai/openeb)
-- install ``vcs`` (Ubuntu package ``python3-vcstool``).
 
 Make sure you have your ROS2 environment sourced such that ROS_VERSION is set.
-Create a workspace (``metavision_driver_ws``), clone this repo, and use ``vcs``
-to pull in the remaining dependencies:
+Create a workspace (``metavision_driver_ws``), clone this repo, and build:
 
 ```bash
 pkg=metavision_driver
 mkdir -p ~/${pkg}_ws/src
 cd ~/${pkg}_ws
 git clone https://github.com/ros-event-camera/metavision_driver.git src/${pkg}
-cd src
-vcs import < ${pkg}/${pkg}.repos
-cd ..
-```
-
-Now configure and build:
-
-```bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 . install/setup.bash
 ```
@@ -148,9 +139,6 @@ Parameters:
 - ``bias_file``: path to file with camera biases. See example in the
   ``biases`` directory.
 - ``settings``: path to json file with camera settings such as pixel masks.
-- ``from_file``: path to Metavision raw file. Instead of opening
-  camera, driver plays back data from this file. This will not be in
-  real time, usually faster.
 - ``serial``: specifies serial number of camera to open (useful for
   stereo). To learn serial number format first start driver without
   specifying serial number and look at the log files.
@@ -224,6 +212,7 @@ Services:
   this to work the ``bias_file`` parameter must be set to a non-empty value.
 - ``save_settings``: write out current camera settings to settings file. For
   this to work the ``settings`` parameter must be set to a non-empty value.
+- ``dump_statistics``: print extra statistics like the average size of SDK packets.
 
 Dynamic reconfiguration parameters
 (see [MetaVision documentation here](https://docs.prophesee.ai/stable/hw/manuals/biases.html)):
