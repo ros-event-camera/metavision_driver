@@ -2,6 +2,25 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* add extra dependencies to hopefully fix humble issues
+* updated README to reflect latest SDK version used
+* avoid capture of [=], remove resize hack
+* remove feature to play back from file
+* fix crash when playing from file
+* fix formatting for driver_composition.launch.py
+* added dump_statistics service call
+* use condition variable for status thread exit
+* remove obsolete fixed_params, add statistics_print_interval option
+* default serial to empty string
+* fix build instructions: no more vcs necessary
+* remove event_camera_msgs: now in all ros distros
+* fix serial number and bias config for silky
+* small fixes to launch files
+* fix bug: read frame_id parameter
+* Contributors: Bernd Pfrommer, Tom Schammo
+
 3.0.0 (2025-12-06)
 ------------------
 * updated license string in package.xml
