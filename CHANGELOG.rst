@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.2 (2026-08-20)
+------------------
 * revert rosidl dependencies
 * Contributors: Bernd Pfrommer
 
