@@ -2,8 +2,8 @@
 Changelog for package metavision_driver
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+3.0.1 (2026-08-20)
+------------------
 * add extra dependencies to hopefully fix humble issues
 * updated README to reflect latest SDK version used
 * avoid capture of [=], remove resize hack
