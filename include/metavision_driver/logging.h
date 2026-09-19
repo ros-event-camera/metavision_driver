@@ -15,48 +15,6 @@
 
 #ifndef METAVISION_DRIVER__LOGGING_H_
 #define METAVISION_DRIVER__LOGGING_H_
-#ifdef USING_ROS_1
-#include <ros/ros.h>
-#define LOG_INFO_NAMED(...)       \
-  {                               \
-    ROS_INFO_STREAM(__VA_ARGS__); \
-  }
-#define LOG_WARN_NAMED(...)       \
-  {                               \
-    ROS_WARN_STREAM(__VA_ARGS__); \
-  }
-#define LOG_ERROR_NAMED(...)       \
-  {                                \
-    ROS_ERROR_STREAM(__VA_ARGS__); \
-  }
-
-#define LOG_INFO_NAMED_FMT(...) \
-  {                             \
-    ROS_INFO(__VA_ARGS__);      \
-  }
-#define LOG_WARN_NAMED_FMT(...) \
-  {                             \
-    ROS_WARN(__VA_ARGS__);      \
-  }
-#define LOG_ERROR_NAMED_FMT(...) \
-  {                              \
-    ROS_ERROR(__VA_ARGS__);      \
-  }
-
-#define LOG_INFO_NAMED_FMT_THROTTLE(...) \
-  {                                      \
-    ROS_INFO_THROTTLE(__VA_ARGS__);      \
-  }
-#define LOG_WARN_NAMED_FMT_THROTTLE(...) \
-  {                                      \
-    ROS_WARN_THROTTLE(__VA_ARGS__);      \
-  }
-#define LOG_ERROR_NAMED_FMT_THROTTLE(...) \
-  {                                       \
-    ROS_ERROR_THROTTLE(__VA_ARGS__);      \
-  }
-
-#else
 
 #include <iostream>
 #include <rclcpp/rclcpp.hpp>
@@ -165,8 +123,6 @@
   {                                                                               \
     RCLCPP_ERROR_THROTTLE(node_->get_logger(), *node_->get_clock(), __VA_ARGS__); \
   }
-
-#endif  // USING_ROS_1
 
 #define BOMB_OUT_CERR(...)                 \
   {                                        \
