@@ -242,7 +242,6 @@ should launch instead as a composable node:
 ros2 launch metavision_driver driver_composition.launch.py # (run as composable node)
 ```
 
-
 ### Visualizing the events
 
 To visualize the events, run a ``renderer`` node from the
@@ -288,6 +287,41 @@ ros2 run metavision_driver stop_recording_ros2.py
 
 Note that the start/stop scripts and launch files need to be adjusted to fit your choice of
 node names and topics, but if you leave everything default it should work out of the box.
+
+### Using stereo cameras
+
+When running in stereo configuration, the cameras must be hardware synchronized with an appropriate synchronization cable. One of the cameras is designated primary, the other secondary. During startup, the primary must wait until the secondary is up such that the first sync pulse the primary sends propery resets the secondary's clock. For this reason, the primary listens to a special ROS topic to which the secondary publishes a message. Because setting up the topics is a bit tricky, it is recommended to start with the example launch files for the ids stereo camera. The following line will start a rendering node as well:
+
+```bash
+ros2 launch ./src/metavision_driver/launch/stereo_driver_ids.launch.py with_renderer:=True camera_0_serial:='4110030785' camera_1_serial:='4110030791'
+```
+
+If all goes well, you should see something like this (uninteresting lines omitted) in the logs:
+
+```text
+[component_container_isolated-1] [INFO] [1789849865.390704479] [event_cam_0]: secondary is up!
+[component_container_isolated-1] [INFO] [1789849868.492447643] [event_cam_1]: secondary sees primary up!
+[component_container_isolated-1] [INFO] [1789849872.486114640] [event_cam_0]: bw in:   5.55776 MB/s, msgs/s in:     248, out:     248, maxq:    1
+[component_container_isolated-1] [INFO] [1789849873.386497504] [event_cam_1]: bw in:   7.27951 MB/s, msgs/s in:     249, out:     248, maxq:    1
+```
+
+If the inbound bandwidths of the two cameras are very different, verify the lens aperture settings and check for hot pixels.
+
+To check that the left and right camera indeed are synchronized, run this tool:
+
+```bash
+ros2 run event_camera_tools sync_test /event_cam_0/events /event_cam_1/events
+avg sensor diff:  0.01920s, count: 499
+avg sensor diff: -0.00091s, count: 499
+...
+```
+
+To record (ONLY UNDER JAZZY AND LATER!), run this launch file to load a recording node into the running container and start recording:
+
+```bash
+ros2 launch metavision_driver start_recording_stereo.launch.py
+```
+
 
 ## CPU load
 
