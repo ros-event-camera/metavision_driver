@@ -299,10 +299,10 @@ ros2 launch ./src/metavision_driver/launch/stereo_driver_ids.launch.py with_rend
 If all goes well, you should see something like this (uninteresting lines omitted) in the logs:
 
 ```text
-[component_container_isolated-1] [INFO] [1789849865.390704479] [event_cam_0]: secondary is up!
-[component_container_isolated-1] [INFO] [1789849868.492447643] [event_cam_1]: secondary sees primary up!
-[component_container_isolated-1] [INFO] [1789849872.486114640] [event_cam_0]: bw in:   5.55776 MB/s, msgs/s in:     248, out:     248, maxq:    1
-[component_container_isolated-1] [INFO] [1789849873.386497504] [event_cam_1]: bw in:   7.27951 MB/s, msgs/s in:     249, out:     248, maxq:    1
+[component_container_isolated-1] [INFO] [1789849865.390704479] [event_cam_0.camera]: secondary is up!
+[component_container_isolated-1] [INFO] [1789849868.492447643] [event_cam_1.camera]: secondary sees primary up!
+[component_container_isolated-1] [INFO] [1789849872.486114640] [camera]: bw in:   5.55776 MB/s, msgs/s in:     248, out:     248, maxq:    1
+[component_container_isolated-1] [INFO] [1789849873.386497504] [camera]: bw in:   7.27951 MB/s, msgs/s in:     249, out:     248, maxq:    1
 ```
 
 If the inbound bandwidths of the two cameras are very different, verify the lens aperture settings and check for hot pixels.
@@ -310,7 +310,7 @@ If the inbound bandwidths of the two cameras are very different, verify the lens
 To check that the left and right camera indeed are synchronized, run this tool:
 
 ```bash
-ros2 run event_camera_tools sync_test /event_cam_0/events /event_cam_1/events
+ros2 run event_camera_tools sync_test /event_cam_0/camera/events /event_cam_1/camera/events
 avg sensor diff:  0.01920s, count: 499
 avg sensor diff: -0.00091s, count: 499
 ...
