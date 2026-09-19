@@ -40,7 +40,7 @@ def make_renderer(camera, fps):
         name="renderer",
         parameters=[{"fps": fps}],
         # map one level up
-        remappings=[("~/events", "events")],
+        remappings=[("~/events", "camera/events")],
         # remappings=[],
         extra_arguments=[{"use_intra_process_comms": True}],
     )
@@ -50,7 +50,8 @@ def make_camera(camera, params, remappings):
     return ComposableNode(
         package="metavision_driver",
         plugin="metavision_driver::DriverROS2",
-        name=camera,
+        namespace=camera,
+        name="camera",
         parameters=params,
         remappings=remappings,
         extra_arguments=[{"use_intra_process_comms": True}],
@@ -75,14 +76,14 @@ def launch_setup(context, *args, **kwargs):
                 ),
             }
         ]
-        remappings = [("~/events", camera + "/events")]
+        remappings = []
         sync_mode = LaunchConfig(cam + "_sync_mode").perform(context)
         if sync_mode == "primary":
             other_cam = "camera_1" if cam == "camera_0" else "camera_0"
             if LaunchConfig(other_cam + "_sync_mode").perform(context) == "secondary":
                 # If the other camera is in secondary sync mode, rempa the ready signal.
                 other_camera = cam_names[other_cam]
-                remappings += [("~/ready", other_camera + "/ready")]
+                remappings += [("~/ready", "/" + other_camera + "/camera/ready")]
             params[0]["sync_mode"] = "primary"
         else:
             params[0]["sync_mode"] = "secondary"

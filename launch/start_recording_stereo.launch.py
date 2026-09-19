@@ -32,10 +32,9 @@ def make_name(prefix, context):
 
 def launch_setup(context, *args, **kwargs):
     topics = [
-        "/" + LaunchConfig(cam + "_name").perform(context) + "/events"
+        "/" + LaunchConfig(cam + "_name").perform(context) + "/camera/events"
         for cam in ("camera_0", "camera_1")
     ]
-    print("subscribing to topics: ", topics)
     launch_action = LoadComposableNodes(
         target_container=LaunchConfig("container_name"),
         composable_node_descriptions=[
