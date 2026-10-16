@@ -67,15 +67,17 @@ def launch_setup(context, *args, **kwargs):
 
     for cam in ("camera_0", "camera_1"):
         camera = cam_names[cam]
-        params = [
+        params = [common_params.copy()]
+        params[0].update(
             {
                 "serial": LaunchConfig(cam + "_serial").perform(context),
                 "settings": LaunchConfig(cam + "_settings").perform(context),
                 "statistics_print_interval": float(
                     LaunchConfig("statistics_print_interval").perform(context)
                 ),
+                "trigger_in_mode": LaunchConfig("trigger_in_mode").perform(context),
             }
-        ]
+        )
         remappings = []
         sync_mode = LaunchConfig(cam + "_sync_mode").perform(context)
         if sync_mode == "primary":
@@ -156,6 +158,11 @@ def generate_launch_description():
                 "statistics_print_interval",
                 default_value=["2.0"],
                 description="time in seconds between statistics printing",
+            ),
+            LaunchArg(
+                "trigger_in_mode",
+                default_value=["external"],
+                description="trigger in mode (disabled, external)",
             ),
             LaunchArg(
                 "with_renderer",
