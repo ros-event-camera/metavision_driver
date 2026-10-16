@@ -34,7 +34,6 @@
   <depend>openeb_vendor</depend>
 
   <export>
-    <nodelet plugin="${prefix}/nodelet_plugins.xml"/>
     <!-- this is crucial else the package will not be registered! -->
     <build_type>ament_cmake</build_type>
   </export>
