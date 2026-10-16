@@ -23,6 +23,7 @@
   <test_depend>ament_cmake_pep257</test_depend> -->
   <test_depend>ament_cmake_xmllint</test_depend>
   <test_depend>ament_cmake_clang_format</test_depend>
+  <test_depend>ament_cmake_test</test_depend>
 
   <!-- common dependencies -->
   <depend>event_camera_msgs</depend>
