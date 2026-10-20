@@ -22,6 +22,7 @@ from launch.actions import SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration as LaunchConfig
 from launch_ros.actions import ComposableNodeContainer
+from launch_ros.actions import LoadComposableNodes
 from launch_ros.descriptions import ComposableNode
 
 common_params = {
@@ -83,7 +84,7 @@ def launch_setup(context, *args, **kwargs):
         if sync_mode == "primary":
             other_cam = "camera_1" if cam == "camera_0" else "camera_0"
             if LaunchConfig(other_cam + "_sync_mode").perform(context) == "secondary":
-                # If the other camera is in secondary sync mode, rempa the ready signal.
+                # If the other camera is in secondary sync mode, remap the ready signal.
                 other_camera = cam_names[other_cam]
                 remappings += [("~/ready", "/" + other_camera + "/camera/ready")]
             params[0]["sync_mode"] = "primary"
@@ -95,27 +96,32 @@ def launch_setup(context, *args, **kwargs):
             nodes += [
                 make_renderer(camera, float(LaunchConfig("fps").perform(context)))
             ]
-
-    container = ComposableNodeContainer(
-        name="metavision_driver_container",
-        namespace="",
-        package="rclcpp_components",
-        executable="component_container_isolated",
-        composable_node_descriptions=nodes,
-        output="screen",
-    )
-
-    debug_with_libasan = False
-    if debug_with_libasan:
-        preload = SetEnvironmentVariable(
-            name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
+    if IfCondition(LaunchConfig("start_container")).evaluate(context):
+        container = ComposableNodeContainer(
+            name=LaunchConfig("container_name").perform(context),
+            namespace="",
+            package="rclcpp_components",
+            executable="component_container_isolated",
+            composable_node_descriptions=nodes,
+            output="screen",
         )
-        asan_options = SetEnvironmentVariable(
-            name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
-        )
-        return [preload, asan_options, container]
-
-    return [container]
+        debug_with_libasan = False
+        if debug_with_libasan:
+            preload = SetEnvironmentVariable(
+                name="LD_PRELOAD", value="/usr/lib/gcc/x86_64-linux-gnu/13/libasan.so"
+            )
+            asan_options = SetEnvironmentVariable(
+                name="ASAN_OPTIONS", value="new_delete_type_mismatch=0"
+            )
+            return [preload, asan_options, container]
+        return [container]
+    else:
+        return [
+            LoadComposableNodes(
+                target_container=LaunchConfig("container_name"),
+                composable_node_descriptions=nodes,
+            )
+        ]
 
 
 def generate_launch_description():
@@ -149,6 +155,16 @@ def generate_launch_description():
     return launch.LaunchDescription(
         per_camera_args
         + [
+            LaunchArg(
+                "start_container",
+                default_value=["true"],
+                description="if container should be started",
+            ),
+            LaunchArg(
+                "container_name",
+                default_value=["metavision_driver_container"],
+                description="name of the camera container",
+            ),
             LaunchArg(
                 "fps",
                 default_value=["25.0"],
