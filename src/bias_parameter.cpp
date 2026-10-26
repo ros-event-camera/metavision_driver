@@ -38,12 +38,12 @@ static const std::map<std::string, std::map<std::string, BiasParameter>> biasPar
      {"bias_fo", {-35, 55, "source follower low pass filter"}},
      {"bias_hpf", {0, 120, "differentiator high pass filter"}},
      {"bias_refr", {-20, 235, "refractory time bias"}}}},
-   {"320.1",                                                                                                                    
-    {{"bias_diff_on", {25, 78, "on threshold level"}},                                                                      
-     {"bias_diff_off", {28, 127, "off threshold level"}},                                                                    
-     {"bias_fo", {34, 50, "source follower low pass filter"}},                                                            
-     {"bias_hpf", {40, 127, "differentiator high pass filter"}},                                                            
-     {"bias_diff", {51, 51, "photoreceptor (frontend) bias"}},                                                                 
+   {"320.1",
+    {{"bias_diff_on", {25, 78, "on threshold level"}},
+     {"bias_diff_off", {28, 127, "off threshold level"}},
+     {"bias_fo", {34, 50, "source follower low pass filter"}},
+     {"bias_hpf", {40, 127, "differentiator high pass filter"}},
+     {"bias_diff", {51, 51, "photoreceptor (frontend) bias"}},
      {"bias_refr", {10, 127, "refractory time bias"}}}}}};
 
 const std::map<std::string, BiasParameter> & BiasParameter::getAll(
